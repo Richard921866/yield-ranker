@@ -1,0 +1,202 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 215 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+
+    --primary: 215 85% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 215 20% 96%;
+    --secondary-foreground: 215 25% 15%;
+
+    --muted: 215 15% 97%;
+    --muted-foreground: 215 15% 45%;
+
+    --accent: 208 100% 47%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 15% 92%;
+    --input: 215 15% 92%;
+    --ring: 215 85% 50%;
+
+    --radius: 0.75rem;
+
+    --chart-1: 215 85% 50%;
+    --chart-2: 208 100% 47%;
+    --chart-3: 195 100% 45%;
+    --chart-4: 180 95% 40%;
+    --chart-5: 165 90% 45%;
+
+    --gradient-hero: linear-gradient(135deg, hsl(215 100% 97%) 0%, hsl(215 100% 100%) 100%);
+    --shadow-card: 0 2px 8px -2px hsl(215 15% 15% / 0.08);
+    --shadow-elevated: 0 8px 24px -4px hsl(215 15% 15% / 0.12);
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 215 30% 8%;
+    --foreground: 215 20% 95%;
+
+    --card: 215 25% 10%;
+    --card-foreground: 215 20% 95%;
+
+    --popover: 215 25% 10%;
+    --popover-foreground: 215 20% 95%;
+
+    --primary: 215 85% 55%;
+    --primary-foreground: 215 30% 10%;
+
+    --secondary: 215 20% 15%;
+    --secondary-foreground: 215 20% 95%;
+
+    --muted: 215 20% 14%;
+    --muted-foreground: 215 15% 60%;
+
+    --accent: 208 100% 52%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 215 20% 95%;
+
+    --border: 215 20% 18%;
+    --input: 215 20% 18%;
+    --ring: 215 85% 55%;
+
+    --chart-1: 215 85% 55%;
+    --chart-2: 208 100% 52%;
+    --chart-3: 195 100% 50%;
+    --chart-4: 180 95% 45%;
+    --chart-5: 165 90% 50%;
+
+    --shadow-card: 0 2px 8px -2px hsl(0 0% 0% / 0.3);
+    --shadow-elevated: 0 8px 24px -4px hsl(0 0% 0% / 0.4);
+
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer utilities {
+  .animate-in {
+    animation: fadeIn 0.4s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .gradient-hero {
+    background: linear-gradient(135deg, hsl(215 100% 97%) 0%, hsl(215 100% 100%) 100%);
+  }
+
+  .shadow-card {
+    box-shadow: 0 2px 8px -2px hsl(215 15% 15% / 0.08);
+  }
+
+  .shadow-elevated {
+    box-shadow: 0 8px 24px -4px hsl(215 15% 15% / 0.12);
+  }
+
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(203 213 225) rgb(241 245 249);
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: rgb(241 245 249);
+    border-radius: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgb(203 213 225);
+    border-radius: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgb(148 163 184);
+  }
+
+  .scrollbar-thumb-slate-300::-webkit-scrollbar-thumb {
+    background: rgb(203 213 225);
+  }
+
+  .scrollbar-track-slate-100::-webkit-scrollbar-track {
+    background: rgb(241 245 249);
+  }
+}
