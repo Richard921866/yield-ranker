@@ -133,10 +133,24 @@ export const ETFTable = ({
     const aValue = a[sortField];
     const bValue = b[sortField];
 
-    if (aValue === undefined || aValue === null) return 1;
+    // Handle null/undefined values - push them to the end
+    if (aValue === undefined || aValue === null) {
+      if (bValue === undefined || bValue === null) return 0;
+      return 1;
+    }
     if (bValue === undefined || bValue === null) return -1;
 
-    const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+    // Handle different data types properly
+    let comparison: number;
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      comparison = aValue.localeCompare(bValue);
+    } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+      comparison = aValue - bValue;
+    } else {
+      // Convert to string for mixed types or fallback
+      comparison = String(aValue).localeCompare(String(bValue));
+    }
+
     return sortDirection === "asc" ? comparison : -comparison;
   });
 
@@ -229,7 +243,7 @@ export const ETFTable = ({
               </th>
               <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
                 <SortButton field="standardDeviation">
-                  <div className="whitespace-normal leading-tight">Std<br/>Dev</div>
+                  <div className="whitespace-normal leading-tight">Dividend<br/>Volatility</div>
                 </SortButton>
               </th>
               <th className="h-7 px-1.5 text-center bg-slate-50 text-xs border-r-2 border-slate-300">

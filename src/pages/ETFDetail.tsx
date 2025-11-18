@@ -30,7 +30,7 @@ const ETFDetail = () => {
   const [etf, setEtf] = useState<ETF | null>(null);
   const [allETFs, setAllETFs] = useState<ETF[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedTimeframe, setSelectedTimeframe] = useState<ComparisonTimeframe>("1D");
+  const [selectedTimeframe, setSelectedTimeframe] = useState<ComparisonTimeframe>("6M");
   const [chartType, setChartType] = useState<ChartType>("totalReturn");
   const [comparisonETFs, setComparisonETFs] = useState<string[]>([]);
   const [showComparisonSelector, setShowComparisonSelector] = useState(false);

@@ -327,7 +327,7 @@ const Index = () => {
                   <div className="space-y-3 p-4 rounded-lg bg-slate-50 border border-slate-200">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium text-foreground">
-                        Dividend Volatility Index (DVI)
+                        Dividend Volatility Index
                       </Label>
                       <span className="text-2xl font-bold tabular-nums text-primary">
                         {stdDevWeight}%
