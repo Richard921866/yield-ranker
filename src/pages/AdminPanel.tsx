@@ -7,7 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
-import { listProfiles, updateProfile, ProfileRow } from "@/services/admin";
+import { Textarea } from "@/components/ui/textarea";
+import { listProfiles, updateProfile, ProfileRow, deleteUser, getSiteSettings, updateSiteSetting, SiteSetting } from "@/services/admin";
 import * as XLSX from "xlsx";
 import {
   BarChart3,
@@ -23,6 +24,7 @@ import {
   ShieldCheck,
   Upload,
   Users,
+  Trash2,
 } from "lucide-react";
 
 const formatDate = (value: string) =>
@@ -45,10 +47,13 @@ const AdminPanel = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"users" | "etf-data">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "etf-data" | "settings">("users");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
+  const [siteSettings, setSiteSettings] = useState<SiteSetting[]>([]);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [editingSettings, setEditingSettings] = useState<Record<string, string>>({});
 
   const userMetadata =
     (user?.user_metadata as {
@@ -77,7 +82,7 @@ const AdminPanel = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get("tab");
-    if (tab === "users" || tab === "etf-data") {
+    if (tab === "users" || tab === "etf-data" || tab === "settings") {
       setActiveTab(tab);
     }
   }, [location.search]);
@@ -100,9 +105,32 @@ const AdminPanel = () => {
     }
   };
 
+  const fetchSettings = async () => {
+    setSettingsLoading(true);
+    try {
+      const data = await getSiteSettings();
+      setSiteSettings(data);
+      const initialEdits: Record<string, string> = {};
+      data.forEach(setting => {
+        initialEdits[setting.key] = setting.value;
+      });
+      setEditingSettings(initialEdits);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to load settings";
+      toast({
+        variant: "destructive",
+        title: "Failed to load settings",
+        description: message,
+      });
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (isAdmin) {
       fetchProfiles();
+      fetchSettings();
     }
   }, [isAdmin]);
 
@@ -176,6 +204,54 @@ const AdminPanel = () => {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to update premium";
+      toast({
+        variant: "destructive",
+        title: "Update failed",
+        description: message,
+      });
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleDeleteUser = async (profile: ProfileRow) => {
+    if (!confirm(`Are you sure you want to delete ${profile.display_name || profile.email}? This action cannot be undone.`)) {
+      return;
+    }
+    
+    const key = `${profile.id}-delete`;
+    setUpdatingId(key);
+    try {
+      await deleteUser(profile.id);
+      setProfiles(prev => prev.filter(p => p.id !== profile.id));
+      toast({
+        title: "User deleted",
+        description: "The user has been permanently removed.",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to delete user";
+      toast({
+        variant: "destructive",
+        title: "Delete failed",
+        description: message,
+      });
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleUpdateSetting = async (key: string) => {
+    setUpdatingId(key);
+    try {
+      const value = editingSettings[key];
+      const updated = await updateSiteSetting(key, value);
+      setSiteSettings(prev => prev.map(s => s.key === key ? updated : s));
+      toast({
+        title: "Setting updated",
+        description: "Homepage message has been updated successfully.",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to update setting";
       toast({
         variant: "destructive",
         title: "Update failed",
@@ -343,16 +419,20 @@ const AdminPanel = () => {
             {!sidebarCollapsed && "ETF Data Management"}
           </button>
           <button
-            onClick={() => navigate("/settings")}
+            onClick={() => setActiveTab("settings")}
             className={`w-full flex items-center ${
               sidebarCollapsed
                 ? "justify-center px-0 py-2.5"
                 : "gap-3 px-4 py-3"
-            } rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors`}
-            title={sidebarCollapsed ? "Settings" : ""}
+            } rounded-lg text-sm font-medium ${
+              activeTab === "settings"
+                ? "bg-primary text-white"
+                : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
+            } transition-colors`}
+            title={sidebarCollapsed ? "Site Settings" : ""}
           >
             <Settings className="w-5 h-5" />
-            {!sidebarCollapsed && "Settings"}
+            {!sidebarCollapsed && "Site Settings"}
           </button>
         </nav>
         <div
@@ -387,7 +467,7 @@ const AdminPanel = () => {
                 <Menu className="h-6 w-6" />
               </Button>
               <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-                {activeTab === "users" ? "User Administration" : "ETF Data Management"}
+                {activeTab === "users" ? "User Administration" : activeTab === "etf-data" ? "ETF Data Management" : "Site Settings"}
               </h1>
             </div>
             <div className="flex items-center gap-3">
@@ -496,6 +576,12 @@ const AdminPanel = () => {
                           Premium
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                          Last In
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                          Visits
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                           Created
                         </th>
                         <th className="px-4 py-3" />
@@ -505,7 +591,7 @@ const AdminPanel = () => {
                       {loading ? (
                         <tr>
                           <td
-                            colSpan={6}
+                            colSpan={8}
                             className="px-4 py-10 text-center text-sm text-muted-foreground"
                           >
                             Loading users...
@@ -514,10 +600,10 @@ const AdminPanel = () => {
                       ) : filteredProfiles.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={6}
+                            colSpan={8}
                             className="px-4 py-10 text-center text-sm text-muted-foreground"
                           >
-                            No users found for “{searchQuery}”
+                            No users found for "{searchQuery}"
                           </td>
                         </tr>
                       ) : (
@@ -560,20 +646,37 @@ const AdminPanel = () => {
                                 />
                               </td>
                               <td className="px-4 py-3 text-sm text-muted-foreground">
+                                {profile.last_login ? formatDate(profile.last_login) : "—"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-muted-foreground">
+                                {profile.visit_count || 0}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-muted-foreground">
                                 {formatDate(profile.created_at)}
                               </td>
                               <td className="px-4 py-3 text-sm text-right">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleRoleToggle(profile)}
-                                  disabled={updatingId === roleKey}
-                                  className="border-2"
-                                >
-                                  {profile.role === "admin"
-                                    ? "Remove admin"
-                                    : "Make admin"}
-                                </Button>
+                                <div className="flex items-center gap-2 justify-end">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleRoleToggle(profile)}
+                                    disabled={updatingId === roleKey}
+                                    className="border-2"
+                                  >
+                                    {profile.role === "admin"
+                                      ? "Remove admin"
+                                      : "Make admin"}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDeleteUser(profile)}
+                                    disabled={updatingId === `${profile.id}-delete`}
+                                    className="border-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -657,6 +760,83 @@ const AdminPanel = () => {
                       <p>Row 2+: Data rows (one ETF per row)</p>
                     </div>
                   </div>
+                </div>
+              </Card>
+            )}
+
+            {activeTab === "settings" && (
+              <Card className="border-2 border-slate-200">
+                <div className="p-6 space-y-6">
+                  <div>
+                    <h2 className="text-lg font-bold text-foreground mb-2">
+                      Site Content Settings
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Edit the messages and timestamps displayed on the homepage and in the disclaimer. Changes will be visible to all users immediately.
+                    </p>
+                  </div>
+
+                  {settingsLoading ? (
+                    <div className="flex items-center justify-center py-10">
+                      <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {siteSettings.map((setting, index) => (
+                        <div key={setting.key} className="space-y-3">
+                          <div>
+                            <label className="block text-sm font-medium text-foreground mb-1">
+                              {setting.key === "homepage_subtitle" 
+                                ? "Homepage Subtitle" 
+                                : setting.key === "homepage_banner"
+                                ? "Homepage Info Banner"
+                                : "EOD Data Last Updated"}
+                            </label>
+                            <p className="text-xs text-muted-foreground mb-2">
+                              {setting.description}
+                            </p>
+                          </div>
+                          {setting.key === "data_last_updated" ? (
+                            <Input
+                              type="datetime-local"
+                              value={editingSettings[setting.key] || ""}
+                              onChange={(e) => setEditingSettings(prev => ({ ...prev, [setting.key]: e.target.value }))}
+                              className="border-2"
+                            />
+                          ) : (
+                            <Textarea
+                              value={editingSettings[setting.key] || ""}
+                              onChange={(e) => setEditingSettings(prev => ({ ...prev, [setting.key]: e.target.value }))}
+                              rows={setting.key === "homepage_banner" ? 4 : 2}
+                              className="border-2 font-sans resize-none"
+                            />
+                          )}
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">
+                              Last updated: {formatDate(setting.updated_at)}
+                            </span>
+                            <Button
+                              onClick={() => handleUpdateSetting(setting.key)}
+                              disabled={updatingId === setting.key || editingSettings[setting.key] === setting.value}
+                              size="sm"
+                            >
+                              {updatingId === setting.key ? (
+                                <>
+                                  <RefreshCw className="w-3 h-3 mr-2 animate-spin" />
+                                  Saving...
+                                </>
+                              ) : (
+                                "Save Changes"
+                              )}
+                            </Button>
+                          </div>
+                          {index !== siteSettings.length - 1 && (
+                            <div className="border-t pt-6" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </Card>
             )}

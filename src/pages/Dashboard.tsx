@@ -52,7 +52,7 @@ import { UpgradeToPremiumModal } from "@/components/UpgradeToPremiumModal";
 import { useFavorites } from "@/hooks/useFavorites";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
-import { listProfiles, updateProfile, ProfileRow } from "@/services/admin";
+import { listProfiles, updateProfile, ProfileRow, getSiteSettings } from "@/services/admin";
 import {
   AreaChart,
   Area,
@@ -131,6 +131,22 @@ export default function Dashboard() {
       setIsLoadingData(false);
     };
     loadETFData();
+  }, []);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await getSiteSettings();
+        const bannerSetting = settings.find(s => s.key === 'homepage_banner');
+        if (bannerSetting) {
+          setInfoBanner(bannerSetting.value);
+        }
+      } catch (error) {
+        console.error('[Dashboard] Error loading site settings:', error);
+      }
+    };
+
+    loadSettings();
   }, []);
 
 

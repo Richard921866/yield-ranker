@@ -16,6 +16,7 @@ import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { UpgradeToPremiumModal } from "@/components/UpgradeToPremiumModal";
 import { useFavorites } from "@/hooks/useFavorites";
+import { getSiteSettings } from "@/services/admin";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ const Index = () => {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [etfData, setEtfData] = useState<ETF[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [infoBanner] = useState("Comprehensive ETF dividend and return analysis. Price data sourced from market feeds.");
+  const [infoBanner, setInfoBanner] = useState("Comprehensive ETF dividend and return analysis. Price data sourced from market feeds.");
   const lastUpdated = new Date();
 
   useEffect(() => {
@@ -64,6 +65,22 @@ const Index = () => {
     };
 
     loadData();
+  }, []);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await getSiteSettings();
+        const subtitleSetting = settings.find(s => s.key === 'homepage_subtitle');
+        if (subtitleSetting) {
+          setInfoBanner(subtitleSetting.value);
+        }
+      } catch (error) {
+        console.error('[Index] Error loading site settings:', error);
+      }
+    };
+
+    loadSettings();
   }, []);
 
   const totalWeight = yieldWeight + stdDevWeight + totalReturnWeight;
