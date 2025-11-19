@@ -174,18 +174,6 @@ const Index = () => {
 
       <main className="w-full max-w-[98%] mx-auto px-2 sm:px-3 py-8 md:py-12">
         <div className="space-y-6">
-          {!user && (
-            <div className="w-full flex justify-center">
-              <Button
-                onClick={() => navigate("/login")}
-                size="lg"
-                className="bg-primary hover:bg-primary/90 text-white px-8 py-4 text-lg font-semibold shadow-lg"
-              >
-                Login / Register
-              </Button>
-            </div>
-          )}
-
           {infoBanner && (
             <div className="w-full">
               <Card className="p-3 border-2 border-primary/20 bg-primary/5">

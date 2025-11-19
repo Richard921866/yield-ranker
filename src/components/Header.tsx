@@ -98,53 +98,57 @@ export const Header = () => {
             >
               Contact Us
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="px-3 py-2 h-auto text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md border border-transparent hover:border-slate-200"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                      <User className="w-4 h-4 text-white" />
+            {isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="px-3 py-2 h-auto text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md border border-transparent hover:border-slate-200"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                        <User className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-foreground">Account</span>
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
                     </div>
-                    <span className="text-foreground">Account</span>
-                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem className="cursor-pointer bg-slate-50" onClick={() => go("/profile")}>
-                  <User className="w-4 h-4 mr-2 text-primary" />
-                  <div className="flex flex-col">
-                    <span className="font-medium">{loading ? "Loading..." : displayName}</span>
-                    <span className="text-xs text-muted-foreground">{roleDisplay}</span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer" onClick={() => go("/dashboard")}>
-                  <BarChart3 className="w-4 h-4 mr-2 text-primary" />
-                  <span>Dashboard</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer" onClick={() => go("/favorites")}>
-                  <Star className="w-4 h-4 mr-2 text-yellow-500" />
-                  <span>Favorites</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {isAuthenticated ? (
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem className="cursor-pointer bg-slate-50" onClick={() => go("/profile")}>
+                    <User className="w-4 h-4 mr-2 text-primary" />
+                    <div className="flex flex-col">
+                      <span className="font-medium">{loading ? "Loading..." : displayName}</span>
+                      <span className="text-xs text-muted-foreground">{roleDisplay}</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer" onClick={() => go("/dashboard")}>
+                    <BarChart3 className="w-4 h-4 mr-2 text-primary" />
+                    <span>Dashboard</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer" onClick={() => go("/favorites")}>
+                    <Star className="w-4 h-4 mr-2 text-yellow-500" />
+                    <span>Favorites</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem className="cursor-pointer" onClick={logout}>
                     <LogOut className="w-4 h-4 mr-2 text-primary" />
                     <span>Sign out</span>
                   </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem className="cursor-pointer" onClick={() => go("/login")}>
-                    <LogIn className="w-4 h-4 mr-2 text-primary" />
-                    <span>Login / Register</span>
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button
+                variant="default"
+                className="px-4 py-2 text-sm font-medium bg-primary hover:bg-primary/90 text-white transition-colors rounded-md"
+                onClick={() => go("/login")}
+              >
+                <LogIn className="w-4 h-4 mr-2" />
+                Login / Register
+              </Button>
+            )}
           </nav>
 
           {/* Mobile Menu Button */}
@@ -207,56 +211,60 @@ export const Header = () => {
             >
               Contact Us
             </Button>
-            <div className="px-4 py-2.5">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start px-0 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                        <User className="w-4 h-4 text-white" />
+            {isAuthenticated ? (
+              <div className="px-4 py-2.5">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start px-0 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                          <User className="w-4 h-4 text-white" />
+                        </div>
+                        <span>Account</span>
+                        <ChevronDown className="w-4 h-4 text-muted-foreground ml-auto" />
                       </div>
-                      <span>Account</span>
-                      <ChevronDown className="w-4 h-4 text-muted-foreground ml-auto" />
-                    </div>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem className="cursor-pointer bg-slate-50" onClick={() => go("/profile")}>
-                    <User className="w-4 h-4 mr-2 text-primary" />
-                    <div className="flex flex-col">
-                      <span className="font-medium">{loading ? "Loading..." : displayName}</span>
-                      <span className="text-xs text-muted-foreground">{roleDisplay}</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer" onClick={() => go("/dashboard")}>
-                    <BarChart3 className="w-4 h-4 mr-2 text-primary" />
-                    <span>Dashboard</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer" onClick={() => go("/favorites")}>
-                    <Star className="w-4 h-4 mr-2 text-yellow-500" />
-                    <span>Favorites</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {isAuthenticated ? (
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem className="cursor-pointer bg-slate-50" onClick={() => go("/profile")}>
+                      <User className="w-4 h-4 mr-2 text-primary" />
+                      <div className="flex flex-col">
+                        <span className="font-medium">{loading ? "Loading..." : displayName}</span>
+                        <span className="text-xs text-muted-foreground">{roleDisplay}</span>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="cursor-pointer" onClick={() => go("/dashboard")}>
+                      <BarChart3 className="w-4 h-4 mr-2 text-primary" />
+                      <span>Dashboard</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="cursor-pointer" onClick={() => go("/favorites")}>
+                      <Star className="w-4 h-4 mr-2 text-yellow-500" />
+                      <span>Favorites</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem className="cursor-pointer" onClick={logout}>
                       <LogOut className="w-4 h-4 mr-2 text-primary" />
                       <span>Sign out</span>
                     </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem className="cursor-pointer" onClick={() => go("/login")}>
-                      <LogIn className="w-4 h-4 mr-2 text-primary" />
-                      <span>Login / Register</span>
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ) : (
+              <Button
+                variant="default"
+                className="mx-4 my-2 justify-start px-4 py-2.5 text-sm font-medium bg-primary hover:bg-primary/90 text-white rounded-md"
+                onClick={() => go("/login")}
+              >
+                <LogIn className="w-4 h-4 mr-2" />
+                Login / Register
+              </Button>
+            )}
           </nav>
         </div>
       )}
