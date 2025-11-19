@@ -8,6 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { listProfiles, updateProfile, ProfileRow, deleteUser, getSiteSettings, updateSiteSetting, SiteSetting } from "@/services/admin";
 import * as XLSX from "xlsx";
 import {
@@ -54,6 +64,8 @@ const AdminPanel = () => {
   const [siteSettings, setSiteSettings] = useState<SiteSetting[]>([]);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [editingSettings, setEditingSettings] = useState<Record<string, string>>({});
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<ProfileRow | null>(null);
 
   const userMetadata =
     (user?.user_metadata as {
@@ -214,16 +226,21 @@ const AdminPanel = () => {
     }
   };
 
-  const handleDeleteUser = async (profile: ProfileRow) => {
-    if (!confirm(`Are you sure you want to delete ${profile.display_name || profile.email}? This action cannot be undone.`)) {
-      return;
-    }
+  const openDeleteDialog = (profile: ProfileRow) => {
+    setUserToDelete(profile);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
     
-    const key = `${profile.id}-delete`;
+    const key = `${userToDelete.id}-delete`;
     setUpdatingId(key);
+    setDeleteDialogOpen(false);
+    
     try {
-      await deleteUser(profile.id);
-      setProfiles(prev => prev.filter(p => p.id !== profile.id));
+      await deleteUser(userToDelete.id);
+      setProfiles(prev => prev.filter(p => p.id !== userToDelete.id));
       toast({
         title: "User deleted",
         description: "The user has been permanently removed.",
@@ -237,6 +254,7 @@ const AdminPanel = () => {
       });
     } finally {
       setUpdatingId(null);
+      setUserToDelete(null);
     }
   };
 
@@ -545,19 +563,51 @@ const AdminPanel = () => {
                       className="pl-10 h-10 border-2"
                     />
                   </div>
-                  <Button
-                    variant="outline"
-                    onClick={fetchProfiles}
-                    disabled={loading}
-                    className="h-10 border-2"
-                  >
-                    <RefreshCw
-                      className={`w-4 h-4 mr-2 ${
-                        loading ? "animate-spin" : ""
-                      }`}
-                    />
-                    Refresh
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const emails = profiles.map(p => p.email).join(', ');
+                        navigator.clipboard.writeText(emails);
+                        toast({
+                          title: "Emails copied",
+                          description: `${profiles.length} email addresses copied to clipboard`,
+                        });
+                      }}
+                      disabled={loading || profiles.length === 0}
+                      className="h-10 border-2"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mr-2"
+                      >
+                        <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                      </svg>
+                      Copy Emails
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={fetchProfiles}
+                      disabled={loading}
+                      className="h-10 border-2"
+                    >
+                      <RefreshCw
+                        className={`w-4 h-4 mr-2 ${
+                          loading ? "animate-spin" : ""
+                        }`}
+                      />
+                      Refresh
+                    </Button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto border border-slate-200 rounded-lg">
                   <table className="min-w-full divide-y divide-slate-200 bg-white">
@@ -670,7 +720,7 @@ const AdminPanel = () => {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleDeleteUser(profile)}
+                                    onClick={() => openDeleteDialog(profile)}
                                     disabled={updatingId === `${profile.id}-delete`}
                                     className="border-2 text-red-600 hover:text-red-700 hover:bg-red-50"
                                   >
@@ -703,52 +753,55 @@ const AdminPanel = () => {
                     </p>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-                      <div className="flex-1">
-                        <label htmlFor="dtr-file-input" className="block text-sm font-medium text-foreground mb-2">
-                          Select Excel File
-                        </label>
-                        <Input
-                          id="dtr-file-input"
-                          type="file"
-                          accept=".xlsx,.xls"
-                          onChange={handleFileChange}
-                          className="border-2"
-                        />
-                        {uploadFile && (
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Selected: {uploadFile.name}
-                          </p>
-                        )}
+                  <Card className="bg-gradient-to-br from-primary/5 to-blue-50 border-2 border-primary/20 p-5">
+                    <div className="space-y-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                        <div className="flex-1">
+                          <label htmlFor="dtr-file-input" className="block text-sm font-semibold text-slate-900 mb-2">
+                            Select Excel File
+                          </label>
+                          <Input
+                            id="dtr-file-input"
+                            type="file"
+                            accept=".xlsx,.xls"
+                            onChange={handleFileChange}
+                            className="border-2 bg-white"
+                          />
+                          {uploadFile && (
+                            <p className="text-sm text-slate-700 mt-2 font-medium">
+                              Selected: {uploadFile.name}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          onClick={handleUploadDTR}
+                          disabled={!uploadFile || uploading}
+                          className="sm:w-auto"
+                          size="lg"
+                        >
+                          {uploading ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2" />
+                              Upload & Process
+                            </>
+                          )}
+                        </Button>
                       </div>
-                      <Button
-                        onClick={handleUploadDTR}
-                        disabled={!uploadFile || uploading}
-                        className="sm:w-auto"
-                      >
-                        {uploading ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                            Uploading...
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="w-4 h-4 mr-2" />
-                            Upload & Process
-                          </>
-                        )}
-                      </Button>
-                    </div>
 
-                    {uploadStatus && (
-                      <Card className={`p-4 ${uploadStatus.startsWith("Error") ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
-                        <p className={`text-sm font-medium ${uploadStatus.startsWith("Error") ? "text-red-800" : "text-green-800"}`}>
-                          {uploadStatus}
-                        </p>
-                      </Card>
-                    )}
-                  </div>
+                      {uploadStatus && (
+                        <Card className={`p-4 ${uploadStatus.startsWith("Error") ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
+                          <p className={`text-sm font-medium ${uploadStatus.startsWith("Error") ? "text-red-800" : "text-green-800"}`}>
+                            {uploadStatus}
+                          </p>
+                        </Card>
+                      )}
+                    </div>
+                  </Card>
 
                   <div className="border-t pt-6">
                     <h3 className="text-sm font-semibold text-foreground mb-3">
@@ -843,6 +896,27 @@ const AdminPanel = () => {
           </div>
         </div>
       </main>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{userToDelete?.display_name || userToDelete?.email}</strong>? 
+              This action cannot be undone and will permanently remove the user and all their data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteUser}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete User
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

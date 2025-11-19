@@ -38,16 +38,15 @@ VALUES
   ('data_last_updated', '2025-11-19T07:08:00', 'EOD data last updated timestamp (shown in disclaimer)')
 ON CONFLICT (key) DO NOTHING;
 
--- Function to track user login
+-- Function to track user login (callable via RPC)
 CREATE OR REPLACE FUNCTION track_user_login()
-RETURNS trigger AS $$
+RETURNS void AS $$
 BEGIN
   UPDATE profiles 
   SET 
     last_login = now(),
     visit_count = COALESCE(visit_count, 0) + 1
   WHERE id = auth.uid();
-  RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY definer;
 
