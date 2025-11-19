@@ -1454,31 +1454,15 @@ export default function Dashboard() {
                 {adminPanelExpanded && (
                   <div className="pl-4 mt-1 space-y-1">
                     <button
-                      onClick={() => {
-                        setAdminSection("users");
-                        setShowFavoritesOnly(false);
-                        setSelectedETF(null);
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        adminSection === "users"
-                          ? "bg-primary/10 text-primary font-semibold"
-                          : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
-                      }`}
+                      onClick={() => navigate("/admin?tab=users")}
+                      className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors"
                     >
                       <Users className="w-4 h-4" />
                       Users
                     </button>
                     <button
-                      onClick={() => {
-                        setAdminSection("upload");
-                        setShowFavoritesOnly(false);
-                        setSelectedETF(null);
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        adminSection === "upload"
-                          ? "bg-primary/10 text-primary font-semibold"
-                          : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
-                      }`}
+                      onClick={() => navigate("/admin?tab=upload")}
+                      className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors"
                     >
                       <Upload className="w-4 h-4" />
                       Upload Data
@@ -1488,10 +1472,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <button
-                onClick={() => {
-                  setAdminPanelExpanded(true);
-                  setAdminSection("users");
-                }}
+                onClick={() => navigate("/admin?tab=users")}
                 className="w-full flex items-center justify-center px-0 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors"
                 title="Admin Panel"
               >
