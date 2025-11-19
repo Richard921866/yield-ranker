@@ -34,7 +34,7 @@ export const ETFTable = ({
   const [selectedSymbol, setSelectedSymbol] = useState<string>(
     etfs[0]?.symbol || ""
   );
-  const [sortField, setSortField] = useState<SortField>("symbol");
+  const [sortField, setSortField] = useState<SortField>("weightedRank");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [isExpanded, setIsExpanded] = useState(false);
   const [comparisonETFs, setComparisonETFs] = useState<string[]>([]);
