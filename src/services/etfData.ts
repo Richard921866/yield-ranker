@@ -1,9 +1,11 @@
+// ...existing code...
 import { ETF } from "@/types/etf";
+// ...existing code...
 
 const dataCache = new Map<string, { data: ETF; timestamp: number }>();
 const CACHE_DURATION = 30000;
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '';
 
 type DatabaseETF = {
   symbol: string;

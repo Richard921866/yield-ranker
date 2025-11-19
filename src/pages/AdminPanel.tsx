@@ -259,7 +259,7 @@ const AdminPanel = () => {
       const formData = new FormData();
       formData.append("file", uploadFile);
 
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
+      const apiUrl = import.meta.env.VITE_API_URL || "";
       const response = await fetch(`${apiUrl}/api/admin/upload-dtr`, {
         method: "POST",
         body: formData,
