@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { listProfiles, updateProfile, ProfileRow } from "@/services/admin";
+import * as XLSX from "xlsx";
 import {
   BarChart3,
   ChevronLeft,
@@ -36,6 +37,7 @@ const formatDate = (value: string) =>
 const AdminPanel = () => {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -71,6 +73,14 @@ const AdminPanel = () => {
       navigate("/dashboard", { replace: true });
     }
   }, [isAdmin, navigate]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get("tab");
+    if (tab === "users" || tab === "etf-data") {
+      setActiveTab(tab);
+    }
+  }, [location.search]);
 
   const fetchProfiles = async () => {
     setLoading(true);
@@ -196,32 +206,37 @@ const AdminPanel = () => {
     }
 
     setUploading(true);
-    setUploadStatus("");
+    setUploadStatus("Uploading and processing...");
 
     try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+      
       const formData = new FormData();
-      formData.append("file", uploadFile);
+      formData.append('file', uploadFile);
 
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
-      const response = await fetch(`${apiUrl}/api/admin/upload-dtr`, {
-        method: "POST",
+      const response = await fetch(`${API_BASE_URL}/api/admin/upload-dtr`, {
+        method: 'POST',
         body: formData,
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.error || "Upload failed");
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
+      const result = await response.json();
+      
       setUploadStatus(`Success! Processed ${result.count} ETFs`);
       toast({
         title: "Upload successful",
-        description: result.message,
+        description: `Uploaded ${result.count} ETFs to database`,
       });
       setUploadFile(null);
       const fileInput = document.getElementById("dtr-file-input") as HTMLInputElement;
       if (fileInput) fileInput.value = "";
+
+      window.dispatchEvent(new Event("storage"));
+      window.location.reload();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Upload failed";
       setUploadStatus(`Error: ${message}`);

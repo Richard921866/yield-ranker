@@ -164,8 +164,8 @@ export const ETFTable = ({
               <th colSpan={14} className="h-7 px-1.5 text-center align-middle font-bold text-foreground bg-slate-100 text-sm border-r-2 border-slate-300">
                 ETF DETAILS
               </th>
-              <th colSpan={returnColumns.length} className="h-7 px-1.5 text-center align-middle font-bold text-foreground bg-slate-100 text-sm">
-                {viewMode === "total" ? "TOTAL RETURNS" : "PRICE RETURNS"}
+              <th colSpan={returnColumns.length} className="h-7 px-1.5 text-center align-middle font-bold bg-primary/10 text-primary text-sm">
+                TOTAL RETURNS
               </th>
             </tr>
             <tr className="bg-slate-50">
@@ -273,7 +273,7 @@ export const ETFTable = ({
                     />
                   </td>
                   <td
-                    className="py-1 px-1.5 align-middle sticky left-0 z-10 bg-white group-hover:bg-slate-100 border-r border-slate-200 font-bold text-foreground text-xs"
+                    className="py-1 px-1.5 align-middle sticky left-0 z-10 bg-white group-hover:bg-slate-100 border-r border-slate-200 font-bold text-primary text-xs"
                   >
                     {etf.symbol}
                   </td>

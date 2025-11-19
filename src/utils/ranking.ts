@@ -26,7 +26,7 @@ export const calculateWeightedRank = (
 
   const normalizeStdDev = (value: number) => {
     if (maxStdDev === minStdDev) return 0.5;
-    return 1 - (value - minStdDev) / (maxStdDev - minStdDev);
+    return (maxStdDev - value) / (maxStdDev - minStdDev);
   };
 
   const normalizeReturn = (value: number) => {

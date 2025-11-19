@@ -168,11 +168,6 @@ export default function Dashboard() {
     }
   }, [toast]);
 
-  useEffect(() => {
-    if (adminSection === "users" && isAdmin) {
-      fetchAdminProfiles();
-    }
-  }, [adminSection, isAdmin, fetchAdminProfiles]);
 
   const filteredAdminProfiles = useMemo(() => {
     const term = adminSearchQuery.trim().toLowerCase();
@@ -400,6 +395,7 @@ export default function Dashboard() {
 
   const rankedETFs = rankETFs(etfData, weights);
   const filteredETFs = rankedETFs.filter((etf) => {
+    if (showFavoritesOnly && !favorites.has(etf.symbol)) return false;
     if (searchQuery.trim() === "") return true;
     return (
       etf.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -770,14 +766,14 @@ export default function Dashboard() {
                         className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors"
                       >
                         <Users className="w-4 h-4" />
-                        Users
+                        User Administration
                       </button>
                       <button
-                        onClick={() => navigate("/admin?tab=upload")}
+                        onClick={() => navigate("/admin?tab=etf-data")}
                         className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors"
                       >
                         <Upload className="w-4 h-4" />
-                        Upload Data
+                        ETF Data Management
                       </button>
                     </div>
                   )}
@@ -1430,74 +1426,6 @@ export default function Dashboard() {
               </span>
             )}
           </button>
-          {isAdmin &&
-            (!sidebarCollapsed ? (
-              <div>
-                <button
-                  onClick={() => setAdminPanelExpanded(!adminPanelExpanded)}
-                  className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                    adminSection
-                      ? "bg-primary text-white"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Users className="w-5 h-5" />
-                    Admin Panel
-                  </div>
-                  {adminPanelExpanded ? (
-                    <ChevronDown className="w-4 h-4" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4" />
-                  )}
-                </button>
-                {adminPanelExpanded && (
-                  <div className="pl-4 mt-1 space-y-1">
-                    <button
-                      onClick={() => {
-                        setAdminSection("users");
-                        setShowFavoritesOnly(false);
-                        setSelectedETF(null);
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        adminSection === "users"
-                          ? "bg-primary/10 text-primary font-semibold"
-                          : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
-                      }`}
-                    >
-                      <Users className="w-4 h-4" />
-                      Users
-                    </button>
-                    <button
-                      onClick={() => {
-                        setAdminSection("upload");
-                        setShowFavoritesOnly(false);
-                        setSelectedETF(null);
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        adminSection === "upload"
-                          ? "bg-primary/10 text-primary font-semibold"
-                          : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
-                      }`}
-                    >
-                      <Upload className="w-4 h-4" />
-                      Upload Data
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <button
-                onClick={() => {
-                  setAdminPanelExpanded(true);
-                  setAdminSection("users");
-                }}
-                className="w-full flex items-center justify-center px-0 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors"
-                title="Admin Panel"
-              >
-                <Users className="w-5 h-5" />
-              </button>
-            ))}
           <button
             onClick={() => {
               setShowFavoritesOnly(false);
@@ -1575,239 +1503,10 @@ export default function Dashboard() {
 
         <div className="flex-1 overflow-hidden">
           <div className="h-full p-2 sm:p-3 lg:p-4 flex flex-col gap-2 sm:gap-3">
-            {adminSection === "users" ? (
-              <div className="flex-1 overflow-auto">
-                <div className="p-2 sm:p-3 lg:p-4 space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <Card className="p-5 border-2 border-slate-200">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm text-muted-foreground font-medium">
-                          Total users
-                        </span>
-                        <Users className="w-5 h-5 text-slate-500" />
-                      </div>
-                      <p className="text-3xl font-bold text-foreground">
-                        {totalUsers}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {adminCount} admins, {premiumCount} premium,{" "}
-                        {guestCount} guests
-                      </p>
-                    </Card>
-                    <Card className="p-5 border-2 border-slate-200">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm text-muted-foreground font-medium">
-                          Admins
-                        </span>
-                        <ShieldCheck className="w-5 h-5 text-primary" />
-                      </div>
-                      <p className="text-3xl font-bold text-foreground">
-                        {adminCount}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Full system access
-                      </p>
-                    </Card>
-                    <Card className="p-5 border-2 border-slate-200">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm text-muted-foreground font-medium">
-                          Premium users
-                        </span>
-                        <ShieldCheck className="w-5 h-5 text-green-600" />
-                      </div>
-                      <p className="text-3xl font-bold text-foreground">
-                        {premiumCount}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {guestCount} guests remaining
-                      </p>
-                    </Card>
-                  </div>
-
-                  <Card className="border-2 border-slate-200">
-                    <div className="p-6 space-y-6">
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="relative w-full sm:max-w-xs">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                          <Input
-                            value={adminSearchQuery}
-                            onChange={(e) =>
-                              setAdminSearchQuery(e.target.value)
-                            }
-                            placeholder="Search by name, email, or role"
-                            className="pl-10 h-10 border-2"
-                          />
-                        </div>
-                        <Button
-                          variant="outline"
-                          onClick={fetchAdminProfiles}
-                          disabled={adminLoading}
-                          className="h-10 border-2"
-                        >
-                          <RefreshCw
-                            className={`w-4 h-4 mr-2 ${
-                              adminLoading ? "animate-spin" : ""
-                            }`}
-                          />
-                          Refresh
-                        </Button>
-                      </div>
-
-                      <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                        <table className="min-w-full divide-y divide-slate-200 bg-white">
-                          <thead className="bg-slate-50">
-                            <tr>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                                Name
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                                Email
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                                Role
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                                Premium
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                                Created
-                              </th>
-                              <th className="px-4 py-3" />
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {adminLoading ? (
-                              <tr>
-                                <td
-                                  colSpan={6}
-                                  className="px-4 py-10 text-center text-sm text-muted-foreground"
-                                >
-                                  Loading users...
-                                </td>
-                              </tr>
-                            ) : filteredAdminProfiles.length === 0 ? (
-                              <tr>
-                                <td
-                                  colSpan={6}
-                                  className="px-4 py-10 text-center text-sm text-muted-foreground"
-                                >
-                                  No users found for “{adminSearchQuery}”
-                                </td>
-                              </tr>
-                            ) : (
-                              filteredAdminProfiles.map((row) => {
-                                const roleKey = `${row.id}-role`;
-                                const premiumKey = `${row.id}-premium`;
-                                return (
-                                  <tr
-                                    key={row.id}
-                                    className="hover:bg-slate-50 transition-colors"
-                                  >
-                                    <td className="px-4 py-3 text-sm font-medium text-foreground">
-                                      {row.display_name || "—"}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                                      {row.email}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-foreground">
-                                      <span
-                                        className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                                          row.role === "admin"
-                                            ? "border-primary/30 bg-primary/10 text-primary"
-                                            : row.is_premium
-                                            ? "border-green-300 bg-green-50 text-green-700"
-                                            : "border-slate-300 bg-slate-50 text-slate-700"
-                                        }`}
-                                      >
-                                        {row.role === "admin"
-                                          ? "Admin"
-                                          : row.is_premium
-                                          ? "Premium"
-                                          : "Guest"}
-                                      </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-foreground">
-                                      <Switch
-                                        checked={row.is_premium}
-                                        onCheckedChange={(checked) =>
-                                          handleAdminPremiumToggle(row, checked)
-                                        }
-                                        disabled={
-                                          adminUpdatingId === premiumKey
-                                        }
-                                      />
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                                      {new Intl.DateTimeFormat("en-US", {
-                                        month: "short",
-                                        day: "numeric",
-                                        year: "numeric",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      }).format(new Date(row.created_at))}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-right">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                          handleAdminRoleToggle(row)
-                                        }
-                                        disabled={adminUpdatingId === roleKey}
-                                        className="border-2"
-                                      >
-                                        {row.role === "admin"
-                                          ? "Remove admin"
-                                          : "Make admin"}
-                                      </Button>
-                                    </td>
-                                  </tr>
-                                );
-                              })
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-            ) : adminSection === "upload" ? (
-              <div className="flex-1 overflow-auto">
-                <Card className="p-6 border-2 border-slate-200">
-                  <h2 className="text-2xl font-bold text-foreground mb-6">
-                    Upload Data
-                  </h2>
-                  <div className="space-y-4">
-                    <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center">
-                      <Upload className="w-12 h-12 mx-auto text-slate-400 mb-4" />
-                      <h3 className="text-lg font-semibold text-foreground mb-2">
-                        Upload ETF Data
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Upload CSV or JSON files to update ETF information
-                      </p>
-                      <Button>
-                        <Upload className="w-4 h-4 mr-2" />
-                        Choose File
-                      </Button>
-                    </div>
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <p className="text-sm text-yellow-900">
-                        <strong>Note:</strong> Upload functionality will process
-                        and update ETF data in the database. Supported formats:
-                        CSV, JSON.
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-            ) : (
-              <>
                 {infoBanner && (
                   <div className="w-full max-w-[98%] mx-auto">
                     <Card className="p-3 border-2 border-primary/20 bg-primary/5">
-                      <p className="text-sm text-foreground leading-relaxed">
+                      <p className="text-lg text-foreground leading-relaxed">
                         {infoBanner}
                       </p>
                     </Card>
@@ -1862,29 +1561,6 @@ export default function Dashboard() {
                             <Sliders className="h-4 w-4 mr-2" />
                             Customize Rankings
                           </Button>
-                          {/* Total Returns / Price Returns Toggle - Connected style with border */}
-                          <div className="inline-flex items-center h-9 flex-1 min-w-[200px] max-w-[280px] border-2 border-slate-300 rounded-md overflow-hidden">
-                            <button
-                              onClick={() => setShowTotalReturns(true)}
-                              className={`flex-1 px-3 py-2 text-xs font-semibold transition-all duration-200 ${
-                                showTotalReturns
-                                  ? "bg-primary text-white shadow-sm"
-                                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white"
-                              }`}
-                            >
-                              Total Returns
-                            </button>
-                            <button
-                              onClick={() => setShowTotalReturns(false)}
-                              className={`flex-1 px-3 py-2 text-xs font-semibold transition-all duration-200 ${
-                                !showTotalReturns
-                                  ? "bg-primary text-white shadow-sm"
-                                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white"
-                              }`}
-                            >
-                              Price Returns
-                            </button>
-                          </div>
                           {/* Favorites - Rightmost */}
                           <Button
                             variant={showFavoritesOnly ? "default" : "outline"}
@@ -1924,11 +1600,9 @@ export default function Dashboard() {
                                 </th>
                                 <th
                                   colSpan={returnColumns.length}
-                                  className="h-7 px-1.5 text-center align-middle font-bold text-foreground bg-slate-100 text-sm"
+                                  className="h-7 px-1.5 text-center align-middle font-bold bg-primary/10 text-primary text-sm"
                                 >
-                                  {showTotalReturns
-                                    ? "TOTAL RETURNS"
-                                    : "PRICE RETURNS"}
+                                  TOTAL RETURNS
                                 </th>
                               </tr>
                               <tr className="bg-slate-50">
@@ -2063,8 +1737,7 @@ export default function Dashboard() {
                                     />
                                   </td>
                                   <td
-                                    onClick={() => handleETFClick(etf)}
-                                    className="py-0.5 px-1 align-middle sticky left-0 z-10 bg-white group-hover:bg-slate-100 border-r border-slate-200 font-bold text-primary group-hover:text-accent transition-colors text-xs cursor-pointer"
+                                    className="py-0.5 px-1 align-middle sticky left-0 z-10 bg-white group-hover:bg-slate-100 border-r border-slate-200 font-bold text-primary transition-colors text-xs"
                                   >
                                     {etf.symbol}
                                   </td>
@@ -2368,8 +2041,6 @@ export default function Dashboard() {
                 )}
 
                 {/* Only use UpgradeToPremiumModal for upgrade prompts */}
-              </>
-            )}
           </div>
         </div>
       </main>

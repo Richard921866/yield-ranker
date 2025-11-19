@@ -65,86 +65,89 @@ export const Header = () => {
           <nav className="hidden md:flex items-center gap-2">
             <Button
               variant="ghost"
-              className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
+              className="px-4 py-2 text-base font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
               onClick={() => go("/focus")}
             >
               My Focus
             </Button>
             <Button
               variant="ghost"
-              className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
+              className="px-4 py-2 text-base font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
               onClick={() => go("/covered-call-etfs")}
             >
               Covered Call Option ETFs
             </Button>
             <Button
               variant="ghost"
-              className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
+              className="px-4 py-2 text-base font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
               onClick={() => go("/plans")}
             >
               Plans
             </Button>
             <Button
               variant="ghost"
-              className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
+              className="px-4 py-2 text-base font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
               onClick={() => go("/resources")}
             >
               Resources
             </Button>
             <Button
               variant="ghost"
-              className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
+              className="px-4 py-2 text-base font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
               onClick={() => go("/contact")}
             >
               Contact Us
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="px-3 py-2 h-auto text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md border border-transparent hover:border-slate-200"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                      <User className="w-4 h-4 text-white" />
+            {!isAuthenticated ? (
+              <Button
+                variant="default"
+                className="px-4 py-2 text-base font-medium bg-primary text-white hover:bg-primary/90 transition-colors rounded-md"
+                onClick={() => go("/login")}
+              >
+                Login / Register
+              </Button>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="px-3 py-2 h-auto text-base font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md border border-transparent hover:border-slate-200"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                        <User className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-foreground">Account</span>
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
                     </div>
-                    <span className="text-foreground">Account</span>
-                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem className="cursor-pointer bg-slate-50" onClick={() => go("/profile")}>
-                  <User className="w-4 h-4 mr-2 text-primary" />
-                  <div className="flex flex-col">
-                    <span className="font-medium">{loading ? "Loading..." : displayName}</span>
-                    <span className="text-xs text-muted-foreground">{roleDisplay}</span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer" onClick={() => go("/dashboard")}>
-                  <BarChart3 className="w-4 h-4 mr-2 text-primary" />
-                  <span>Dashboard</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer" onClick={() => go("/favorites")}>
-                  <Star className="w-4 h-4 mr-2 text-yellow-500" />
-                  <span>Favorites</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {isAuthenticated ? (
-                  <DropdownMenuItem className="cursor-pointer" onClick={logout}>
-                    <LogOut className="w-4 h-4 mr-2 text-primary" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 text-base">
+                  <DropdownMenuItem className="cursor-pointer bg-slate-50" onClick={() => go("/profile")}>
+                    <User className="w-5 h-5 mr-2 text-primary" />
+                    <div className="flex flex-col">
+                      <span className="font-medium text-base">{loading ? "Loading..." : displayName}</span>
+                      <span className="text-sm text-muted-foreground">{roleDisplay}</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer text-base" onClick={() => go("/dashboard")}>
+                    <BarChart3 className="w-5 h-5 mr-2 text-primary" />
+                    <span>Dashboard</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer text-base" onClick={() => go("/favorites")}>
+                    <Star className="w-5 h-5 mr-2 text-yellow-500" />
+                    <span>Favorites</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer text-base" onClick={logout}>
+                    <LogOut className="w-5 h-5 mr-2 text-primary" />
                     <span>Sign out</span>
                   </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem className="cursor-pointer" onClick={() => go("/login")}>
-                    <LogIn className="w-4 h-4 mr-2 text-primary" />
-                    <span>Login / Register</span>
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </nav>
 
           {/* Mobile Menu Button */}
@@ -174,89 +177,92 @@ export const Header = () => {
           <nav className="container flex flex-col py-2">
             <Button
               variant="ghost"
-              className="justify-start px-4 py-2.5 text-sm font-medium text-foreground hover:bg-slate-100 rounded-md"
+              className="justify-start px-4 py-2.5 text-base font-medium text-foreground hover:bg-slate-100 rounded-md"
               onClick={() => go("/focus")}
             >
               My Focus
             </Button>
             <Button
               variant="ghost"
-              className="justify-start px-4 py-2.5 text-sm font-medium text-foreground hover:bg-slate-100 rounded-md"
+              className="justify-start px-4 py-2.5 text-base font-medium text-foreground hover:bg-slate-100 rounded-md"
               onClick={() => go("/covered-call-etfs")}
             >
               Covered Call Option ETFs
             </Button>
             <Button
               variant="ghost"
-              className="justify-start px-4 py-2.5 text-sm font-medium text-foreground hover:bg-slate-100 rounded-md"
+              className="justify-start px-4 py-2.5 text-base font-medium text-foreground hover:bg-slate-100 rounded-md"
               onClick={() => go("/plans")}
             >
               Plans
             </Button>
             <Button
               variant="ghost"
-              className="justify-start px-4 py-2.5 text-sm font-medium text-foreground hover:bg-slate-100 rounded-md"
+              className="justify-start px-4 py-2.5 text-base font-medium text-foreground hover:bg-slate-100 rounded-md"
               onClick={() => go("/resources")}
             >
               Resources
             </Button>
             <Button
               variant="ghost"
-              className="justify-start px-4 py-2.5 text-sm font-medium text-foreground hover:bg-slate-100 rounded-md"
+              className="justify-start px-4 py-2.5 text-base font-medium text-foreground hover:bg-slate-100 rounded-md"
               onClick={() => go("/contact")}
             >
               Contact Us
             </Button>
-            <div className="px-4 py-2.5">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start px-0 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                        <User className="w-4 h-4 text-white" />
+            {!isAuthenticated ? (
+              <Button
+                variant="default"
+                className="mx-4 mt-2 mb-1 text-base font-medium bg-primary text-white hover:bg-primary/90 transition-colors rounded-md"
+                onClick={() => go("/login")}
+              >
+                Login / Register
+              </Button>
+            ) : (
+              <div className="px-4 py-2.5">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start px-0 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                          <User className="w-4 h-4 text-white" />
+                        </div>
+                        <span>Account</span>
+                        <ChevronDown className="w-4 h-4 text-muted-foreground ml-auto" />
                       </div>
-                      <span>Account</span>
-                      <ChevronDown className="w-4 h-4 text-muted-foreground ml-auto" />
-                    </div>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem className="cursor-pointer bg-slate-50" onClick={() => go("/profile")}>
-                    <User className="w-4 h-4 mr-2 text-primary" />
-                    <div className="flex flex-col">
-                      <span className="font-medium">{loading ? "Loading..." : displayName}</span>
-                      <span className="text-xs text-muted-foreground">{roleDisplay}</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer" onClick={() => go("/dashboard")}>
-                    <BarChart3 className="w-4 h-4 mr-2 text-primary" />
-                    <span>Dashboard</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer" onClick={() => go("/favorites")}>
-                    <Star className="w-4 h-4 mr-2 text-yellow-500" />
-                    <span>Favorites</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {isAuthenticated ? (
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem className="cursor-pointer bg-slate-50" onClick={() => go("/profile")}>
+                      <User className="w-4 h-4 mr-2 text-primary" />
+                      <div className="flex flex-col">
+                        <span className="font-medium">{loading ? "Loading..." : displayName}</span>
+                        <span className="text-xs text-muted-foreground">{roleDisplay}</span>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="cursor-pointer" onClick={() => go("/dashboard")}>
+                      <BarChart3 className="w-4 h-4 mr-2 text-primary" />
+                      <span>Dashboard</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="cursor-pointer" onClick={() => go("/favorites")}>
+                      <Star className="w-4 h-4 mr-2 text-yellow-500" />
+                      <span>Favorites</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem className="cursor-pointer" onClick={logout}>
                       <LogOut className="w-4 h-4 mr-2 text-primary" />
                       <span>Sign out</span>
                     </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem className="cursor-pointer" onClick={() => go("/login")}>
-                      <LogIn className="w-4 h-4 mr-2 text-primary" />
-                      <span>Login / Register</span>
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
           </nav>
         </div>
       )}
