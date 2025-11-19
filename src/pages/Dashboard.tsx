@@ -950,7 +950,7 @@ export default function Dashboard() {
                       selectedETF.symbol,
                       ...comparisonETFs.filter((s) => s !== selectedETF.symbol),
                     ].map((symbol, index) => {
-                        const etf = rankedETFs.find((e) => e.symbol === symbol);
+                      const etf = rankedETFs.find((e) => e.symbol === symbol);
                       if (!etf) return null;
                       const colors = [
                         "#3b82f6",
@@ -2019,7 +2019,7 @@ export default function Dashboard() {
                                       </button>
                                     ) : (
                                       <span className="text-primary">
-                                        {etf.weightedRank || 0}
+                                        {idx + 1}
                                       </span>
                                     )}
                                   </td>
