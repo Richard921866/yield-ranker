@@ -185,7 +185,7 @@ const Index = () => {
               </Button>
             </div>
           )}
-          
+
           {infoBanner && (
             <div className="w-full">
               <Card className="p-3 border-2 border-primary/20 bg-primary/5">
