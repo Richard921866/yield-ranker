@@ -64,12 +64,12 @@ const Index = () => {
         setIsLoading(false);
       }
     };
-    
+
     const loadSiteSettings = async () => {
       try {
         const { getSiteSettings } = await import("@/services/admin");
         const settings = await getSiteSettings();
-        const bannerSetting = settings.find(s => s.key === "homepage_banner");
+        const bannerSetting = settings.find((s) => s.key === "homepage_banner");
         if (bannerSetting) {
           setInfoBanner(bannerSetting.value);
         }
@@ -151,127 +151,33 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-[10%] left-[8%] text-8xl md:text-9xl font-bold text-primary/5 select-none">
-            d
-          </div>
-          <div className="absolute top-[5%] right-[12%] text-7xl md:text-8xl font-bold text-primary/5 select-none">
-            y
-          </div>
-          <div className="absolute top-[25%] left-[15%] text-6xl md:text-7xl font-bold text-primary/5 select-none">
-            r
-          </div>
-          <div className="absolute top-[15%] right-[25%] text-7xl md:text-8xl font-bold text-primary/5 select-none">
-            e
-          </div>
-          <div className="absolute top-[35%] left-[5%] text-8xl md:text-9xl font-bold text-primary/5 select-none">
-            t
-          </div>
-          <div className="absolute top-[30%] right-[8%] text-7xl md:text-8xl font-bold text-primary/5 select-none">
-            f
-          </div>
-          <div className="absolute top-[40%] right-[15%] text-6xl md:text-7xl font-bold text-primary/5 select-none">
-            n
-          </div>
-          <div className="absolute top-[45%] left-[25%] text-7xl md:text-8xl font-bold text-primary/5 select-none">
-            i
-          </div>
-          <div className="absolute top-[50%] left-[35%] text-6xl md:text-7xl font-bold text-primary/5 select-none">
-            v
-          </div>
-          <div className="absolute top-[42%] right-[30%] text-8xl md:text-9xl font-bold text-primary/5 select-none">
-            s
-          </div>
-        </div>
-
-        <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-24 md:pt-20 md:pb-32 relative z-10">
-          <div className="max-w-5xl mx-auto text-center space-y-6 md:space-y-8">
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-tight text-white">
-              Dividends &amp; Total Returns
+      <section className="relative border-b overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5"></div>
+        <div className="absolute top-20 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-20 right-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl"></div>
+        
+        <div className="container max-w-7xl mx-auto px-4 sm:px-6 py-20 md:py-32 relative">
+          <div className="max-w-4xl mx-auto text-center space-y-6">
+            <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-foreground">
+              Dividends &amp;{" "}
+              <span className="bg-gradient-to-r from-primary via-blue-600 to-accent bg-clip-text text-transparent">
+                Total Returns
+              </span>
             </h1>
-
-            <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-blue-200 max-w-3xl mx-auto leading-relaxed px-4">
-              Maximizing Investment Value Through Dividend Income and Price
-              Change with Advanced Screening and Custom Rankings
+            <p className="text-lg md:text-xl text-muted-foreground leading-relaxed font-medium">
+              Maximizing Investment Value Through Dividend Income and Price Change with Advanced Screening and Custom Rankings
             </p>
-
             {!user && (
-              <div className="pt-2 md:pt-4">
+              <div className="pt-4">
                 <Button
                   onClick={() => navigate("/login")}
                   size="lg"
-                  className="bg-white hover:bg-gray-100 text-slate-900 px-6 py-5 md:px-8 md:py-6 text-base md:text-lg font-semibold shadow-2xl transition-all hover:scale-105"
+                  className="bg-primary hover:bg-primary/90 text-white px-8 py-4 text-lg font-semibold shadow-lg"
                 >
                   Get Started Free
                 </Button>
               </div>
             )}
-          </div>
-        </div>
-
-        <div className="absolute bottom-0 left-0 right-0 h-24 md:h-32 pointer-events-none">
-          <svg
-            className="absolute bottom-0 w-full h-full"
-            preserveAspectRatio="none"
-            viewBox="0 0 1440 120"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M0,64 C360,100 720,100 1080,64 C1260,40 1350,20 1440,0 L1440,120 L0,120 Z"
-              fill="#f8fafc"
-            />
-          </svg>
-        </div>
-      </section>
-
-      <section className="w-full bg-slate-50 py-6 md:py-8 border-b">
-        <div className="w-full max-w-[98%] mx-auto px-3 sm:px-4">
-          <div className="bg-white border-2 border-blue-200/50 rounded-xl shadow-xl p-5 sm:p-6 md:p-8">
-            <div className="flex flex-col sm:flex-row items-start gap-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-amber-50 border-2 border-amber-200 flex items-center justify-center flex-shrink-0">
-                <svg
-                  className="w-6 h-6 sm:w-7 sm:h-7 text-amber-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
-                </svg>
-              </div>
-              <div className="flex-1 space-y-3">
-                <h3 className="text-lg sm:text-xl font-bold text-slate-900">
-                  Important Data Disclosure
-                </h3>
-                <div className="space-y-3 text-slate-700 text-xs sm:text-sm leading-relaxed">
-                  <p>
-                    All data displayed is end-of-day and not real-time. Price
-                    data, dividends, and returns are updated periodically and
-                    may be delayed. Do not rely on this information for intraday
-                    trading decisions.
-                  </p>
-                  <p>
-                    This site provides educational information only and does not
-                    constitute financial, investment, or tax advice. We are not
-                    licensed financial advisors. All investment decisions are
-                    your sole responsibility. Consult with a qualified financial
-                    professional before making any investment decisions.
-                  </p>
-                  <p className="text-xs text-slate-500 pt-2 border-t border-slate-200">
-                    By using this site, you acknowledge that all data is
-                    provided "as is" without warranties, and you agree to our
-                    terms of service and disclaimer. Past performance does not
-                    guarantee future results.
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </section>

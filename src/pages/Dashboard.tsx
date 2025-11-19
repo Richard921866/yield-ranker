@@ -119,12 +119,12 @@ export default function Dashboard() {
       setEtfData(deduplicated);
       setIsLoadingData(false);
     };
-    
+
     const loadSiteSettings = async () => {
       try {
         const { getSiteSettings } = await import("@/services/admin");
         const settings = await getSiteSettings();
-        const bannerSetting = settings.find(s => s.key === "homepage_banner");
+        const bannerSetting = settings.find((s) => s.key === "homepage_banner");
         if (bannerSetting) {
           setInfoBanner(bannerSetting.value);
         }
@@ -132,7 +132,7 @@ export default function Dashboard() {
         console.error("Failed to load site settings:", error);
       }
     };
-    
+
     loadETFData();
     loadSiteSettings();
   }, []);

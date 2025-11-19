@@ -172,6 +172,33 @@ app.post('/api/admin/upload-dtr', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No valid ETF data found' });
     }
 
+    const symbolsInFile = etfsToUpsert.map(etf => etf.symbol);
+
+    const { data: existingETFs, error: fetchError } = await supabase
+      .from('etfs')
+      .select('symbol');
+
+    if (fetchError) {
+      console.error('Failed to fetch existing ETFs:', fetchError);
+      return res.status(500).json({ error: 'Failed to fetch existing ETFs', details: fetchError.message });
+    }
+
+    const symbolsToDelete = existingETFs
+      .map(etf => etf.symbol)
+      .filter(symbol => !symbolsInFile.includes(symbol));
+
+    if (symbolsToDelete.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('etfs')
+        .delete()
+        .in('symbol', symbolsToDelete);
+
+      if (deleteError) {
+        console.error('Failed to delete old ETFs:', deleteError);
+        return res.status(500).json({ error: 'Failed to delete old ETFs', details: deleteError.message });
+      }
+    }
+
     const { data: upsertedData, error: upsertError } = await supabase
       .from('etfs')
       .upsert(etfsToUpsert, { onConflict: 'symbol' });
@@ -183,8 +210,9 @@ app.post('/api/admin/upload-dtr', upload.single('file'), async (req, res) => {
 
     res.json({
       success: true,
-      message: `Successfully processed ${etfsToUpsert.length} ETFs`,
-      count: etfsToUpsert.length
+      message: `Successfully processed ${etfsToUpsert.length} ETFs (deleted ${symbolsToDelete.length} old ETFs)`,
+      count: etfsToUpsert.length,
+      deleted: symbolsToDelete.length
     });
 
   } catch (error) {
