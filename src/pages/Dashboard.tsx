@@ -130,8 +130,8 @@ export default function Dashboard() {
     const tick = async () => {
       try {
         const updates = await fetchQuickUpdates(symbols);
-        setEtfData((prev) =>
-          prev.map((etf) => {
+        setEtfData((prev) => {
+          const updated = prev.map((etf) => {
             const u = updates[etf.symbol];
             if (!u || u.price == null) return etf;
             return {
@@ -139,16 +139,16 @@ export default function Dashboard() {
               price: u.price,
               priceChange: u.priceChange ?? etf.priceChange,
             };
-          })
-        );
+          });
+          return updated;
+        });
       } catch (_e) {
         // ignore quick update errors
       }
     };
-    tick();
-    const interval = setInterval(tick, 15000);
+    const interval = setInterval(tick, 30000);
     return () => clearInterval(interval);
-  }, [etfData]);
+  }, []);
 
   const fetchAdminProfiles = useCallback(async () => {
     setAdminLoading(true);
@@ -315,7 +315,7 @@ export default function Dashboard() {
     window.addEventListener("resize", calculateInitialCount);
     return () => window.removeEventListener("resize", calculateInitialCount);
   }, []);
-  const [sortField, setSortField] = useState<keyof ETF | null>("weightedRank");
+  const [sortField, setSortField] = useState<keyof ETF | null>("symbol");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebarCollapsed");
