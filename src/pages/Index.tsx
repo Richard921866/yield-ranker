@@ -33,8 +33,8 @@ const Index = () => {
   const [stdDevWeight, setStdDevWeight] = useState(30);
   const [totalReturnWeight, setTotalReturnWeight] = useState(40);
   const [totalReturnTimeframe, setTotalReturnTimeframe] = useState<
-    "3mo" | "6mo" | "12mo"
-  >("12mo");
+    "3mo" | "6mo"
+  >("6mo");
   const [showRankingPanel, setShowRankingPanel] = useState(false);
   const [returnView, setReturnView] = useState<"total" | "price">("total");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -122,7 +122,7 @@ const Index = () => {
     });
   };
 
-  const handleTimeframeChange = (timeframe: "3mo" | "6mo" | "12mo") => {
+  const handleTimeframeChange = (timeframe: "3mo" | "6mo") => {
     setTotalReturnTimeframe(timeframe);
     setWeights({
       yield: yieldWeight,
@@ -136,8 +136,8 @@ const Index = () => {
     setYieldWeight(30);
     setStdDevWeight(30);
     setTotalReturnWeight(40);
-    setTotalReturnTimeframe("12mo");
-    setWeights({ yield: 30, stdDev: 30, totalReturn: 40, timeframe: "12mo" });
+    setTotalReturnTimeframe("6mo");
+    setWeights({ yield: 30, stdDev: 30, totalReturn: 40, timeframe: "6mo" });
   };
 
   const rankedETFs = rankETFs(etfData, weights);
@@ -388,16 +388,6 @@ const Index = () => {
                         }`}
                       >
                         6 Mo
-                      </button>
-                      <button
-                        onClick={() => handleTimeframeChange("12mo")}
-                        className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                          totalReturnTimeframe === "12mo"
-                            ? "bg-primary text-white"
-                            : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"
-                        }`}
-                      >
-                        12 Mo
                       </button>
                     </div>
                   </div>
