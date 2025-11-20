@@ -164,8 +164,8 @@ export const ETFTable = ({
               </th>
             </tr>
             <tr className="bg-slate-50">
-              <th className="h-7 px-1.5 text-center sticky left-0 z-30 bg-slate-50 border-r border-slate-200">
-                <Star className="h-3 w-3 mx-auto text-slate-400" />
+              <th className="h-7 px-1.5 text-center sticky left-0 z-30 bg-slate-50 border-r border-slate-200" title="Click to add to Favorites">
+                <Star className="h-3.5 w-3.5 mx-auto text-slate-600" />
               </th>
               <th className="h-7 px-1.5 text-left sticky left-0 z-30 bg-slate-50 border-r border-slate-200 text-xs">
                 <SortButton field="symbol">Symbol</SortButton>
@@ -255,17 +255,18 @@ export const ETFTable = ({
                   style={{ animationDelay: `${index * 30}ms` }}
                 >
                   <td 
-                    className="py-1 px-1.5 align-middle text-center sticky left-0 z-10 border-r border-slate-200 transition-all"
+                    className="py-1 px-1.5 align-middle text-center sticky left-0 z-10 border-r border-slate-200 transition-all cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleFavorite(etf.symbol);
                     }}
+                    title="Click to add to Favorites"
                   >
                     <Star
-                      className={`h-3.5 w-3.5 mx-auto cursor-pointer transition-colors ${
+                      className={`h-4 w-4 mx-auto cursor-pointer transition-all ${
                         favorites.has(etf.symbol)
                           ? "fill-yellow-400 text-yellow-400"
-                          : "text-slate-300 hover:text-yellow-400"
+                          : "text-slate-500 hover:text-yellow-500 hover:scale-110"
                       }`}
                     />
                   </td>
