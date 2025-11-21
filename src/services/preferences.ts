@@ -13,6 +13,11 @@ export type UserPreferences = {
   ranking_weights?: RankingWeights;
   return_view?: "total" | "price";
   ranking_presets?: RankingPreset[];
+  chart_settings?: {
+    chartType?: "price" | "totalReturn";
+    selectedTimeframe?: string;
+    showTotalReturns?: boolean;
+  };
 };
 
 /**
@@ -211,6 +216,34 @@ export const deleteRankingPreset = async (
     
   if (error) {
     throw new Error(`Failed to delete preset: ${error.message}`);
+  }
+};
+
+/**
+ * Save chart settings
+ */
+export const saveChartSettings = async (
+  userId: string,
+  chartSettings: {
+    chartType?: "price" | "totalReturn";
+    selectedTimeframe?: string;
+    showTotalReturns?: boolean;
+  }
+): Promise<void> => {
+  const existing = await loadUserPreferences(userId);
+  
+  const updated: UserPreferences = {
+    ...existing,
+    chart_settings: chartSettings,
+  };
+  
+  const { error } = await supabase
+    .from("profiles")
+    .update({ preferences: updated })
+    .eq("id", userId);
+    
+  if (error) {
+    throw new Error(`Failed to save chart settings: ${error.message}`);
   }
 };
 

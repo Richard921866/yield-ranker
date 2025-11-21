@@ -35,5 +35,5 @@ export interface RankingWeights {
   yield: number;
   stdDev: number;
   totalReturn: number;
-  timeframe?: "3mo" | "6mo" | "12mo";
+  timeframe?: "3mo" | "6mo";
 }

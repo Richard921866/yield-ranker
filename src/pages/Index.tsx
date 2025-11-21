@@ -36,7 +36,7 @@ const Index = () => {
     yield: 30,
     stdDev: 30,
     totalReturn: 40,
-    timeframe: "12mo",
+    timeframe: "6mo",
   });
   const [yieldWeight, setYieldWeight] = useState(30);
   const [stdDevWeight, setStdDevWeight] = useState(30);
@@ -97,10 +97,23 @@ const Index = () => {
     // keep it stable for a clean, non-jittery experience.
   }, []);
 
-  // Load presets from profile
+  // Load weights and presets from profile
   useEffect(() => {
-    if (profile?.preferences?.ranking_presets) {
-      const savedPresets = profile.preferences.ranking_presets as RankingPreset[];
+    if (!profile?.preferences) return;
+
+    const savedWeights = profile.preferences.ranking_weights as RankingWeights | undefined;
+    if (savedWeights) {
+      setWeights(savedWeights);
+      setYieldWeight(savedWeights.yield);
+      setStdDevWeight(savedWeights.stdDev);
+      setTotalReturnWeight(savedWeights.totalReturn);
+      if (savedWeights.timeframe === "3mo" || savedWeights.timeframe === "6mo") {
+        setTotalReturnTimeframe(savedWeights.timeframe);
+      }
+    }
+
+    const savedPresets = profile.preferences.ranking_presets as RankingPreset[] | undefined;
+    if (savedPresets) {
       setRankingPresets(savedPresets);
     }
   }, [profile]);

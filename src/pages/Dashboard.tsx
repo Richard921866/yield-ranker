@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
@@ -60,6 +60,7 @@ import {
   loadRankingPresets,
   deleteRankingPreset,
   RankingPreset,
+  saveChartSettings,
 } from "@/services/preferences";
 import { supabase } from "@/lib/supabase";
 import {
@@ -105,6 +106,7 @@ export default function Dashboard() {
   const [rankingPresets, setRankingPresets] = useState<RankingPreset[]>([]);
   const [showPresetSaveDialog, setShowPresetSaveDialog] = useState(false);
   const [newPresetName, setNewPresetName] = useState("");
+  const isInitialChartLoad = useRef(true);
   const [adminProfiles, setAdminProfiles] = useState<ProfileRow[]>([]);
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminSearchQuery, setAdminSearchQuery] = useState("");
@@ -365,14 +367,14 @@ export default function Dashboard() {
     yield: 30,
     stdDev: 30,
     totalReturn: 40,
-    timeframe: "12mo",
+    timeframe: "6mo",
   });
   const [yieldWeight, setYieldWeight] = useState(30);
   const [stdDevWeight, setStdDevWeight] = useState(30);
   const [totalReturnWeight, setTotalReturnWeight] = useState(40);
   const [totalReturnTimeframe, setTotalReturnTimeframe] = useState<
-    "3mo" | "6mo" | "12mo"
-  >("12mo");
+    "3mo" | "6mo"
+  >("6mo");
 
   const totalWeight = yieldWeight + stdDevWeight + totalReturnWeight;
   const isValid = totalWeight === 100;
@@ -399,8 +401,7 @@ export default function Dashboard() {
       setTotalReturnWeight(savedWeights.totalReturn);
       if (
         savedWeights.timeframe === "3mo" ||
-        savedWeights.timeframe === "6mo" ||
-        savedWeights.timeframe === "12mo"
+        savedWeights.timeframe === "6mo"
       ) {
         setTotalReturnTimeframe(savedWeights.timeframe);
         console.log("✅ Set timeframe to:", savedWeights.timeframe);
@@ -417,6 +418,25 @@ export default function Dashboard() {
       setRankingPresets(savedPresets);
       console.log("✅ Loaded presets:", savedPresets);
     }
+
+    // Load chart settings
+    const chartSettings = profile.preferences.chart_settings;
+    if (chartSettings) {
+      if (chartSettings.chartType) {
+        setChartType(chartSettings.chartType);
+      }
+      if (chartSettings.selectedTimeframe) {
+        setSelectedTimeframe(chartSettings.selectedTimeframe as ComparisonTimeframe);
+      }
+      if (chartSettings.showTotalReturns !== undefined) {
+        setShowTotalReturns(chartSettings.showTotalReturns);
+      }
+      console.log("✅ Loaded chart settings:", chartSettings);
+    }
+    // Mark initial load as complete after a short delay to allow state to settle
+    setTimeout(() => {
+      isInitialChartLoad.current = false;
+    }, 500);
   }, [profile]);
 
   useEffect(() => {
@@ -424,9 +444,29 @@ export default function Dashboard() {
       setYieldWeight(weights.yield);
       setStdDevWeight(weights.stdDev);
       setTotalReturnWeight(weights.totalReturn);
-      setTotalReturnTimeframe(weights.timeframe || "12mo");
+      setTotalReturnTimeframe(weights.timeframe || "6mo");
     }
   }, [showRankingPanel, weights]);
+
+  // Save chart settings when they change (but not on initial load)
+  useEffect(() => {
+    if (isInitialChartLoad.current) return;
+    if (user?.id && isPremium) {
+      const saveSettings = async () => {
+        try {
+          await saveChartSettings(user.id, {
+            chartType,
+            selectedTimeframe,
+            showTotalReturns,
+          });
+          console.log("✅ Saved chart settings:", { chartType, selectedTimeframe, showTotalReturns });
+        } catch (error) {
+          console.error("Failed to save chart settings:", error);
+        }
+      };
+      saveSettings();
+    }
+  }, [chartType, selectedTimeframe, showTotalReturns, user?.id, isPremium]);
 
   const handleYieldChange = (value: number[]) => {
     const newYield = value[0];
@@ -461,7 +501,7 @@ export default function Dashboard() {
     });
   };
 
-  const handleTimeframeChange = (timeframe: "3mo" | "6mo" | "12mo") => {
+  const handleTimeframeChange = (timeframe: "3mo" | "6mo") => {
     setTotalReturnTimeframe(timeframe);
     setWeights({
       yield: yieldWeight,
@@ -476,13 +516,13 @@ export default function Dashboard() {
       yield: 30,
       stdDev: 30,
       totalReturn: 40,
-      timeframe: "12mo",
+      timeframe: "6mo",
     };
 
     setYieldWeight(30);
     setStdDevWeight(30);
     setTotalReturnWeight(40);
-    setTotalReturnTimeframe("12mo");
+    setTotalReturnTimeframe("6mo");
     setWeights(defaultWeights);
 
     // Save defaults to database
@@ -631,7 +671,7 @@ export default function Dashboard() {
     setYieldWeight(preset.weights.yield);
     setStdDevWeight(preset.weights.stdDev);
     setTotalReturnWeight(preset.weights.totalReturn);
-    setTotalReturnTimeframe(preset.weights.timeframe || "12mo");
+    setTotalReturnTimeframe(preset.weights.timeframe || "6mo");
     setWeights(preset.weights);
     toast({
       title: "Preset loaded",
@@ -2468,16 +2508,6 @@ export default function Dashboard() {
                                 }`}
                               >
                                 6 Mo
-                              </button>
-                              <button
-                                onClick={() => handleTimeframeChange("12mo")}
-                                className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                                  totalReturnTimeframe === "12mo"
-                                    ? "bg-primary text-white"
-                                    : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"
-                                }`}
-                              >
-                                12 Mo
                               </button>
                             </div>
                           </div>
