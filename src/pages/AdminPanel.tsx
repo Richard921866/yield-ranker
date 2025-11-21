@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import {
   listProfiles,
@@ -68,6 +76,8 @@ const AdminPanel = () => {
   const [sortField, setSortField] = useState<keyof ProfileRow | null>("created_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<ProfileRow | null>(null);
 
   const userMetadata =
     (user?.user_metadata as {
@@ -319,7 +329,7 @@ const AdminPanel = () => {
     }
   };
 
-  const handleDeleteUser = async (profile: ProfileRow) => {
+  const handleDeleteUser = (profile: ProfileRow) => {
     // Prevent deleting yourself
     if (profile.id === user?.id) {
       toast({
@@ -330,19 +340,24 @@ const AdminPanel = () => {
       return;
     }
 
-    // Confirmation dialog
-    if (!confirm(`Are you sure you want to delete ${profile.display_name || profile.email}? This action cannot be undone.`)) {
-      return;
-    }
+    // Open delete confirmation dialog
+    setUserToDelete(profile);
+    setDeleteDialogOpen(true);
+  };
 
-    setDeletingId(profile.id);
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    setDeletingId(userToDelete.id);
     try {
-      await deleteProfile(profile.id);
-      setProfiles((prev) => prev.filter((p) => p.id !== profile.id));
+      await deleteProfile(userToDelete.id);
+      setProfiles((prev) => prev.filter((p) => p.id !== userToDelete.id));
       toast({
         title: "User deleted",
-        description: `${profile.display_name || profile.email} has been deleted.`,
+        description: `${userToDelete.display_name || userToDelete.email} has been deleted.`,
       });
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to delete user";
@@ -1080,6 +1095,76 @@ const AdminPanel = () => {
           </div>
         </div>
       </main>
+
+      {/* Delete User Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
+        if (!deletingId) {
+          setDeleteDialogOpen(open);
+          if (!open) {
+            setUserToDelete(null);
+          }
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
+              {deletingId ? (
+                <>
+                  <RefreshCw className="h-5 w-5 animate-spin text-destructive" />
+                  Deleting User...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-5 w-5 text-destructive" />
+                  Delete User Account
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground pt-3">
+              {deletingId ? (
+                <span className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+                  Removing{" "}
+                  <span className="font-semibold text-foreground">
+                    {userToDelete?.display_name || userToDelete?.email || "this user"}
+                  </span>
+                  {" "}from the system...
+                </span>
+              ) : (
+                <>
+                  Are you sure you want to delete{" "}
+                  <span className="font-semibold text-foreground">
+                    {userToDelete?.display_name || userToDelete?.email || "this user"}
+                  </span>
+                  ? This action cannot be undone.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {!deletingId && (
+            <DialogFooter className="gap-2 sm:gap-0 mt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteDialogOpen(false);
+                  setUserToDelete(null);
+                }}
+                className="border-2"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmDeleteUser}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete User
+              </Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

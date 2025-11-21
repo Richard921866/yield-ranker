@@ -169,7 +169,7 @@ export const ETFTable = ({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="flex items-center justify-center">
-                      <Info className="h-3.5 w-3.5 mx-auto text-slate-600 hover:text-primary transition-colors cursor-help" />
+                      <Info className="h-5 w-5 mx-auto text-slate-600 hover:text-primary transition-colors cursor-help" />
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg max-w-[200px]">

@@ -107,31 +107,30 @@ export const updateSiteSetting = async (
 
 export const deleteProfile = async (id: string): Promise<void> => {
   // Delete from profiles table
-  // Note: This will remove the user from the application even if auth user remains
-  // For complete deletion, you may need a backend function with admin privileges
-  const { error: profileError } = await supabase
+  // Note: This requires an admin DELETE policy in Supabase RLS
+  // Run ADD_ADMIN_DELETE_POLICY.sql to enable admin deletion
+  const { error: profileError, data } = await supabase
     .from("profiles")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .select();
   
   if (profileError) {
-    throw profileError;
+    console.error("Delete profile error:", profileError);
+    throw new Error(
+      profileError.code === '42501' || profileError.message?.includes('permission')
+        ? "Permission denied. Please ensure the admin DELETE policy is enabled in Supabase."
+        : profileError.message || "Unable to delete user profile"
+    );
   }
   
-  // Attempt to delete from auth if admin API is available
-  // This may not work in all Supabase setups (client-side limitation)
-  try {
-    // @ts-ignore - admin API may not be available in client SDK
-    if (supabase.auth.admin && typeof supabase.auth.admin.deleteUser === 'function') {
-      const { error: authError } = await supabase.auth.admin.deleteUser(id);
-      if (authError) {
-        console.warn("Auth user deletion failed (profile was deleted):", authError);
-      }
-    }
-  } catch (error) {
-    // Admin API not available - that's okay, profile is deleted
-    console.warn("Auth admin API not available - profile deleted from database");
+  // Log successful deletion (data should be empty array on success)
+  if (data && data.length > 0) {
+    console.log("Profile deleted:", data);
   }
+  
+  // Note: Auth user deletion requires backend function with service role key
+  // The profile deletion above is sufficient to remove the user from the app
 };
 
 
