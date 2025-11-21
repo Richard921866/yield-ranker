@@ -426,7 +426,9 @@ export default function Dashboard() {
         setChartType(chartSettings.chartType);
       }
       if (chartSettings.selectedTimeframe) {
-        setSelectedTimeframe(chartSettings.selectedTimeframe as ComparisonTimeframe);
+        setSelectedTimeframe(
+          chartSettings.selectedTimeframe as ComparisonTimeframe
+        );
       }
       if (chartSettings.showTotalReturns !== undefined) {
         setShowTotalReturns(chartSettings.showTotalReturns);
@@ -459,7 +461,11 @@ export default function Dashboard() {
             selectedTimeframe,
             showTotalReturns,
           });
-          console.log("✅ Saved chart settings:", { chartType, selectedTimeframe, showTotalReturns });
+          console.log("✅ Saved chart settings:", {
+            chartType,
+            selectedTimeframe,
+            showTotalReturns,
+          });
         } catch (error) {
           console.error("Failed to save chart settings:", error);
         }
@@ -589,11 +595,6 @@ export default function Dashboard() {
       console.log("💾 Attempting to save weights to database...");
       await saveRankingWeights(user.id, newWeights);
       console.log("✅ Saved weights successfully:", newWeights);
-
-      toast({
-        title: "Rankings saved ✓",
-        description: "Your custom weights will be remembered across sessions",
-      });
 
       // Force a profile reload to get the updated preferences
       // This ensures the profile state is updated

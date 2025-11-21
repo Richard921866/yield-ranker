@@ -276,10 +276,6 @@ const Index = () => {
     if (user?.id && isPremium) {
       try {
         await saveRankingWeights(user.id, newWeights);
-        toast({
-          title: "Rankings saved",
-          description: "Your custom rankings have been saved successfully.",
-        });
       } catch (error) {
         console.error("❌ Failed to save weights:", error);
         toast({
