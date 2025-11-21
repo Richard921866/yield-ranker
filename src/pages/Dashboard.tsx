@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   fetchETFData,
+  fetchETFDataWithMetadata,
   fetchQuickUpdates,
   fetchComparisonData,
   generateChartData,
@@ -113,6 +114,7 @@ export default function Dashboard() {
   const [adminUpdatingId, setAdminUpdatingId] = useState<string | null>(null);
   const [etfData, setEtfData] = useState<ETF[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [lastDataUpdate, setLastDataUpdate] = useState<string | null>(null);
   const [chartHeight, setChartHeight] = useState(300);
 
   const isAdmin = profile?.role === "admin";
@@ -122,9 +124,9 @@ export default function Dashboard() {
   useEffect(() => {
     const loadETFData = async () => {
       setIsLoadingData(true);
-      const data = await fetchETFData();
+      const result = await fetchETFDataWithMetadata();
       const seen = new Set<string>();
-      const deduplicated = data.filter((etf) => {
+      const deduplicated = result.etfs.filter((etf) => {
         if (seen.has(etf.symbol)) {
           return false;
         }
@@ -132,6 +134,23 @@ export default function Dashboard() {
         return true;
       });
       setEtfData(deduplicated);
+      
+      // Format the last updated timestamp
+      if (result.lastUpdatedTimestamp) {
+        const date = new Date(result.lastUpdatedTimestamp);
+        const formatted = date.toLocaleString('en-US', {
+          month: 'numeric',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+        setLastDataUpdate(formatted);
+      } else if (result.lastUpdated) {
+        setLastDataUpdate(result.lastUpdated);
+      }
+      
       setIsLoadingData(false);
     };
 
@@ -1906,6 +1925,14 @@ export default function Dashboard() {
 
                   <Card className="border-2 border-slate-200">
                     <div className="p-6 space-y-6">
+                      {lastDataUpdate && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground pb-4 border-b border-slate-200">
+                          <RefreshCw className="w-4 h-4" />
+                          <span>
+                            <strong>Data Last Updated:</strong> {lastDataUpdate}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="relative w-full sm:max-w-xs">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -1918,19 +1945,51 @@ export default function Dashboard() {
                             className="pl-10 h-10 border-2"
                           />
                         </div>
-                        <Button
-                          variant="outline"
-                          onClick={fetchAdminProfiles}
-                          disabled={adminLoading}
-                          className="h-10 border-2"
-                        >
-                          <RefreshCw
-                            className={`w-4 h-4 mr-2 ${
-                              adminLoading ? "animate-spin" : ""
-                            }`}
-                          />
-                          Refresh
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              const csv = [
+                                ["Name", "Email", "Role", "Premium", "Created", "Last In"].join(","),
+                                ...filteredAdminProfiles.map((row) => [
+                                  row.display_name || "",
+                                  row.email,
+                                  row.role,
+                                  row.is_premium ? "Yes" : "No",
+                                  new Date(row.created_at).toLocaleString("en-US"),
+                                  row.last_login
+                                    ? new Date(row.last_login).toLocaleString("en-US")
+                                    : "Never",
+                                ].join(",")),
+                              ].join("\n");
+                              const blob = new Blob([csv], { type: "text/csv" });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement("a");
+                              a.href = url;
+                              a.download = `users-${new Date().toISOString().split("T")[0]}.csv`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            }}
+                            disabled={adminLoading || filteredAdminProfiles.length === 0}
+                            className="h-10 border-2"
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Download Emails CSV
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={fetchAdminProfiles}
+                            disabled={adminLoading}
+                            className="h-10 border-2"
+                          >
+                            <RefreshCw
+                              className={`w-4 h-4 mr-2 ${
+                                adminLoading ? "animate-spin" : ""
+                              }`}
+                            />
+                            Refresh
+                          </Button>
+                        </div>
                       </div>
 
                       <div className="overflow-x-auto border border-slate-200 rounded-lg">

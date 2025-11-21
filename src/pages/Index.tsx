@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Header } from "@/components/Header";
 import { ETFTable } from "@/components/ETFTable";
-import { fetchETFData } from "@/services/etfData";
+import { fetchETFData, fetchETFDataWithMetadata } from "@/services/etfData";
 import { rankETFs } from "@/utils/ranking";
 import { ETF } from "@/types/etf";
 import { Loader2 } from "lucide-react";
@@ -63,9 +63,9 @@ const Index = () => {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const data = await fetchETFData();
+        const result = await fetchETFDataWithMetadata();
         const seen = new Set<string>();
-        const deduplicated = data.filter((etf) => {
+        const deduplicated = result.etfs.filter((etf) => {
           if (seen.has(etf.symbol)) {
             return false;
           }
@@ -73,6 +73,7 @@ const Index = () => {
           return true;
         });
         setEtfData(deduplicated);
+        // We fetch the last updated info but don't display it on the user-facing page
       } catch (error) {
         console.error("[Index] Error fetching ETF data:", error);
       } finally {

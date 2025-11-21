@@ -76,11 +76,26 @@ function mapDatabaseETFToETF(dbEtf: DatabaseETF): ETF {
   };
 }
 
+export type ETFDataResponse = {
+  etfs: ETF[];
+  lastUpdated: string | null;
+  lastUpdatedTimestamp: string | null;
+};
+
 export const fetchETFData = async (): Promise<ETF[]> => {
+  const result = await fetchETFDataWithMetadata();
+  return result.etfs;
+};
+
+export const fetchETFDataWithMetadata = async (): Promise<ETFDataResponse> => {
   const cached = dataCache.get("__ALL__");
   const now = Date.now();
   if (cached && now - cached.timestamp < CACHE_DURATION) {
-    return cached.data as unknown as ETF[];
+    return {
+      etfs: cached.data as unknown as ETF[],
+      lastUpdated: (cached as any).lastUpdated || null,
+      lastUpdatedTimestamp: (cached as any).lastUpdatedTimestamp || null,
+    };
   }
   
   try {
@@ -93,12 +108,29 @@ export const fetchETFData = async (): Promise<ETF[]> => {
     const json = await response.json();
     const dbEtfs: DatabaseETF[] = json.data;
     const etfs: ETF[] = dbEtfs.map(mapDatabaseETFToETF);
-    dataCache.set("__ALL__", { data: etfs as unknown as ETF, timestamp: now });
-    return etfs;
+    const lastUpdated = json.last_updated || null;
+    const lastUpdatedTimestamp = json.last_updated_timestamp || null;
+    
+    dataCache.set("__ALL__", { 
+      data: etfs as unknown as ETF, 
+      timestamp: now,
+      lastUpdated,
+      lastUpdatedTimestamp,
+    } as any);
+    
+    return {
+      etfs,
+      lastUpdated,
+      lastUpdatedTimestamp,
+    };
   } catch (error) {
     console.warn('[ETF Data] Backend not available, using mock data. Error:', error);
     const { mockETFs } = await import('@/data/mockETFs');
-    return mockETFs;
+    return {
+      etfs: mockETFs,
+      lastUpdated: null,
+      lastUpdatedTimestamp: null,
+    };
   }
 };
 
