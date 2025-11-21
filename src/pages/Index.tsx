@@ -10,12 +10,21 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, X, Star, Lock, Sliders } from "lucide-react";
+import { RotateCcw, X, Star, Lock, Sliders, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { UpgradeToPremiumModal } from "@/components/UpgradeToPremiumModal";
 import { useFavorites } from "@/hooks/useFavorites";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  saveRankingPreset,
+  loadRankingPresets,
+  deleteRankingPreset,
+  RankingPreset,
+  saveRankingWeights,
+} from "@/services/preferences";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -42,6 +51,10 @@ const Index = () => {
   const [etfData, setEtfData] = useState<ETF[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [infoBanner, setInfoBanner] = useState("");
+  const [rankingPresets, setRankingPresets] = useState<RankingPreset[]>([]);
+  const [showPresetSaveDialog, setShowPresetSaveDialog] = useState(false);
+  const [newPresetName, setNewPresetName] = useState("");
+  const { toast } = useToast();
   const lastUpdated = new Date();
 
   useEffect(() => {
@@ -83,6 +96,14 @@ const Index = () => {
     // Removed auto-refresh interval: once data is loaded from our database,
     // keep it stable for a clean, non-jittery experience.
   }, []);
+
+  // Load presets from profile
+  useEffect(() => {
+    if (profile?.preferences?.ranking_presets) {
+      const savedPresets = profile.preferences.ranking_presets as RankingPreset[];
+      setRankingPresets(savedPresets);
+    }
+  }, [profile]);
 
   const totalWeight = yieldWeight + stdDevWeight + totalReturnWeight;
   const isValid = totalWeight === 100;
@@ -136,6 +157,127 @@ const Index = () => {
     setTotalReturnWeight(40);
     setTotalReturnTimeframe("6mo");
     setWeights({ yield: 30, stdDev: 30, totalReturn: 40, timeframe: "6mo" });
+  };
+
+  const handleSavePreset = async () => {
+    if (!newPresetName.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Invalid name",
+        description: "Please enter a preset name",
+      });
+      return;
+    }
+
+    if (!isValid) {
+      toast({
+        variant: "destructive",
+        title: "Invalid weights",
+        description: "Total weight must equal 100%",
+      });
+      return;
+    }
+
+    if (!user?.id) return;
+
+    const newWeights: RankingWeights = {
+      yield: yieldWeight,
+      stdDev: stdDevWeight,
+      totalReturn: totalReturnWeight,
+      timeframe: totalReturnTimeframe,
+    };
+
+    try {
+      await saveRankingPreset(user.id, newPresetName.trim(), newWeights);
+      const updatedPresets = await loadRankingPresets(user.id);
+      setRankingPresets(updatedPresets);
+      setNewPresetName("");
+      setShowPresetSaveDialog(false);
+      toast({
+        title: "Preset saved",
+        description: `"${newPresetName.trim()}" has been saved successfully.`,
+      });
+    } catch (error) {
+      console.error("❌ Failed to save preset:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to save preset",
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  };
+
+  const handleLoadPreset = (preset: RankingPreset) => {
+    setYieldWeight(preset.weights.yield);
+    setStdDevWeight(preset.weights.stdDev);
+    setTotalReturnWeight(preset.weights.totalReturn);
+    setTotalReturnTimeframe(preset.weights.timeframe || "6mo");
+    setWeights(preset.weights);
+    toast({
+      title: "Preset loaded",
+      description: `"${preset.name}" has been loaded.`,
+    });
+  };
+
+  const handleDeletePreset = async (presetName: string) => {
+    if (!user?.id) return;
+
+    try {
+      await deleteRankingPreset(user.id, presetName);
+      const updatedPresets = await loadRankingPresets(user.id);
+      setRankingPresets(updatedPresets);
+      toast({
+        title: "Preset deleted",
+        description: `"${presetName}" has been deleted.`,
+      });
+    } catch (error) {
+      console.error("❌ Failed to delete preset:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to delete preset",
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  };
+
+  const applyRankings = async () => {
+    if (!isValid) {
+      toast({
+        variant: "destructive",
+        title: "Invalid weights",
+        description: "Total weight must equal 100%",
+      });
+      return;
+    }
+
+    const newWeights: RankingWeights = {
+      yield: yieldWeight,
+      stdDev: stdDevWeight,
+      totalReturn: totalReturnWeight,
+      timeframe: totalReturnTimeframe,
+    };
+
+    setWeights(newWeights);
+    setShowRankingPanel(false);
+
+    if (user?.id && isPremium) {
+      try {
+        await saveRankingWeights(user.id, newWeights);
+        toast({
+          title: "Rankings saved",
+          description: "Your custom rankings have been saved successfully.",
+        });
+      } catch (error) {
+        console.error("❌ Failed to save weights:", error);
+        toast({
+          variant: "destructive",
+          title: "Failed to save",
+          description: `Error: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+        });
+      }
+    }
   };
 
   const rankedETFs = rankETFs(etfData, weights);
@@ -310,6 +452,46 @@ const Index = () => {
                   </button>
                 </div>
 
+                {/* Presets Section */}
+                {rankingPresets.length > 0 && (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold text-foreground">
+                      Saved Presets
+                    </Label>
+                    <div className="max-h-48 overflow-y-auto pr-2 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        {rankingPresets.map((preset) => (
+                          <div
+                            key={preset.name}
+                            className="group relative flex items-center gap-2 p-3 rounded-lg border-2 border-slate-200 bg-white hover:border-primary hover:bg-primary/5 transition-all"
+                          >
+                            <button
+                              onClick={() => handleLoadPreset(preset)}
+                              className="flex-1 text-left min-w-0"
+                            >
+                              <p className="text-sm font-semibold text-foreground truncate">
+                                {preset.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                Y:{preset.weights.yield}% D:
+                                {preset.weights.stdDev}% R:
+                                {preset.weights.totalReturn}%
+                              </p>
+                            </button>
+                            <button
+                              onClick={() => handleDeletePreset(preset.name)}
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all flex-shrink-0"
+                              title="Delete preset"
+                            >
+                              <X className="h-4 w-4 text-red-600" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-6">
                   <div className="space-y-3 p-4 rounded-lg bg-slate-50 border border-slate-200">
                     <div className="flex items-center justify-between">
@@ -415,28 +597,82 @@ const Index = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 pt-4 border-t">
-                  <Button
-                    variant="outline"
-                    onClick={resetToDefaults}
-                    className="flex-1 border-2"
-                  >
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    Reset to Defaults
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      if (isGuest) {
-                        setShowUpgradeModal(true);
-                      } else {
-                        setShowRankingPanel(false);
-                      }
-                    }}
-                    className="flex-1"
-                    disabled={!isValid}
-                  >
-                    Apply Rankings
-                  </Button>
+                <div className="space-y-3 pt-4 border-t">
+                  {/* Save Preset Dialog */}
+                  {showPresetSaveDialog ? (
+                    <div className="p-4 rounded-lg border-2 border-primary bg-primary/5 space-y-3">
+                      <Label className="text-sm font-semibold text-foreground">
+                        Save Current Settings as Preset
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={newPresetName}
+                          onChange={(e) => setNewPresetName(e.target.value)}
+                          placeholder="Enter preset name..."
+                          className="flex-1 border-2"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSavePreset();
+                            if (e.key === "Escape") {
+                              setShowPresetSaveDialog(false);
+                              setNewPresetName("");
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <Button
+                          onClick={handleSavePreset}
+                          size="sm"
+                          disabled={!newPresetName.trim() || !isValid}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setShowPresetSaveDialog(false);
+                            setNewPresetName("");
+                          }}
+                          size="sm"
+                          variant="outline"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowPresetSaveDialog(true)}
+                      className="w-full border-2 border-dashed border-primary text-primary hover:bg-primary/10 hover:text-primary"
+                      disabled={!isValid || isGuest}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Save as Preset
+                    </Button>
+                  )}
+
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={resetToDefaults}
+                      className="flex-1 border-2"
+                    >
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Reset to Defaults
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (isGuest) {
+                          setShowUpgradeModal(true);
+                        } else {
+                          applyRankings();
+                        }
+                      }}
+                      className="flex-1"
+                      disabled={!isValid}
+                    >
+                      Apply Rankings
+                    </Button>
+                  </div>
                 </div>
               </div>
             </Card>

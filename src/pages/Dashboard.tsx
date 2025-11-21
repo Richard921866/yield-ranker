@@ -2356,36 +2356,38 @@ export default function Dashboard() {
                             <Label className="text-sm font-semibold text-foreground">
                               Saved Presets
                             </Label>
-                            <div className="grid grid-cols-2 gap-2">
-                              {rankingPresets.map((preset) => (
-                                <div
-                                  key={preset.name}
-                                  className="group relative flex items-center gap-2 p-3 rounded-lg border-2 border-slate-200 bg-white hover:border-primary hover:bg-primary/5 transition-all"
-                                >
-                                  <button
-                                    onClick={() => handleLoadPreset(preset)}
-                                    className="flex-1 text-left"
+                            <div className="max-h-48 overflow-y-auto pr-2 space-y-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                {rankingPresets.map((preset) => (
+                                  <div
+                                    key={preset.name}
+                                    className="group relative flex items-center gap-2 p-3 rounded-lg border-2 border-slate-200 bg-white hover:border-primary hover:bg-primary/5 transition-all"
                                   >
-                                    <p className="text-sm font-semibold text-foreground truncate">
-                                      {preset.name}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      Y:{preset.weights.yield}% D:
-                                      {preset.weights.stdDev}% R:
-                                      {preset.weights.totalReturn}%
-                                    </p>
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      handleDeletePreset(preset.name)
-                                    }
-                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all"
-                                    title="Delete preset"
-                                  >
-                                    <X className="h-4 w-4 text-red-600" />
-                                  </button>
-                                </div>
-                              ))}
+                                    <button
+                                      onClick={() => handleLoadPreset(preset)}
+                                      className="flex-1 text-left min-w-0"
+                                    >
+                                      <p className="text-sm font-semibold text-foreground truncate">
+                                        {preset.name}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground truncate">
+                                        Y:{preset.weights.yield}% D:
+                                        {preset.weights.stdDev}% R:
+                                        {preset.weights.totalReturn}%
+                                      </p>
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleDeletePreset(preset.name)
+                                      }
+                                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all flex-shrink-0"
+                                      title="Delete preset"
+                                    >
+                                      <X className="h-4 w-4 text-red-600" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         )}
@@ -2552,7 +2554,7 @@ export default function Dashboard() {
                             <Button
                               variant="outline"
                               onClick={() => setShowPresetSaveDialog(true)}
-                              className="w-full border-2 border-dashed border-primary text-primary hover:bg-primary/10"
+                              className="w-full border-2 border-dashed border-primary text-primary hover:bg-primary/10 hover:text-primary"
                               disabled={!isValid}
                             >
                               <Plus className="h-4 w-4 mr-2" />
