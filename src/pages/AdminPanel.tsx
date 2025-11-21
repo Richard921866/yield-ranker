@@ -673,60 +673,17 @@ const AdminPanel = () => {
                           onClick={() => {
                             if (profiles.length === 0) return;
                             
-                            // Helper function to escape CSV values
-                            const escapeCSV = (value: string | null | undefined): string => {
-                              const stringValue = String(value || "");
-                              if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-                                return `"${stringValue.replace(/"/g, '""')}"`;
-                              }
-                              return stringValue;
-                            };
-                            
-                            // Helper function to split name into first and last name
-                            const splitName = (fullName: string | null | undefined): { firstName: string; lastName: string } => {
-                              if (!fullName) return { firstName: "", lastName: "" };
-                              const parts = fullName.trim().split(/\s+/);
-                              if (parts.length === 1) return { firstName: parts[0], lastName: "" };
-                              const lastName = parts.pop() || "";
-                              const firstName = parts.join(" ");
-                              return { firstName, lastName };
-                            };
-                            
-                            // Mailchimp-friendly CSV format: Email Address, First Name, Last Name, Tags, Role, Signup Date
-                            const headers = ["Email Address", "First Name", "Last Name", "Tags", "Role", "Signup Date"];
-                            const csvRows = [headers.join(",")];
-                            
-                            // Add each profile as a row
-                            profiles.forEach((p) => {
-                              const { firstName, lastName } = splitName(p.display_name);
-                              const role = p.role === "admin" ? "Admin" : "Premium";
-                              const tags = p.role === "admin" ? "Admin" : "Premium User";
-                              const signupDate = p.created_at ? new Date(p.created_at).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: '2-digit',
-                                day: '2-digit'
-                              }) : "";
-                              
-                              const row = [
-                                escapeCSV(p.email),
-                                escapeCSV(firstName),
-                                escapeCSV(lastName),
-                                escapeCSV(tags),
-                                escapeCSV(role),
-                                escapeCSV(signupDate)
-                              ];
-                              
-                              csvRows.push(row.join(","));
-                            });
+                            // Simple CSV with just emails - one email per line
+                            const emails = profiles.map((p) => p.email).filter(Boolean);
+                            const csvContent = emails.join("\n");
                             
                             // Create blob and download
-                            const csvContent = csvRows.join("\n");
                             const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
                             const link = document.createElement("a");
                             const url = URL.createObjectURL(blob);
                             const dateStr = new Date().toISOString().split('T')[0];
                             link.setAttribute("href", url);
-                            link.setAttribute("download", `mailchimp_users_export_${dateStr}.csv`);
+                            link.setAttribute("download", `emails_${dateStr}.csv`);
                             link.style.visibility = "hidden";
                             document.body.appendChild(link);
                             link.click();
@@ -735,7 +692,7 @@ const AdminPanel = () => {
                             
                             toast({
                               title: "CSV Downloaded",
-                              description: `Exported ${profiles.length} users to CSV file. Ready for Mailchimp import!`,
+                              description: `Exported ${emails.length} emails to CSV file.`,
                             });
                           }}
                           disabled={loading || profiles.length === 0}
