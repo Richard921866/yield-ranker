@@ -30,7 +30,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
+    <TooltipProvider delayDuration={200}>
       <Toaster />
       <Sonner />
       <BrowserRouter>

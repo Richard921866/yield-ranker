@@ -2316,13 +2316,21 @@ export default function Dashboard() {
                               </tr>
                               <tr className="bg-slate-50">
                                 <th className="h-6 px-1 text-center sticky left-0 z-30 bg-slate-50 border-r border-slate-200">
-                                  <UITooltip>
+                                  <UITooltip delayDuration={200}>
                                     <TooltipTrigger asChild>
-                                      <div className="flex items-center justify-center">
-                                        <Info className="h-5 w-5 mx-auto text-slate-600 hover:text-primary transition-colors cursor-help" />
-                                      </div>
+                                      <button
+                                        type="button"
+                                        className="flex items-center justify-center w-full h-full hover:bg-slate-100 rounded transition-colors"
+                                        aria-label="Favorites help"
+                                      >
+                                        <Info className="h-5 w-5 mx-auto text-slate-600 hover:text-primary transition-colors" />
+                                      </button>
                                     </TooltipTrigger>
-                                    <TooltipContent side="top" className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg max-w-[200px]">
+                                    <TooltipContent 
+                                      side="top" 
+                                      sideOffset={8}
+                                      className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg max-w-[200px]"
+                                    >
                                       <p className="text-center">Click the star icon in any row to add ETFs to your favorites</p>
                                     </TooltipContent>
                                   </UITooltip>
