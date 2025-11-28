@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Search, TrendingUp, FileText, BookOpen, X } from "lucide-react";
 import { Input } from "./ui/input";
-import { mockETFs } from "@/data/mockETFs";
+import { fetchETFData } from "@/services/etfData";
+import { ETF } from "@/types/etf";
 
 export const SearchDropdown = () => {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [etfList, setEtfList] = useState<ETF[]>([]);
   const navigate = useNavigate();
   const location = useLocation();
   const searchRef = useRef<HTMLDivElement>(null);
@@ -16,9 +18,14 @@ export const SearchDropdown = () => {
     { name: "Resources", path: "/resources", icon: BookOpen },
   ];
 
-  const filteredETFs = mockETFs.filter((etf) =>
+  // Load ETF data on mount
+  useEffect(() => {
+    fetchETFData().then(setEtfList).catch(console.error);
+  }, []);
+
+  const filteredETFs = etfList.filter((etf) =>
     etf.symbol.toLowerCase().includes(query.toLowerCase()) ||
-    etf.name.toLowerCase().includes(query.toLowerCase())
+    (etf.name && etf.name.toLowerCase().includes(query.toLowerCase()))
   ).slice(0, 6);
 
   const filteredPages = pages.filter((page) =>

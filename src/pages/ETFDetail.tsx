@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PerformanceChart } from "@/components/PerformanceChart";
+import { DividendHistory } from "@/components/DividendHistory";
 import { ArrowLeft, TrendingUp, TrendingDown, Plus, X, Loader2, BarChart3, LineChartIcon } from "lucide-react";
 import {
   fetchETFData,
@@ -15,12 +16,8 @@ import {
 } from "@/services/etfData";
 import { ETF } from "@/types/etf";
 import {
-  AreaChart,
-  Area,
   LineChart,
   Line,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -144,7 +141,7 @@ const ETFDetail = () => {
   const minValue = chartValues.length > 0 ? Math.min(...chartValues, 0) : -10;
   const maxValue = chartValues.length > 0 ? Math.max(...chartValues, 0) : 10;
 
-  const timeframes = ["1D", "1W", "1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y", "10Y", "20Y", "MAX"];
+  const timeframes: ComparisonTimeframe[] = ["1D", "1W", "1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y", "10Y", "20Y", "MAX"];
 
   const keyMetrics = [
     { label: "LAST CLOSE PRICE", value: `$${etf.price.toFixed(2)}` },
@@ -213,7 +210,7 @@ const ETFDetail = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div className="flex-1">
                 <h2 className="text-xl font-semibold mb-2">
-                  {etf.symbol} {chartType === "price" ? "Price" : "Total Return"} Chart (Yahoo Finance)
+                  {etf.symbol} {chartType === "price" ? "Price" : "Total Return"} Chart
                 </h2>
                 <div className="flex gap-2 flex-wrap">
                   <button
@@ -376,117 +373,207 @@ const ETFDetail = () => {
               </div>
             )}
 
-            <ResponsiveContainer width="100%" height={400}>
-              {comparisonETFs.length > 0 ? (
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis 
-                    dataKey="time" 
-                    stroke="#94a3b8" 
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis 
-                    stroke="#94a3b8" 
-                    fontSize={12} 
-                    domain={chartType === "totalReturn" ? [minValue, maxValue] : [0, 'auto']}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => 
-                      chartType === "totalReturn" 
-                        ? `${value.toFixed(1)}%`
-                        : `$${value.toFixed(2)}`
-                    }
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "rgba(255, 255, 255, 0.98)",
-                      border: "none",
-                      borderRadius: "12px",
-                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-                      padding: "12px 16px",
-                    }}
-                    labelStyle={{ color: "#64748b", fontSize: "12px", marginBottom: "4px" }}
-                    formatter={(value: number) => [
-                      chartType === "totalReturn"
-                        ? `${value.toFixed(2)}%`
-                        : `$${value.toFixed(2)}`,
-                      chartType === "totalReturn" ? "Return" : "Price",
-                    ]}
-                  />
-                  {[etf.symbol, ...comparisonETFs].map((sym, index) => {
-                    const colors = ["#3b82f6", "#f97316", "#8b5cf6", "#10b981", "#f59e0b"];
-                    const dataKey = chartType === "totalReturn" ? `return_${sym}` : `price_${sym}`;
-                    return (
+            {/* Chart with Right-Side Return Legend */}
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Chart Area */}
+              <div className="flex-1 min-w-0 order-2 lg:order-1">
+                <ResponsiveContainer width="100%" height={400}>
+                  {comparisonETFs.length > 0 ? (
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                      <XAxis 
+                        dataKey="time" 
+                        stroke="#94a3b8" 
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis 
+                        stroke="#94a3b8" 
+                        fontSize={12} 
+                        domain={chartType === "totalReturn" ? [minValue, maxValue] : [0, 'auto']}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(value) => 
+                          chartType === "totalReturn" 
+                            ? `${value.toFixed(1)}%`
+                            : `$${value.toFixed(2)}`
+                        }
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "rgba(255, 255, 255, 0.98)",
+                          border: "none",
+                          borderRadius: "12px",
+                          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                          padding: "12px 16px",
+                        }}
+                        labelStyle={{ color: "#64748b", fontSize: "12px", marginBottom: "4px" }}
+                        formatter={(value: number) => [
+                          chartType === "totalReturn"
+                            ? `${value.toFixed(2)}%`
+                            : `$${value.toFixed(2)}`,
+                          chartType === "totalReturn" ? "Return" : "Price",
+                        ]}
+                      />
+                      {[etf.symbol, ...comparisonETFs].map((sym, index) => {
+                        const colors = ["#3b82f6", "#f97316", "#8b5cf6", "#10b981", "#f59e0b"];
+                        const dataKey = chartType === "totalReturn" ? `return_${sym}` : `price_${sym}`;
+                        return (
+                          <Line
+                            key={sym}
+                            type="monotone"
+                            dataKey={dataKey}
+                            stroke={colors[index % colors.length]}
+                            strokeWidth={2.5}
+                            dot={false}
+                            name={sym}
+                          />
+                        );
+                      })}
+                    </LineChart>
+                  ) : (
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                      <XAxis 
+                        dataKey="time" 
+                        stroke="#94a3b8" 
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis 
+                        stroke="#94a3b8" 
+                        fontSize={12} 
+                        domain={chartType === "totalReturn" ? [minValue, maxValue] : ['auto', 'auto']}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(value) =>
+                          chartType === "totalReturn"
+                            ? `${value.toFixed(1)}%`
+                            : `$${value.toFixed(2)}`
+                        }
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "rgba(255, 255, 255, 0.98)",
+                          border: "none",
+                          borderRadius: "12px",
+                          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                          padding: "12px 16px",
+                        }}
+                        labelStyle={{ color: "#64748b", fontSize: "12px", marginBottom: "4px" }}
+                        formatter={(value: number) => [
+                          chartType === "totalReturn"
+                            ? `${value.toFixed(2)}%`
+                            : `$${value.toFixed(2)}`,
+                          chartType === "totalReturn" ? "Return" : "Price",
+                        ]}
+                      />
                       <Line
-                        key={sym}
                         type="monotone"
-                        dataKey={dataKey}
-                        stroke={colors[index % colors.length]}
+                        dataKey="price"
+                        stroke={isPositive ? "#10b981" : "#ef4444"}
                         strokeWidth={2.5}
                         dot={false}
-                        name={sym}
+                        name={etf.symbol}
                       />
+                    </LineChart>
+                  )}
+                </ResponsiveContainer>
+              </div>
+
+              {/* Right Side - Return Percentages Legend */}
+              <div className="w-full lg:w-52 flex-shrink-0 bg-slate-50 rounded-lg p-4 border border-slate-200 order-1 lg:order-2">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                  {chartType === "totalReturn" ? "Total Return" : "Price Return"} ({selectedTimeframe})
+                </h4>
+                
+                {isChartLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                <div className="space-y-3">
+                  {[etf.symbol, ...comparisonETFs].map((sym, index) => {
+                    const colors = ["#3b82f6", "#f97316", "#8b5cf6", "#10b981", "#f59e0b"];
+                    const color = colors[index % colors.length];
+                    // Check if this is the only symbol being shown (no comparisons)
+                    const isSingleView = comparisonETFs.length === 0;
+                    
+                    // Calculate accurate return from chart data
+                    let returnValue: number | null = null;
+                    if (chartData.length > 0) {
+                      const lastPoint = chartData[chartData.length - 1];
+                      const firstPoint = chartData[0];
+                      
+                      if (chartType === "totalReturn") {
+                        // For total return, use the return value directly (already a percentage)
+                        if (isSingleView) {
+                          // Single ETF view uses 'price' key which is actually the return %
+                          returnValue = lastPoint.price ?? null;
+                        } else {
+                          returnValue = lastPoint[`return_${sym}`] ?? null;
+                        }
+                      } else {
+                        // For price return, calculate % change from start to end
+                        let startPrice: number | undefined;
+                        let endPrice: number | undefined;
+                        
+                        if (isSingleView) {
+                          startPrice = firstPoint.price;
+                          endPrice = lastPoint.price;
+                        } else {
+                          startPrice = firstPoint[`price_${sym}`];
+                          endPrice = lastPoint[`price_${sym}`];
+                        }
+                        
+                        if (startPrice && endPrice && startPrice > 0) {
+                          returnValue = ((endPrice - startPrice) / startPrice) * 100;
+                        }
+                      }
+                    }
+                    
+                    const isPositiveReturn = returnValue !== null && returnValue >= 0;
+                    
+                    return (
+                      <div key={sym} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: color }}
+                          />
+                          <span className="font-semibold text-sm">{sym}</span>
+                        </div>
+                        <span className={`font-bold text-sm tabular-nums ${
+                          returnValue === null 
+                            ? "text-muted-foreground" 
+                            : isPositiveReturn 
+                              ? "text-green-600" 
+                              : "text-red-600"
+                        }`}>
+                          {returnValue !== null 
+                            ? `${isPositiveReturn ? "+" : ""}${returnValue.toFixed(2)}%`
+                            : "N/A"
+                          }
+                        </span>
+                      </div>
                     );
                   })}
-                </LineChart>
-              ) : (
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis 
-                    dataKey="time" 
-                    stroke="#94a3b8" 
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis 
-                    stroke="#94a3b8" 
-                    fontSize={12} 
-                    domain={chartType === "totalReturn" ? [minValue, maxValue] : [0, 'auto']}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) =>
-                      chartType === "totalReturn"
-                        ? `${value.toFixed(1)}%`
-                        : `$${value.toFixed(2)}`
+                </div>
+                )}
+                
+                {/* Period Summary */}
+                <div className="mt-4 pt-3 border-t border-slate-200">
+                  <p className="text-xs text-muted-foreground">
+                    {chartType === "totalReturn" 
+                      ? "Total return includes dividends reinvested." 
+                      : "Price return excludes dividends."
                     }
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "rgba(255, 255, 255, 0.98)",
-                      border: "none",
-                      borderRadius: "12px",
-                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-                      padding: "12px 16px",
-                    }}
-                    labelStyle={{ color: "#64748b", fontSize: "12px", marginBottom: "4px" }}
-                    formatter={(value: number) => [
-                      chartType === "totalReturn"
-                        ? `${value.toFixed(2)}%`
-                        : `$${value.toFixed(2)}`,
-                      chartType === "totalReturn" ? "Return" : "Price",
-                    ]}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="price"
-                    stroke={isPositive ? "#10b981" : "#ef4444"}
-                    strokeWidth={2.5}
-                    fill="url(#colorPrice)"
-                    fillOpacity={1}
-                    dot={false}
-                  />
-                </AreaChart>
-              )}
-            </ResponsiveContainer>
+                  </p>
+                </div>
+              </div>
+            </div>
               </TabsContent>
             </Tabs>
           </Card>
@@ -520,6 +607,11 @@ const ETFDetail = () => {
               ))}
             </div>
           </Card>
+        </div>
+
+        {/* Dividend History Section */}
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 delay-400 mt-8">
+          <DividendHistory ticker={etf.symbol} annualDividend={etf.annualDividend} />
         </div>
       </main>
     </div>

@@ -1,8 +1,10 @@
 import { ETF } from "@/types/etf";
-import { mockETFs } from "@/data/mockETFs";
 
 const FINNHUB_API_KEY = 'd4ardjpr01qseda32skgd4ardjpr01qseda32sl0';
 const FINNHUB_WS_URL = `wss://ws.finnhub.io?token=${FINNHUB_API_KEY}`;
+
+// Store ETFs for updates
+let cachedETFs: ETF[] = [];
 
 type PriceUpdate = {
   symbol: string;
@@ -180,17 +182,18 @@ class FinnhubWebSocketService {
 // Singleton instance
 const finnhubWS = new FinnhubWebSocketService();
 
-export const initializeWebSocket = () => {
+export const initializeWebSocket = (etfs: ETF[]) => {
+  cachedETFs = etfs;
   finnhubWS.connect();
   
   // Subscribe to all ETF symbols
-  const symbols = mockETFs.map(etf => etf.symbol);
+  const symbols = etfs.map(etf => etf.symbol);
   finnhubWS.subscribeToSymbols(symbols);
 };
 
 export const subscribeToETFUpdates = (callback: (etfs: ETF[]) => void) => {
   return finnhubWS.subscribe((priceUpdates) => {
-    const updatedETFs = mockETFs.map(etf => {
+    const updatedETFs = cachedETFs.map(etf => {
       const priceUpdate = priceUpdates.get(etf.symbol);
       
       if (priceUpdate) {
@@ -206,6 +209,10 @@ export const subscribeToETFUpdates = (callback: (etfs: ETF[]) => void) => {
 
     callback(updatedETFs);
   });
+};
+
+export const updateCachedETFs = (etfs: ETF[]) => {
+  cachedETFs = etfs;
 };
 
 export const disconnectWebSocket = () => {

@@ -100,16 +100,17 @@ export const fetchETFDataWithMetadata = async (): Promise<ETFDataResponse> => {
   
   try {
     const response = await fetch(`${API_BASE_URL}/api/etfs`, {
-      signal: AbortSignal.timeout(5000)
+      signal: AbortSignal.timeout(30000)  // 30 seconds timeout
     });
     if (!response.ok) {
       throw new Error("Failed to fetch ETF data");
     }
     const json = await response.json();
-    const dbEtfs: DatabaseETF[] = json.data;
+    // Handle both array response and wrapped response
+    const dbEtfs: DatabaseETF[] = Array.isArray(json) ? json : (json.data || []);
     const etfs: ETF[] = dbEtfs.map(mapDatabaseETFToETF);
-    const lastUpdated = json.last_updated || null;
-    const lastUpdatedTimestamp = json.last_updated_timestamp || null;
+    const lastUpdated = Array.isArray(json) ? null : (json.last_updated || null);
+    const lastUpdatedTimestamp = Array.isArray(json) ? null : (json.last_updated_timestamp || null);
     
     dataCache.set("__ALL__", { 
       data: etfs as unknown as ETF, 
@@ -124,35 +125,25 @@ export const fetchETFDataWithMetadata = async (): Promise<ETFDataResponse> => {
       lastUpdatedTimestamp,
     };
   } catch (error) {
-    console.warn('[ETF Data] Backend not available, using mock data. Error:', error);
-    const { mockETFs } = await import('@/data/mockETFs');
-    return {
-      etfs: mockETFs,
-      lastUpdated: null,
-      lastUpdatedTimestamp: null,
-    };
+    console.error('[ETF Data] Failed to fetch ETF data from backend:', error);
+    throw new Error('Unable to load ETF data. Please ensure the backend server is running.');
   }
 };
 
 export const fetchSingleETF = async (symbol: string): Promise<ETF | null> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/etfs/${symbol.toUpperCase()}`, {
-      signal: AbortSignal.timeout(5000)
-    });
-    if (!response.ok) {
-      if (response.status === 404) {
-        return null;
-      }
-      throw new Error("Failed to fetch ETF");
+  const response = await fetch(`${API_BASE_URL}/api/etfs/${symbol.toUpperCase()}`, {
+    signal: AbortSignal.timeout(30000)  // 30 seconds timeout
+  });
+  if (!response.ok) {
+    if (response.status === 404) {
+      return null;
     }
-    const json = await response.json();
-    const dbEtf: DatabaseETF = json.data;
-    return mapDatabaseETFToETF(dbEtf);
-  } catch (error) {
-    console.warn('[ETF Data] Backend not available for single ETF, falling back to all data');
-    const all = await fetchETFData();
-    return all.find(e => e.symbol === symbol.toUpperCase()) || null;
+    throw new Error("Failed to fetch ETF");
   }
+  const json = await response.json();
+  // Handle both direct object and wrapped response
+  const dbEtf: DatabaseETF = json.data || json;
+  return mapDatabaseETFToETF(dbEtf);
 };
 
 export const clearETFCache = () => {
@@ -190,18 +181,37 @@ export const fetchComparisonData = async (
   symbols: string[],
   timeframe: ComparisonTimeframe,
 ): Promise<ComparisonResponse> => {
-  const response = await fetch(`${API_BASE_URL}/api/yahoo-finance`, {
+  // Use Tiingo live comparison API
+  const response = await fetch(`${API_BASE_URL}/api/tiingo/live/compare`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ action: "fetchComparisonData", symbols, timeframe }),
+    body: JSON.stringify({ tickers: symbols, period: timeframe }),
   });
   if (!response.ok) {
-    throw new Error("Failed to fetch comparison data");
+    throw new Error("Failed to fetch comparison data from Tiingo");
   }
   const json = await response.json();
-  return json.data as ComparisonResponse;
+  
+  // Transform Tiingo response to match expected format
+  const transformedData: ComparisonResponse = {
+    symbols: json.tickers || [],
+    timeframe,
+    data: {},
+  };
+  
+  for (const ticker of transformedData.symbols) {
+    const tickerData = json.data[ticker];
+    if (tickerData) {
+      transformedData.data[ticker] = {
+        timestamps: tickerData.timestamps,
+        closes: tickerData.adjCloses, // Use adjusted close for total return
+      };
+    }
+  }
+  
+  return transformedData;
 };
 
 export const generateChartData = (
@@ -283,49 +293,5 @@ export const generateChartData = (
   return result;
 };
 
-export const fetchQuickUpdates = async (
-  symbols: string[],
-): Promise<Record<string, { price: number | null; priceChange: number | null }>> => {
-  const response = await fetch(`${API_BASE_URL}/api/yahoo-finance/quick-update`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ symbols }),
-  });
-  if (!response.ok) {
-    throw new Error("Failed to fetch quick updates");
-  }
-  const json = await response.json();
-  const data = json.data as Record<
-    string,
-    { symbol: string; price: number | null; priceChange: number | null }
-  >;
-  const result: Record<string, { price: number | null; priceChange: number | null }> = {};
-  Object.keys(data).forEach((key) => {
-    const q = data[key];
-    result[key] = { price: q.price ?? null, priceChange: q.priceChange ?? null };
-  });
-  return result;
-};
-
-export type DividendHistoryPoint = {
-  date: string;
-  dividend: number;
-};
-
-export const fetchDividendHistory = async (
-  symbol: string,
-): Promise<DividendHistoryPoint[]> => {
-  const response = await fetch(
-    `${API_BASE_URL}/api/yahoo-finance/dividends?symbol=${encodeURIComponent(symbol)}`,
-  );
-  if (!response.ok) {
-    throw new Error("Failed to fetch dividend history");
-  }
-  const json = await response.json();
-  const data = json.data as { symbol: string; dividends: DividendHistoryPoint[] };
-  const dividends = data.dividends || [];
-  dividends.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  return dividends;
-};
+// Note: Quick updates and dividend history are now fetched via Tiingo API
+// Use tiingoApi.ts for these functions

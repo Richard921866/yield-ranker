@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { ETF } from "@/types/etf";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { ArrowUpDown, ChevronDown, ChevronUp, Info, Star, LineChart, X, Lock, Sliders } from "lucide-react";
@@ -31,6 +32,7 @@ export const ETFTable = ({
   favorites = new Set(),
   onToggleFavorite,
 }: ETFTableProps) => {
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const [selectedSymbol, setSelectedSymbol] = useState<string>(
     etfs[0]?.symbol || ""
@@ -292,7 +294,13 @@ export const ETFTable = ({
                     data-symbol-cell
                     className="py-1 px-1.5 align-middle sticky left-0 z-10 border-r border-slate-200 font-bold text-primary text-xs transition-all"
                   >
-                    {etf.symbol}
+                    <button
+                      onClick={() => navigate(`/etf/${etf.symbol}`)}
+                      className="hover:underline hover:text-primary/80 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1"
+                      title={`View ${etf.symbol} details and charts`}
+                    >
+                      {etf.symbol}
+                    </button>
                   </td>
                   <td className="py-1 px-1.5 align-middle text-xs text-muted-foreground uppercase font-medium">
                     {etf.issuer}
