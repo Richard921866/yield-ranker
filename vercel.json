@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://stunning-adaptation-production-8960.up.railway.app"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
