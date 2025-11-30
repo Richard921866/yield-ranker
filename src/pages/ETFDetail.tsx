@@ -34,7 +34,7 @@ const ETFDetail = () => {
   const [allETFs, setAllETFs] = useState<ETF[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTimeframe, setSelectedTimeframe] = useState<ComparisonTimeframe>("6M");
-  const [chartType, setChartType] = useState<ChartType>("totalReturn");
+  const [chartType, setChartType] = useState<ChartType>("price");
   const [comparisonETFs, setComparisonETFs] = useState<string[]>([]);
   const [showComparisonSelector, setShowComparisonSelector] = useState(false);
   const [chartData, setChartData] = useState<any[]>([]);
@@ -43,7 +43,8 @@ const ETFDetail = () => {
   const [hasLoadedLiveChart, setHasLoadedLiveChart] = useState(false);
   const [lastUpdated] = useState(new Date().toLocaleString('en-US', { 
     month: 'short', day: 'numeric', year: 'numeric', 
-    hour: '2-digit', minute: '2-digit' 
+    hour: '2-digit', minute: '2-digit',
+    hour12: true
   }));
 
   const toggleComparison = (compSymbol: string) => {

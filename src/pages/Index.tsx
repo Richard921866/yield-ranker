@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, X, Star, Lock, Sliders, Plus } from "lucide-react";
+import { RotateCcw, X, Star, Lock, Sliders, Plus, Clock } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
@@ -74,14 +74,14 @@ const Index = () => {
         });
         setEtfData(deduplicated);
         
-        // Format the last updated timestamp
+        // Format the last updated timestamp to match ETFDetail format
         if (result.lastUpdatedTimestamp) {
           const date = new Date(result.lastUpdatedTimestamp);
           const formatted = date.toLocaleString("en-US", {
-            month: "numeric",
+            month: "short",
             day: "numeric",
             year: "numeric",
-            hour: "numeric",
+            hour: "2-digit",
             minute: "2-digit",
             hour12: true,
           });
@@ -444,8 +444,18 @@ const Index = () => {
                   Covered Call Option ETFs
                 </h3>
                 <p className="text-xs text-muted-foreground leading-tight">
-                  {lastDataUpdate ? `Last updated: ${lastDataUpdate}` : "End of Day (EOD) Data"}
-                  <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
+                  {lastDataUpdate ? (
+                    <>
+                      <Clock className="h-3 w-3 inline mr-1" />
+                      Last updated: {lastDataUpdate}
+                      <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
+                    </>
+                  ) : (
+                    <>
+                      End of Day (EOD) Data
+                      <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
+                    </>
+                  )}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2 pt-0.5">

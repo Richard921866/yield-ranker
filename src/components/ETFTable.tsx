@@ -326,10 +326,17 @@ export const ETFTable = ({
                   }`}>
                     {etf.priceChange != null ? `${etf.priceChange >= 0 ? '+' : ''}${etf.priceChange.toFixed(2)}` : 'N/A'}
                   </td>
-                  <td 
-                    className="py-1 px-1.5 align-middle text-center tabular-nums text-xs text-foreground font-medium"
-                  >
-                    {etf.dividend != null ? etf.dividend.toFixed(4) : 'N/A'}
+                  <td className="py-1 px-1.5 align-middle text-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/etf/${etf.symbol}`);
+                      }}
+                      className="tabular-nums text-xs text-primary font-medium hover:underline cursor-pointer transition-colors"
+                      title="Click to view dividend history"
+                    >
+                      {etf.dividend != null ? etf.dividend.toFixed(4) : 'N/A'}
+                    </button>
                   </td>
                   <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs text-muted-foreground">
                     {etf.numPayments}

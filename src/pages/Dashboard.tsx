@@ -42,6 +42,7 @@ import {
   Lock,
   ShieldCheck,
   RefreshCw,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -1278,7 +1279,7 @@ export default function Dashboard() {
                             : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                         }`}
                       >
-                        Price Chart
+                        Price Return Chart
                       </button>
                       <button
                         onClick={() => setChartType("totalReturn")}
@@ -2237,10 +2238,19 @@ export default function Dashboard() {
                           <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">
                             Covered Call Option ETFs
                           </h3>
-                          <span className="text-xs text-muted-foreground leading-tight">
-                            {lastDataUpdate
-                              ? `EOD - ${lastDataUpdate}`
-                              : "End of Day (EOD) Data"}
+                          <span className="text-xs text-muted-foreground leading-tight flex items-center gap-1">
+                            {lastDataUpdate ? (
+                              <>
+                                <Clock className="h-3 w-3" />
+                                Last updated: {lastDataUpdate}
+                                <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
+                              </>
+                            ) : (
+                              <>
+                                End of Day (EOD) Data
+                                <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
+                              </>
+                            )}
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 pt-0.5">
@@ -2497,8 +2507,17 @@ export default function Dashboard() {
                                     {etf.priceChange >= 0 ? "+" : ""}
                                     {etf.priceChange.toFixed(2)}
                                   </td>
-                                  <td className="py-0.5 px-1 align-middle text-center tabular-nums text-xs text-foreground font-medium">
-                                    {etf.dividend.toFixed(4)}
+                                  <td className="py-0.5 px-1 align-middle text-center">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/etf/${etf.symbol}`);
+                                      }}
+                                      className="tabular-nums text-xs text-primary font-medium hover:underline cursor-pointer transition-colors"
+                                      title="Click to view dividend history"
+                                    >
+                                      {etf.dividend.toFixed(4)}
+                                    </button>
                                   </td>
                                   <td className="py-0.5 px-1 align-middle text-center tabular-nums text-xs text-muted-foreground">
                                     {etf.numPayments}
