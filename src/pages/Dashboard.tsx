@@ -1288,10 +1288,10 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <Card className="p-4 sm:p-6 border-2 border-slate-200 overflow-auto relative z-0">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 relative z-0">
-                  <div className="flex-1 min-w-0 relative z-0" style={{ zIndex: 0 }}>
-                    <h2 className="text-lg sm:text-xl font-semibold mb-2 relative z-0" style={{ zIndex: 0, position: 'relative' }}>
+              <Card className="p-4 sm:p-6 border-2 border-slate-200 overflow-auto relative" style={{ zIndex: 1 }}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 relative" style={{ zIndex: 1 }}>
+                  <div className="flex-1 min-w-0 relative" style={{ zIndex: 1 }}>
+                    <h2 className="text-lg sm:text-xl font-semibold mb-2 relative" style={{ zIndex: 1 }}>
                       {selectedETF.symbol}{" "}
                       {chartType === "price" ? "Price Return" : "Total Return"} Chart
                     </h2>
@@ -1733,7 +1733,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-slate-50 flex">
       {mobileSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-[90] lg:hidden"
           onClick={() => setMobileSidebarOpen(false)}
         />
       )}
@@ -1742,7 +1742,7 @@ export default function Dashboard() {
         className={`${
           sidebarCollapsed ? "w-16" : "w-64"
         } bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0 transition-all duration-300 ${
-          mobileSidebarOpen ? "fixed left-0 top-0 z-50" : "hidden lg:flex"
+          mobileSidebarOpen ? "fixed left-0 top-0 z-[100]" : "hidden lg:flex"
         }`}
       >
         <div
