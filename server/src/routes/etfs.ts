@@ -256,15 +256,26 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     const staticResult = await supabase
       .from('etf_static')
       .select('*')
-      .order('ticker', { ascending: true });
+      .order('ticker', { ascending: true })
+      .limit(10000);
 
     const legacyResult = await supabase
       .from('etfs')
       .select('*')
-      .order('symbol', { ascending: true });
+      .order('symbol', { ascending: true })
+      .limit(10000);
+
+    if (staticResult.error) {
+      logger.error('Routes', `Error fetching etf_static: ${staticResult.error.message}`);
+    }
+    if (legacyResult.error) {
+      logger.error('Routes', `Error fetching etfs: ${legacyResult.error.message}`);
+    }
 
     const staticData = staticResult.data || [];
     const legacyData = legacyResult.data || [];
+    
+    logger.info('Routes', `Fetched ${staticData.length} from etf_static, ${legacyData.length} from etfs`);
 
     const preferValue = (a: any, b: any): any => {
       if (a !== null && a !== undefined && a !== 0 && a !== '0' && a !== '') {
@@ -301,7 +312,7 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
       const legacyItem = legacyMap.get(ticker);
       
       if (legacyItem) {
-        mergedMap.set(ticker, {
+        const merged = {
           ticker: staticItem.ticker,
           symbol: staticItem.ticker,
           issuer: preferValue(staticItem.issuer, legacyItem.issuer),
@@ -345,7 +356,8 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
           total_return_3m: preferNumeric(staticItem.tr_drip_3m, legacyItem.total_return_3m),
           total_return_1m: preferNumeric(staticItem.tr_drip_1m, legacyItem.total_return_1m),
           total_return_1w: preferNumeric(staticItem.tr_drip_1w, legacyItem.total_return_1w),
-        });
+        };
+        mergedMap.set(ticker, merged);
       } else {
         mergedMap.set(ticker, {
           ...staticItem,
