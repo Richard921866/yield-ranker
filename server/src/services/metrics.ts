@@ -12,6 +12,7 @@ import {
   getLatestPrice,
   getPriceHistory,
   getDividendHistory,
+  getDividendsFromPrices,
   getETFStatic,
   getAllTickers,
 } from './database.js';
@@ -279,8 +280,11 @@ export async function calculateMetrics(ticker: string): Promise<ETFMetrics> {
   const week52High = closes.length > 0 ? Math.max(...closes) : null;
   const week52Low = closes.length > 0 ? Math.min(...closes) : null;
   
-  // Get dividend data
-  const dividends = await getDividendHistory(upperTicker);
+  // Get dividend data - prefer prices_daily.div_cash, fallback to dividends_detail
+  let dividends = await getDividendsFromPrices(upperTicker);
+  if (dividends.length === 0) {
+    dividends = await getDividendHistory(upperTicker);
+  }
   
   // Calculate frequency-proof dividend volatility
   const volMetrics = calculateDividendVolatility(dividends, 3);

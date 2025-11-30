@@ -292,6 +292,48 @@ export async function getDividendHistory(
   return (data ?? []) as DividendRecord[];
 }
 
+/**
+ * Get dividends from prices_daily.div_cash column (where div_cash > 0)
+ * This is the primary source for dividend data from Tiingo
+ */
+export async function getDividendsFromPrices(
+  ticker: string,
+  startDate?: string
+): Promise<DividendRecord[]> {
+  const db = getSupabase();
+  
+  let query = db
+    .from('prices_daily')
+    .select('ticker, date, div_cash')
+    .eq('ticker', ticker.toUpperCase())
+    .gt('div_cash', 0)
+    .order('date', { ascending: false });
+  
+  if (startDate) {
+    query = query.gte('date', startDate);
+  }
+  
+  const { data, error } = await query;
+  
+  if (error) {
+    logger.error('Database', `Error fetching dividends from prices for ${ticker}: ${error.message}`);
+    return [];
+  }
+  
+  // Map price records to dividend records
+  return (data ?? []).map((row: { ticker: string; date: string; div_cash: number }) => ({
+    ticker: row.ticker,
+    ex_date: row.date,
+    div_cash: row.div_cash,
+    pay_date: null,
+    record_date: null,
+    declare_date: null,
+    split_factor: 1,
+    div_type: null,
+    adj_amount: row.div_cash,
+  })) as DividendRecord[];
+}
+
 export async function upsertDividends(records: DividendRecord[], batchSize = 100): Promise<number> {
   if (records.length === 0) return 0;
   
