@@ -391,7 +391,22 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
       return symbolA.localeCompare(symbolB);
     });
 
-    res.json(mergedArray);
+    let lastUpdatedTimestamp: string | null = null;
+    for (const item of mergedArray) {
+      const timestamp = item.last_updated || item.updated_at || item.spreadsheet_updated_at;
+      if (timestamp) {
+        const ts = new Date(timestamp).getTime();
+        if (!lastUpdatedTimestamp || ts > new Date(lastUpdatedTimestamp).getTime()) {
+          lastUpdatedTimestamp = timestamp;
+        }
+      }
+    }
+
+    res.json({
+      data: mergedArray,
+      last_updated: lastUpdatedTimestamp,
+      last_updated_timestamp: lastUpdatedTimestamp,
+    });
   } catch (error) {
     logger.error('Routes', `Error fetching ETFs: ${(error as Error).message}`);
     res.status(500).json({ error: 'Internal server error' });

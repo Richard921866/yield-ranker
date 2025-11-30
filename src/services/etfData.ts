@@ -178,7 +178,7 @@ export const fetchETFDataWithMetadata = async (): Promise<ETFDataResponse> => {
     const dbEtfs: DatabaseETF[] = Array.isArray(json) ? json : (json.data || []);
     const etfs: ETF[] = dbEtfs.map(mapDatabaseETFToETF);
     const lastUpdated = Array.isArray(json) ? null : (json.last_updated || json.lastUpdated || null);
-    const lastUpdatedTimestamp = Array.isArray(json) ? null : (json.last_updated_timestamp || json.lastUpdatedTimestamp || null);
+    const lastUpdatedTimestamp = Array.isArray(json) ? null : (json.last_updated_timestamp || json.lastUpdatedTimestamp || json.last_updated || null);
     
     dataCache.set("__ALL__", { 
       data: etfs as unknown as ETF, 
