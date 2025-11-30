@@ -117,45 +117,53 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
     );
   }
 
-  // Group dividends by year
-  const yearlyDividends: YearlyDividend[] = [];
-  const dividendsByYear = new Map<number, DividendRecord[]>();
-  
-  dividendData.dividends.forEach(d => {
-    const year = new Date(d.exDate).getFullYear();
-    if (!dividendsByYear.has(year)) {
-      dividendsByYear.set(year, []);
-    }
-    dividendsByYear.get(year)!.push(d);
-  });
-  
-  dividendsByYear.forEach((divs, year) => {
-    const total = divs.reduce((sum, d) => sum + d.amount, 0);
-    yearlyDividends.push({
-      year,
-      total,
-      count: divs.length,
-      avgAmount: total / divs.length,
-      dividends: divs,
+  // Group dividends by year - wrapped in useMemo to prevent infinite loops
+  const yearlyDividends = useMemo(() => {
+    if (!dividendData?.dividends) return [];
+    
+    const result: YearlyDividend[] = [];
+    const dividendsByYear = new Map<number, DividendRecord[]>();
+    
+    dividendData.dividends.forEach(d => {
+      const year = new Date(d.exDate).getFullYear();
+      if (!dividendsByYear.has(year)) {
+        dividendsByYear.set(year, []);
+      }
+      dividendsByYear.get(year)!.push(d);
     });
-  });
-  
-  yearlyDividends.sort((a, b) => b.year - a.year);
+    
+    dividendsByYear.forEach((divs, year) => {
+      const total = divs.reduce((sum, d) => sum + d.amount, 0);
+      result.push({
+        year,
+        total,
+        count: divs.length,
+        avgAmount: total / divs.length,
+        dividends: divs,
+      });
+    });
+    
+    return result.sort((a, b) => b.year - a.year);
+  }, [dividendData]);
 
   // Prepare chart data (last 5 years, chronological)
-  const chartData = yearlyDividends
-    .slice(0, 5)
-    .reverse()
-    .map(y => ({
-      year: y.year.toString(),
-      total: Number(y.total.toFixed(4)),
-      count: y.count,
-    }));
+  const chartData = useMemo(() => {
+    return yearlyDividends
+      .slice(0, 5)
+      .reverse()
+      .map(y => ({
+        year: y.year.toString(),
+        total: Number(y.total.toFixed(4)),
+        count: y.count,
+      }));
+  }, [yearlyDividends]);
 
   // Calculate year-over-year growth
-  const yoyGrowth = yearlyDividends.length >= 2
-    ? ((yearlyDividends[0].total - yearlyDividends[1].total) / yearlyDividends[1].total) * 100
-    : null;
+  const yoyGrowth = useMemo(() => {
+    return yearlyDividends.length >= 2
+      ? ((yearlyDividends[0].total - yearlyDividends[1].total) / yearlyDividends[1].total) * 100
+      : null;
+  }, [yearlyDividends]);
 
   // Filter records by time range for table
   const getFilteredTableRecords = useMemo(() => {

@@ -405,15 +405,19 @@ export const generateChartData = (
       }
     }
     
-    // Always include last point if different from first
+    // Always include last point if it's a different month and not already included
     if (result.length > 1) {
       const lastDate = new Date((result[result.length - 1].timestamp as number) * 1000);
       const lastMonthKey = `${lastDate.getFullYear()}-${lastDate.getMonth()}`;
-      const firstDate = new Date((result[0].timestamp as number) * 1000);
-      const firstMonthKey = `${firstDate.getFullYear()}-${firstDate.getMonth()}`;
       
-      if (lastMonthKey !== firstMonthKey) {
-        // Update time label to match the last data point
+      // Check if last point's month is already in deduplicated array
+      const lastPointAlreadyIncluded = deduplicated.some((point) => {
+        const pointDate = new Date((point.timestamp as number) * 1000);
+        const pointMonthKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}`;
+        return pointMonthKey === lastMonthKey;
+      });
+      
+      if (!lastPointAlreadyIncluded) {
         const lastPoint = { ...result[result.length - 1] };
         lastPoint.time = lastDate.toLocaleDateString(undefined, {
           month: "short",

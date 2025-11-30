@@ -26,6 +26,7 @@ import {
   ResponsiveContainer,
   Cell,
   Area,
+  AreaChart,
   ComposedChart,
 } from "recharts";
 
@@ -273,8 +274,8 @@ const ETFDetail = () => {
         </div>
 
         {/* Chart Section - No tabs, direct display */}
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 delay-200">
-          <Card className="p-6 mb-8">
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 delay-200 relative z-0">
+          <Card className="p-6 mb-8 relative z-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div className="flex-1">
                 <h2 className="text-xl font-semibold mb-2">
@@ -571,7 +572,27 @@ const ETFDetail = () => {
                       })}
                     </LineChart>
                   ) : (chartData && Array.isArray(chartData) && chartData.length > 0) ? (
-                    <LineChart data={chartData}>
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient
+                          id={`colorPrice-${etf.symbol}`}
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor={isPositive ? "#10b981" : "#ef4444"}
+                            stopOpacity={0.3}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor={isPositive ? "#10b981" : "#ef4444"}
+                            stopOpacity={0}
+                          />
+                        </linearGradient>
+                      </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                       <XAxis 
                         dataKey="time" 
@@ -627,15 +648,16 @@ const ETFDetail = () => {
                           chartType === "totalReturn" ? "Return" : "Price",
                         ]}
                       />
-                      <Line
+                      <Area
                         type="monotone"
                         dataKey="price"
                         stroke={isPositive ? "#10b981" : "#ef4444"}
                         strokeWidth={2.5}
+                        fill={`url(#colorPrice-${etf.symbol})`}
+                        fillOpacity={1}
                         dot={false}
-                        name={etf.symbol}
                       />
-                    </LineChart>
+                    </AreaChart>
                   ) : (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
