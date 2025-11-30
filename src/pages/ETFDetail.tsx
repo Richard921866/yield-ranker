@@ -570,7 +570,7 @@ const ETFDetail = () => {
                         );
                       })}
                     </LineChart>
-                  ) : (chartData && Array.isArray(chartData) && chartData.length > 0) ? (
+                  ) : (
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                       <XAxis 
@@ -636,7 +636,7 @@ const ETFDetail = () => {
                         name={etf.symbol}
                       />
                     </LineChart>
-                  ) : (
+                  )) : (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
                         <p className="text-muted-foreground">Chart data is loading or unavailable.</p>
