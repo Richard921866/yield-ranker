@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/Logo";
@@ -178,7 +178,7 @@ const AdminPanel = () => {
   const handleSaveSettings = async () => {
     try {
       for (const [key, value] of Object.entries(settingsValues)) {
-        await updateSiteSetting(key, value, profile?.id ?? null);
+        await updateSiteSetting(key, value as string, profile?.id ?? null);
       }
       toast({
         title: "Settings saved",
