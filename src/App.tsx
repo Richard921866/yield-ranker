@@ -8,6 +8,7 @@ import { RequireAuth } from "@/auth/RequireAuth";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import Index from "./pages/Index";
 import ETFDetail from "./pages/ETFDetail";
+import DividendHistoryPage from "./pages/DividendHistoryPage";
 import OurFocus from "./pages/OurFocus";
 import Focus from "./pages/Focus";
 import CoveredCallETFs from "./pages/CoveredCallETFs";
@@ -40,6 +41,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/etf/:symbol" element={<ETFDetail />} />
+            <Route path="/etf/:symbol/dividends" element={<DividendHistoryPage />} />
             <Route path="/our-focus" element={<OurFocus />} />
             <Route path="/focus" element={<Focus />} />
             <Route path="/covered-call-etfs" element={<CoveredCallETFs />} />

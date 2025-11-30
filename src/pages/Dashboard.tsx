@@ -2473,8 +2473,17 @@ export default function Dashboard() {
                                       }`}
                                     />
                                   </td>
-                                  <td className="py-0.5 px-1 align-middle sticky left-0 z-10 bg-white group-hover:bg-slate-100 border-r border-slate-200 font-bold text-primary text-xs">
-                                    {etf.symbol}
+                                  <td className="py-0.5 px-1 align-middle sticky left-0 z-10 bg-white group-hover:bg-slate-100 border-r border-slate-200">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleETFClick(etf);
+                                      }}
+                                      className="font-bold text-primary text-xs hover:underline cursor-pointer transition-colors"
+                                      title={`View ${etf.symbol} details and charts`}
+                                    >
+                                      {etf.symbol}
+                                    </button>
                                   </td>
                                   <td className="py-0.5 px-1 align-middle text-xs text-muted-foreground uppercase font-medium">
                                     {etf.issuer}
@@ -2511,7 +2520,7 @@ export default function Dashboard() {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        navigate(`/etf/${etf.symbol}`);
+                                        navigate(`/etf/${etf.symbol}/dividends`);
                                       }}
                                       className="tabular-nums text-xs text-primary font-medium hover:underline cursor-pointer transition-colors"
                                       title="Click to view dividend history"

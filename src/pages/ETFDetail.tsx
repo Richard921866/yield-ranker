@@ -3,9 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, TrendingUp, TrendingDown, Plus, X, Loader2, Clock } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, TrendingUp, TrendingDown, Plus, X, Loader2, Clock, Search } from "lucide-react";
 import {
   fetchETFData,
+  fetchETFDataWithMetadata,
   fetchComparisonData,
   generateChartData,
   ChartType,
@@ -34,18 +36,15 @@ const ETFDetail = () => {
   const [allETFs, setAllETFs] = useState<ETF[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTimeframe, setSelectedTimeframe] = useState<ComparisonTimeframe>("6M");
-  const [chartType, setChartType] = useState<ChartType>("price");
+  const [chartType, setChartType] = useState<ChartType>("totalReturn");
   const [comparisonETFs, setComparisonETFs] = useState<string[]>([]);
   const [showComparisonSelector, setShowComparisonSelector] = useState(false);
+  const [comparisonSearchQuery, setComparisonSearchQuery] = useState("");
   const [chartData, setChartData] = useState<any[]>([]);
   const [isChartLoading, setIsChartLoading] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
   const [hasLoadedLiveChart, setHasLoadedLiveChart] = useState(false);
-  const [lastUpdated] = useState(new Date().toLocaleString('en-US', { 
-    month: 'short', day: 'numeric', year: 'numeric', 
-    hour: '2-digit', minute: '2-digit',
-    hour12: true
-  }));
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   const toggleComparison = (compSymbol: string) => {
     if (comparisonETFs.includes(compSymbol)) {
@@ -59,12 +58,28 @@ const ETFDetail = () => {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const data = await fetchETFData();
-        setAllETFs(data);
+        const result = await fetchETFDataWithMetadata();
+        setAllETFs(result.etfs);
 
-        const found = data.find((e) => e.symbol === symbol?.toUpperCase());
+        const found = result.etfs.find((e) => e.symbol === symbol?.toUpperCase());
         if (found) {
           setEtf(found);
+        }
+        
+        // Format the last updated timestamp from database
+        if (result.lastUpdatedTimestamp) {
+          const date = new Date(result.lastUpdatedTimestamp);
+          const formatted = date.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          });
+          setLastUpdated(formatted);
+        } else if (result.lastUpdated) {
+          setLastUpdated(result.lastUpdated);
         }
       } catch (error) {
         console.error("[ETFDetail] Error fetching ETF data:", error);
@@ -200,9 +215,13 @@ const ETFDetail = () => {
             </div>
             {/* Last Updated + Source */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              <span>Last updated: {lastUpdated}</span>
-              <span className="text-primary font-medium">Source: Tiingo</span>
+              {lastUpdated && (
+                <>
+                  <Clock className="h-3 w-3" />
+                  <span>Last updated: {lastUpdated}</span>
+                  <span className="text-primary font-medium">Source: Tiingo</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -263,16 +282,6 @@ const ETFDetail = () => {
                 </h2>
                 <div className="flex gap-2 flex-wrap">
                   <button
-                    onClick={() => setChartType("price")}
-                    className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
-                      chartType === "price"
-                        ? "bg-primary text-white"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
-                    Price Return Chart
-                  </button>
-                  <button
                     onClick={() => setChartType("totalReturn")}
                     className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
                       chartType === "totalReturn"
@@ -281,6 +290,16 @@ const ETFDetail = () => {
                     }`}
                   >
                     Total Return Chart
+                  </button>
+                  <button
+                    onClick={() => setChartType("price")}
+                    className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
+                      chartType === "price"
+                        ? "bg-primary text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    Price Return Chart
                   </button>
                   <button
                     onClick={() => setShowComparisonSelector(!showComparisonSelector)}
@@ -377,42 +396,92 @@ const ETFDetail = () => {
             )}
 
             {showComparisonSelector && (
-              <div className="mb-4 p-4 bg-slate-50 border-2 border-slate-200 rounded-lg max-h-64 overflow-y-auto">
+              <div className="mb-4 p-4 bg-slate-50 border-2 border-slate-200 rounded-lg relative">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-sm">Select ETFs to Compare</h3>
+                  <h3 className="font-semibold text-sm">Search ETFs to Compare</h3>
                   <button
-                    onClick={() => setShowComparisonSelector(false)}
+                    onClick={() => {
+                      setShowComparisonSelector(false);
+                      setComparisonSearchQuery("");
+                    }}
                     className="hover:bg-slate-200 rounded-full p-1"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {allETFs
-                    .filter((e) => e.symbol !== etf.symbol)
-                    .sort((a, b) => a.symbol.localeCompare(b.symbol))
-                    .slice(0, 20)
-                    .map((e) => {
-                      const isSelected = comparisonETFs.includes(e.symbol);
-                      const isDisabled = !isSelected && comparisonETFs.length >= 5;
-                      return (
-                        <button
-                          key={e.symbol}
-                          onClick={() => !isDisabled && toggleComparison(e.symbol)}
-                          disabled={isDisabled}
-                          className={`px-3 py-2 text-xs font-semibold rounded-lg transition-colors ${
-                            isSelected
-                              ? "bg-primary text-white"
-                              : isDisabled
-                              ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                              : "bg-white border-2 border-slate-300 hover:border-primary hover:bg-slate-100"
-                          }`}
-                        >
-                          {e.symbol}
-                        </button>
-                      );
-                    })}
+                {/* Search Bar - Similar to home page */}
+                <div className="relative mb-4 z-10">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none z-10" />
+                  <Input
+                    type="text"
+                    placeholder="Search ETFs..."
+                    value={comparisonSearchQuery}
+                    onChange={(e) => setComparisonSearchQuery(e.target.value)}
+                    onFocus={() => {}}
+                    className="pl-10 pr-10 h-12 bg-background border-2 border-border focus:border-primary text-base rounded-xl"
+                  />
+                  {comparisonSearchQuery && (
+                    <button
+                      onClick={() => setComparisonSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  )}
                 </div>
+                {/* ETF List with Search - Dropdown style */}
+                {comparisonSearchQuery && (
+                  <div className="absolute top-full left-4 right-4 mt-2 z-[9999] bg-background border-2 border-border rounded-xl shadow-2xl overflow-hidden">
+                    <div className="max-h-96 overflow-y-auto">
+                      {allETFs
+                        .filter((e) => {
+                          const searchLower = comparisonSearchQuery.toLowerCase();
+                          return e.symbol !== etf.symbol &&
+                            (e.symbol.toLowerCase().includes(searchLower) ||
+                             (e.name && e.name.toLowerCase().includes(searchLower)));
+                        })
+                        .slice(0, 10)
+                        .map((e) => {
+                          const isSelected = comparisonETFs.includes(e.symbol);
+                          const isDisabled = !isSelected && comparisonETFs.length >= 5;
+                          return (
+                            <button
+                              key={e.symbol}
+                              onClick={() => {
+                                if (!isDisabled) {
+                                  toggleComparison(e.symbol);
+                                  setComparisonSearchQuery("");
+                                }
+                              }}
+                              disabled={isDisabled}
+                              className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors text-left border-b border-slate-100 last:border-0 ${
+                                isDisabled ? "opacity-50 cursor-not-allowed" : ""
+                              }`}
+                            >
+                              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <TrendingUp className="w-5 h-5 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-bold text-base text-foreground">{e.symbol}</div>
+                                <div className="text-sm text-muted-foreground truncate">{e.name}</div>
+                              </div>
+                              <div className="text-right text-sm flex-shrink-0">
+                                <div className="font-bold text-foreground">${e.price.toFixed(2)}</div>
+                                <div className={`font-semibold ${e.totalReturn1Mo && e.totalReturn1Mo >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                  {e.totalReturn1Mo ? `${e.totalReturn1Mo > 0 ? "+" : ""}${e.totalReturn1Mo.toFixed(2)}%` : "N/A"}
+                                </div>
+                              </div>
+                              {isSelected && (
+                                <div className="text-primary">
+                                  <X className="h-5 w-5" />
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -436,6 +505,8 @@ const ETFDetail = () => {
                         fontSize={12}
                         tickLine={false}
                         axisLine={false}
+                        interval="preserveStartEnd"
+                        tickFormatter={(value) => value}
                       />
                       <YAxis 
                         stroke="#94a3b8" 
@@ -458,6 +529,17 @@ const ETFDetail = () => {
                           padding: "12px 16px",
                         }}
                         labelStyle={{ color: "#64748b", fontSize: "12px", marginBottom: "4px" }}
+                        labelFormatter={(label, payload) => {
+                          if (payload && payload[0]?.payload?.fullDate) {
+                            const date = new Date(payload[0].payload.fullDate);
+                            return date.toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              year: 'numeric' 
+                            });
+                          }
+                          return label;
+                        }}
                         formatter={(value: number) => [
                           chartType === "totalReturn"
                             ? `${value.toFixed(2)}%`
@@ -490,6 +572,8 @@ const ETFDetail = () => {
                         fontSize={12}
                         tickLine={false}
                         axisLine={false}
+                        interval="preserveStartEnd"
+                        tickFormatter={(value) => value}
                       />
                       <YAxis 
                         stroke="#94a3b8" 
@@ -512,6 +596,17 @@ const ETFDetail = () => {
                           padding: "12px 16px",
                         }}
                         labelStyle={{ color: "#64748b", fontSize: "12px", marginBottom: "4px" }}
+                        labelFormatter={(label, payload) => {
+                          if (payload && payload[0]?.payload?.fullDate) {
+                            const date = new Date(payload[0].payload.fullDate);
+                            return date.toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              year: 'numeric' 
+                            });
+                          }
+                          return label;
+                        }}
                         formatter={(value: number) => [
                           chartType === "totalReturn"
                             ? `${value.toFixed(2)}%`
@@ -657,6 +752,11 @@ const ETFDetail = () => {
                       fontSize={10}
                       tickLine={false}
                       axisLine={false}
+                      interval="preserveStartEnd"
+                      tickFormatter={(value) => {
+                        // Format dates as "Jan 2025", "Mar 2025", etc.
+                        return value;
+                      }}
                     />
                     <YAxis 
                       stroke="#94a3b8" 
@@ -702,6 +802,11 @@ const ETFDetail = () => {
                       fontSize={10}
                       tickLine={false}
                       axisLine={false}
+                      interval="preserveStartEnd"
+                      tickFormatter={(value) => {
+                        // Format dates as "Jan 2025", "Mar 2025", etc.
+                        return value;
+                      }}
                     />
                     <YAxis 
                       stroke="#94a3b8" 

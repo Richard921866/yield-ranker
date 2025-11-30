@@ -330,7 +330,7 @@ export const ETFTable = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/etf/${etf.symbol}`);
+                        navigate(`/etf/${etf.symbol}/dividends`);
                       }}
                       className="tabular-nums text-xs text-primary font-medium hover:underline cursor-pointer transition-colors"
                       title="Click to view dividend history"
