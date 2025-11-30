@@ -144,8 +144,8 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
     const pmtsCol = findColumn(headerMap, '# pmts', 'payments_per_year', '# payments');
     const ipoPriceCol = findColumn(headerMap, 'ipo price', 'ipo_price');
 
-    // Build records
-    const records: ETFStaticRecord[] = [];
+    // Build records - using Partial since we only upload core identity fields
+    const records: Partial<ETFStaticRecord>[] = [];
     const now = new Date().toISOString();
     let skippedRows = 0;
 
