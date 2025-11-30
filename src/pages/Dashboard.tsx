@@ -1708,6 +1708,7 @@ export default function Dashboard() {
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
                         <p className="text-muted-foreground">Chart data is loading or unavailable.</p>
+                        {isChartLoading && <RefreshCw className="h-4 w-4 animate-spin mx-auto mt-2" />}
                       </div>
                     </div>
                   )}
