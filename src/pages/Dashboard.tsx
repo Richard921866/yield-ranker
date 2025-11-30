@@ -72,6 +72,7 @@ import {
   Line,
   BarChart,
   Bar,
+  ComposedChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -1523,96 +1524,10 @@ export default function Dashboard() {
 
                 <ResponsiveContainer width="100%" height={chartHeight}>
                   {chartData && Array.isArray(chartData) && chartData.length > 0 ? (
-                    comparisonETFs.length > 0 ? (
-                    <LineChart data={chartData}>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="#f1f5f9"
-                        vertical={false}
-                      />
-                      <XAxis
-                        dataKey="time"
-                        stroke="#94a3b8"
-                        fontSize={chartHeight < 280 ? 9 : 12}
-                        tickLine={false}
-                        axisLine={false}
-                        angle={chartHeight < 280 ? -45 : 0}
-                        textAnchor={chartHeight < 280 ? "end" : "middle"}
-                        height={chartHeight < 280 ? 50 : 30}
-                        interval="preserveStartEnd"
-                        tickFormatter={(value) => value || ''}
-                      />
-                      <YAxis
-                        stroke="#94a3b8"
-                        fontSize={chartHeight < 280 ? 9 : 12}
-                        domain={
-                          chartType === "totalReturn"
-                            ? [minChartValue, maxChartValue]
-                            : [0, "auto"]
-                        }
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(value) =>
-                          chartType === "totalReturn"
-                            ? `${value.toFixed(1)}%`
-                            : `$${value.toFixed(2)}`
-                        }
-                        width={chartHeight < 280 ? 40 : 60}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "rgba(255, 255, 255, 0.98)",
-                          border: "none",
-                          borderRadius: "12px",
-                          boxShadow:
-                            "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-                          padding: "12px 16px",
-                        }}
-                        labelStyle={{
-                          color: "#64748b",
-                          fontSize: "12px",
-                          marginBottom: "4px",
-                        }}
-                      />
-                      {[
-                        selectedETF.symbol,
-                        ...comparisonETFs.filter(
-                          (s) => s !== selectedETF.symbol
-                        ),
-                      ].map((symbol, index) => {
-                        const colors = [
-                          "#3b82f6",
-                          "#f97316",
-                          "#8b5cf6",
-                          "#10b981",
-                          "#f59e0b",
-                        ];
-                        const dataKey =
-                          chartType === "totalReturn"
-                            ? `return_${symbol}`
-                            : `price_${symbol}`;
-                        const isPrimary = index === 0;
-                        return (
-                          <Line
-                            key={symbol}
-                            type="monotone"
-                            dataKey={dataKey}
-                            stroke={isPrimary ? (isPositive ? "#10b981" : "#ef4444") : colors[index % colors.length]}
-                            strokeWidth={isPrimary ? 3 : 2.5}
-                            dot={false}
-                            name={symbol}
-                            animationDuration={500}
-                            animationBegin={index * 100}
-                            strokeLinecap="round"
-                          />
-                        );
-                      })}
-                    </LineChart>
-                  ) : (
-                    <AreaChart data={chartData}>
+                    <ComposedChart data={chartData}>
                       <defs>
                         <linearGradient
-                          id="colorPrice"
+                          id="colorPricePrimary"
                           x1="0"
                           y1="0"
                           x2="0"
@@ -1678,26 +1593,55 @@ export default function Dashboard() {
                           fontSize: "12px",
                           marginBottom: "4px",
                         }}
-                        formatter={(value: number) => [
+                        formatter={(value: number, name: string) => [
                           chartType === "totalReturn"
                             ? `${value.toFixed(2)}%`
                             : `$${value.toFixed(2)}`,
-                          chartType === "totalReturn" ? "Return" : "Price",
+                          name,
                         ]}
                       />
+                      {/* Primary ETF with gradient Area */}
                       <Area
                         type="monotone"
-                        dataKey="price"
+                        dataKey={comparisonETFs.length > 0 
+                          ? (chartType === "totalReturn" ? `return_${selectedETF.symbol}` : `price_${selectedETF.symbol}`)
+                          : "price"
+                        }
                         stroke={isPositive ? "#10b981" : "#ef4444"}
                         strokeWidth={3}
-                        fill="url(#colorPrice)"
+                        fill="url(#colorPricePrimary)"
                         fillOpacity={1}
                         dot={false}
+                        name={selectedETF.symbol}
                         animationDuration={500}
                         strokeLinecap="round"
                       />
-                    </AreaChart>
-                  )) : (
+                      {/* Comparison ETFs as Lines */}
+                      {comparisonETFs
+                        .filter((s) => s !== selectedETF.symbol)
+                        .map((symbol, index) => {
+                          const colors = ["#f97316", "#8b5cf6", "#3b82f6", "#f59e0b"];
+                          const dataKey =
+                            chartType === "totalReturn"
+                              ? `return_${symbol}`
+                              : `price_${symbol}`;
+                          return (
+                            <Line
+                              key={symbol}
+                              type="monotone"
+                              dataKey={dataKey}
+                              stroke={colors[index % colors.length]}
+                              strokeWidth={2.5}
+                              dot={false}
+                              name={symbol}
+                              animationDuration={500}
+                              animationBegin={(index + 1) * 100}
+                              strokeLinecap="round"
+                            />
+                          );
+                        })}
+                    </ComposedChart>
+                  ) : (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
                         <p className="text-muted-foreground">Chart data is loading or unavailable.</p>
