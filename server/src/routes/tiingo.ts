@@ -91,6 +91,7 @@ router.get('/latest/:ticker', async (req: Request, res: Response): Promise<void>
 
 /**
  * GET /dividends/:ticker - Get dividend history
+ * Falls back to live Tiingo API if database is empty
  */
 router.get('/dividends/:ticker', async (req: Request, res: Response) => {
   try {
@@ -98,9 +99,38 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
     const years = parseInt(req.query.years as string) || 5;
     const startDate = getDateYearsAgo(years);
     
-    const dividends = await getDividendHistory(ticker, startDate);
+    let dividends = await getDividendHistory(ticker, startDate);
     const staticData = await getETFStatic(ticker);
     const paymentsPerYear = staticData?.payments_per_year ?? 12;
+    
+    // Fallback to Tiingo API if database is empty
+    // Tiingo includes dividends in price data via divCash field
+    let isLiveData = false;
+    if (dividends.length === 0) {
+      logger.info('Routes', `No dividends in DB for ${ticker}, extracting from Tiingo price data...`);
+      const prices = await fetchTiingoPrices(ticker, startDate);
+      
+      // Extract dividend records from price data (divCash > 0)
+      const dividendPrices = prices.filter(p => p.divCash > 0);
+      
+      if (dividendPrices.length > 0) {
+        isLiveData = true;
+        dividends = dividendPrices.map(p => ({
+          ticker: ticker.toUpperCase(),
+          ex_date: p.date.split('T')[0],
+          pay_date: null,  // Not available in price data
+          record_date: null,
+          declare_date: null,
+          div_cash: p.divCash,
+          adj_amount: p.divCash,
+          div_type: null,
+          frequency: null,
+          description: null,
+          currency: 'USD',
+          split_factor: p.splitFactor,
+        })).sort((a, b) => new Date(b.ex_date).getTime() - new Date(a.ex_date).getTime());
+      }
+    }
     
     const lastDividend = dividends.length > 0 ? dividends[0].div_cash : null;
     const annualizedDividend = lastDividend ? lastDividend * paymentsPerYear : null;
@@ -135,6 +165,7 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
       lastDividend,
       annualizedDividend,
       dividendGrowth,
+      isLiveData,  // Flag to indicate data source
       dividends: dividends.map(d => ({
         exDate: d.ex_date,
         payDate: d.pay_date,

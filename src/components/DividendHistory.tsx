@@ -59,6 +59,8 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>('5Y');
 
+  // All useMemo hooks must be called BEFORE any early returns (Rules of Hooks)
+  
   // Filter dividends by time range
   const getFilteredDividends = useMemo(() => {
     if (!dividendData?.dividends) return [];
@@ -78,46 +80,7 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
     return dividendData.dividends.filter(d => new Date(d.exDate) >= cutoffDate);
   }, [dividendData, timeRange]);
 
-  useEffect(() => {
-    const loadDividends = async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        const data = await fetchDividends(ticker, 10);
-        setDividendData(data);
-      } catch (err) {
-        console.error('Error loading dividends:', err);
-        setError('Failed to load dividend history');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    loadDividends();
-  }, [ticker]);
-
-  if (isLoading) {
-    return (
-      <Card className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </Card>
-    );
-  }
-
-  if (error || !dividendData) {
-    return (
-      <Card className="p-6">
-        <div className="text-center text-muted-foreground py-8">
-          {error || 'No dividend data available'}
-        </div>
-      </Card>
-    );
-  }
-
-  // Group dividends by year - wrapped in useMemo to prevent infinite loops
+  // Group dividends by year
   const yearlyDividends = useMemo(() => {
     if (!dividendData?.dividends) return [];
     
@@ -185,9 +148,51 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
   }, [dividendData, timeRange]);
 
   // Records to display in table
-  const displayedRecords = showAllRecords 
-    ? getFilteredTableRecords
-    : getFilteredTableRecords.slice(0, 12);
+  const displayedRecords = useMemo(() => {
+    return showAllRecords 
+      ? getFilteredTableRecords
+      : getFilteredTableRecords.slice(0, 12);
+  }, [showAllRecords, getFilteredTableRecords]);
+
+  useEffect(() => {
+    const loadDividends = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        const data = await fetchDividends(ticker, 10);
+        setDividendData(data);
+      } catch (err) {
+        console.error('Error loading dividends:', err);
+        setError('Failed to load dividend history');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadDividends();
+  }, [ticker]);
+
+  // Early returns AFTER all hooks
+  if (isLoading) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Card>
+    );
+  }
+
+  if (error || !dividendData || dividendData.dividends.length === 0) {
+    return (
+      <Card className="p-6">
+        <div className="text-center text-muted-foreground py-8">
+          {error || 'No dividend data available for this ticker'}
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-6">
