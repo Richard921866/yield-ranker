@@ -558,15 +558,19 @@ const ETFDetail = () => {
                       {[etf.symbol, ...comparisonETFs].map((sym, index) => {
                         const colors = ["#3b82f6", "#f97316", "#8b5cf6", "#10b981", "#f59e0b"];
                         const dataKey = chartType === "totalReturn" ? `return_${sym}` : `price_${sym}`;
+                        const isPrimary = index === 0;
                         return (
                           <Line
                             key={sym}
                             type="monotone"
                             dataKey={dataKey}
-                            stroke={colors[index % colors.length]}
-                            strokeWidth={2.5}
+                            stroke={isPrimary ? (isPositive ? "#10b981" : "#ef4444") : colors[index % colors.length]}
+                            strokeWidth={isPrimary ? 3 : 2.5}
                             dot={false}
                             name={sym}
+                            animationDuration={500}
+                            animationBegin={index * 100}
+                            strokeLinecap="round"
                           />
                         );
                       })}
@@ -652,10 +656,12 @@ const ETFDetail = () => {
                         type="monotone"
                         dataKey="price"
                         stroke={isPositive ? "#10b981" : "#ef4444"}
-                        strokeWidth={2.5}
+                        strokeWidth={3}
                         fill={`url(#colorPrice-${etf.symbol})`}
                         fillOpacity={1}
                         dot={false}
+                        animationDuration={500}
+                        strokeLinecap="round"
                       />
                     </AreaChart>
                   ) : (

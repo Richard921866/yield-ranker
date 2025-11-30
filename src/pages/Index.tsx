@@ -454,7 +454,7 @@ const Index = () => {
                     </>
                   ) : (
                     <>
-                      End of Day (EOD) Data
+                      Last updated: {lastDataUpdate || 'N/A'}
                       <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
                     </>
                   )}

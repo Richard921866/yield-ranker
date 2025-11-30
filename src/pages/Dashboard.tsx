@@ -1598,15 +1598,19 @@ export default function Dashboard() {
                           chartType === "totalReturn"
                             ? `return_${symbol}`
                             : `price_${symbol}`;
+                        const isPrimary = index === 0;
                         return (
                           <Line
                             key={symbol}
                             type="monotone"
                             dataKey={dataKey}
-                            stroke={colors[index % colors.length]}
-                            strokeWidth={2.5}
+                            stroke={isPrimary ? (isPositive ? "#10b981" : "#ef4444") : colors[index % colors.length]}
+                            strokeWidth={isPrimary ? 3 : 2.5}
                             dot={false}
                             name={symbol}
+                            animationDuration={500}
+                            animationBegin={index * 100}
+                            strokeLinecap="round"
                           />
                         );
                       })}
@@ -1698,10 +1702,12 @@ export default function Dashboard() {
                         type="monotone"
                         dataKey="price"
                         stroke={isPositive ? "#10b981" : "#ef4444"}
-                        strokeWidth={2.5}
+                        strokeWidth={3}
                         fill="url(#colorPrice)"
                         fillOpacity={1}
                         dot={false}
+                        animationDuration={500}
+                        strokeLinecap="round"
                       />
                     </AreaChart>
                   ) : (
@@ -1713,6 +1719,36 @@ export default function Dashboard() {
                     </div>
                   )}
                 </ResponsiveContainer>
+              </Card>
+
+              {/* Quick Stats Card - Matching home version */}
+              <Card className="p-4 sm:p-6 border-2 border-slate-200">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-slate-50 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Forward Yield</p>
+                    <p className="text-xl font-bold text-primary">
+                      {selectedETF.forwardYield != null ? `${selectedETF.forwardYield.toFixed(2)}%` : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="text-center p-3 bg-slate-50 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">52-Week Range</p>
+                    <p className="text-sm font-medium">
+                      ${selectedETF.week52Low?.toFixed(2) ?? 'N/A'} - ${selectedETF.week52High?.toFixed(2) ?? 'N/A'}
+                    </p>
+                  </div>
+                  <div className="text-center p-3 bg-slate-50 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Annual Dividend</p>
+                    <p className="text-xl font-bold text-green-600">
+                      ${selectedETF.annualDividend?.toFixed(2) ?? 'N/A'}
+                    </p>
+                  </div>
+                  <div className="text-center p-3 bg-slate-50 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Dividend Volatility</p>
+                    <p className="text-sm font-medium">
+                      {selectedETF.dividendVolatilityIndex ?? (selectedETF.dividendCVPercent != null ? `${selectedETF.dividendCVPercent.toFixed(1)}%` : 'N/A')}
+                    </p>
+                  </div>
+                </div>
               </Card>
 
               <Card className="p-4 sm:p-6 border-2 border-slate-200">
@@ -2327,7 +2363,7 @@ export default function Dashboard() {
                               </>
                             ) : (
                               <>
-                                End of Day (EOD) Data
+                                Last updated: {lastDataUpdate || 'N/A'}
                                 <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
                               </>
                             )}
