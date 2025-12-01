@@ -342,7 +342,10 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
           dividend_sd: preferNumeric(staticItem.dividend_sd, legacyItem.dividend_sd),
           dividend_cv: preferNumeric(staticItem.dividend_cv, legacyItem.dividend_cv),
           dividend_cv_percent: preferNumeric(staticItem.dividend_cv_percent, legacyItem.dividend_cv_percent),
-          dividend_volatility_index: preferValue(staticItem.dividend_volatility_index, legacyItem.dividend_volatility_index),
+          // Only use string volatility index values (ignore legacy numeric values)
+          dividend_volatility_index: typeof staticItem.dividend_volatility_index === 'string' 
+            ? staticItem.dividend_volatility_index 
+            : (typeof legacyItem.dividend_volatility_index === 'string' ? legacyItem.dividend_volatility_index : null),
           weighted_rank: preferNumeric(staticItem.weighted_rank, legacyItem.weighted_rank),
           tr_drip_3y: preferNumeric(staticItem.tr_drip_3y, legacyItem.tr_drip_3y ?? legacyItem.three_year_annualized),
           tr_drip_12m: preferNumeric(staticItem.tr_drip_12m, legacyItem.tr_drip_12m ?? legacyItem.total_return_12m),
@@ -369,9 +372,13 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
         };
         mergedMap.set(ticker, merged);
       } else {
+        // Only use string volatility index values
+        const volatilityIndex = typeof staticItem.dividend_volatility_index === 'string' 
+          ? staticItem.dividend_volatility_index : null;
         mergedMap.set(ticker, {
           ...staticItem,
           symbol: staticItem.ticker,
+          dividend_volatility_index: volatilityIndex,
         });
       }
     }
@@ -379,10 +386,14 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     for (const legacyItem of legacyData) {
       const symbol = (legacyItem.symbol || '').toUpperCase();
       if (symbol && !mergedMap.has(symbol)) {
+        // Only use string volatility index values
+        const volatilityIndex = typeof legacyItem.dividend_volatility_index === 'string' 
+          ? legacyItem.dividend_volatility_index : null;
         mergedMap.set(symbol, {
           ...legacyItem,
           ticker: legacyItem.symbol,
           pay_day_text: legacyItem.pay_day,
+          dividend_volatility_index: volatilityIndex,
         });
       }
     }
@@ -549,7 +560,10 @@ router.get('/:symbol', async (req: Request, res: Response): Promise<void> => {
         dividend_sd: preferNumeric(staticData.dividend_sd, legacyData.dividend_sd),
         dividend_cv: preferNumeric(staticData.dividend_cv, legacyData.dividend_cv),
         dividend_cv_percent: preferNumeric(staticData.dividend_cv_percent, legacyData.dividend_cv_percent),
-        dividend_volatility_index: preferValue(staticData.dividend_volatility_index, legacyData.dividend_volatility_index),
+        // Only use string volatility index values (ignore legacy numeric values)
+        dividend_volatility_index: typeof staticData.dividend_volatility_index === 'string' 
+          ? staticData.dividend_volatility_index 
+          : (typeof legacyData.dividend_volatility_index === 'string' ? legacyData.dividend_volatility_index : null),
         weighted_rank: preferNumeric(staticData.weighted_rank, legacyData.weighted_rank),
         tr_drip_3y: preferNumeric(staticData.tr_drip_3y, legacyData.tr_drip_3y ?? legacyData.three_year_annualized),
         tr_drip_12m: preferNumeric(staticData.tr_drip_12m, legacyData.tr_drip_12m ?? legacyData.total_return_12m),
