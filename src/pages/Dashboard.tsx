@@ -183,14 +183,14 @@ export default function Dashboard() {
         const settings = await getSiteSettings();
         const guestMsgSetting = settings.find((s) => s.key === "guest_message");
         const premiumMsgSetting = settings.find((s) => s.key === "premium_message");
-        if (guestMsgSetting) {
-          setGuestMessage(guestMsgSetting.value);
-        }
-        if (premiumMsgSetting) {
-          setPremiumMessage(premiumMsgSetting.value);
-        }
+        // Always set values, even if empty (so empty strings are preserved)
+        setGuestMessage(guestMsgSetting?.value || "");
+        setPremiumMessage(premiumMsgSetting?.value || "");
       } catch (error) {
         console.error("Failed to load site settings:", error);
+        // Set empty strings on error so UI doesn't break
+        setGuestMessage("");
+        setPremiumMessage("");
       }
     };
 

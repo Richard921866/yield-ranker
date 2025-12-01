@@ -184,9 +184,24 @@ const AdminPanel = () => {
 
   const handleSaveSettings = async () => {
     try {
-      for (const [key, value] of Object.entries(settingsValues)) {
-        await updateSiteSetting(key, value as string, profile?.id ?? null);
+      // Always save guest_message and premium_message, even if empty
+      const messagesToSave = [
+        { key: "guest_message", value: settingsValues["guest_message"] || "" },
+        { key: "premium_message", value: settingsValues["premium_message"] || "" },
+      ];
+      
+      // Save message settings first
+      for (const { key, value } of messagesToSave) {
+        await updateSiteSetting(key, value, profile?.id ?? null);
       }
+      
+      // Save all other settings
+      for (const [key, value] of Object.entries(settingsValues)) {
+        if (key !== "guest_message" && key !== "premium_message") {
+          await updateSiteSetting(key, value as string, profile?.id ?? null);
+        }
+      }
+      
       toast({
         title: "Settings saved",
         description: "Site settings have been updated successfully",
@@ -1031,7 +1046,7 @@ const AdminPanel = () => {
                       {/* Premium Message - Always show */}
                       <div className="space-y-2 p-4 bg-primary/5 rounded-lg border-2 border-primary/20">
                         <label className="block text-sm font-semibold text-foreground">
-                          Message for Premium Subscribers
+                          Premium Banner Message
                         </label>
                         <Input
                           value={settingsValues["premium_message"] || ""}
