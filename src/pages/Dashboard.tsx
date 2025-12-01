@@ -1689,7 +1689,12 @@ export default function Dashboard() {
                         domain={chartType === "totalReturn" ? [minValue, maxValue] : [minValue, maxValue]}
                         tickLine={false}
                         axisLine={false}
-                        tickFormatter={(value) => `${value.toFixed(1)}%`}
+                        tickFormatter={(value) => {
+                          if (typeof value === 'number' && !isNaN(value)) {
+                            return `${value.toFixed(1)}%`;
+                          }
+                          return '';
+                        }}
                       />
                       <Tooltip
                         contentStyle={{
@@ -1705,10 +1710,12 @@ export default function Dashboard() {
                           fontSize: "12px",
                           marginBottom: "4px",
                         }}
-                        formatter={(value: number, name: string) => [
-                          `${value.toFixed(2)}%`,
-                          name,
-                        ]}
+                        formatter={(value: number | string, name: string) => {
+                          if (typeof value === 'number' && !isNaN(value)) {
+                            return [`${value.toFixed(2)}%`, name];
+                          }
+                          return ['N/A', name];
+                        }}
                       />
                       {/* Primary ETF with gradient Area (only when no comparisons) */}
                       {comparisonETFs.length === 0 && (
@@ -1723,6 +1730,7 @@ export default function Dashboard() {
                           name={selectedETF.symbol}
                           animationDuration={500}
                           strokeLinecap="round"
+                          connectNulls={false}
                         />
                       )}
                       {/* All ETFs as Lines (when comparing) */}
@@ -1754,6 +1762,7 @@ export default function Dashboard() {
                             animationDuration={500}
                             animationBegin={(index + 1) * 100}
                             strokeLinecap="round"
+                            connectNulls={false}
                           />
                         );
                         })}

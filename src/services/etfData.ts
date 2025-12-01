@@ -294,6 +294,55 @@ export const fetchComparisonData = async (
   return transformedData;
 };
 
+function getPeriodStartDate(timeframe: ComparisonTimeframe): Date {
+  const now = new Date();
+  const start = new Date(now);
+  
+  switch (timeframe) {
+    case "1D":
+      start.setDate(start.getDate() - 1);
+      break;
+    case "1W":
+      start.setDate(start.getDate() - 7);
+      break;
+    case "1M":
+      start.setMonth(start.getMonth() - 1);
+      break;
+    case "3M":
+      start.setMonth(start.getMonth() - 3);
+      break;
+    case "6M":
+      start.setMonth(start.getMonth() - 6);
+      break;
+    case "YTD":
+      start.setMonth(0);
+      start.setDate(1);
+      break;
+    case "1Y":
+      start.setFullYear(start.getFullYear() - 1);
+      break;
+    case "3Y":
+      start.setFullYear(start.getFullYear() - 3);
+      break;
+    case "5Y":
+      start.setFullYear(start.getFullYear() - 5);
+      break;
+    case "10Y":
+      start.setFullYear(start.getFullYear() - 10);
+      break;
+    case "20Y":
+      start.setFullYear(start.getFullYear() - 20);
+      break;
+    case "MAX":
+      start.setFullYear(2000, 0, 1);
+      break;
+    default:
+      start.setFullYear(start.getFullYear() - 1);
+  }
+  
+  return start;
+}
+
 export const generateChartData = (
   comparison: ComparisonResponse,
   chartType: ChartType,
@@ -332,7 +381,64 @@ export const generateChartData = (
   
   const allTimestamps = Array.from(timestampToData.keys()).sort((a, b) => a - b);
   const primarySymbol = comparison.symbols[0];
+  
+  const periodStart = getPeriodStartDate(comparison.timeframe);
+  const periodStartTs = Math.floor(periodStart.getTime() / 1000);
+  const firstDataTs = allTimestamps[0];
+  
   const result: any[] = [];
+  
+  if (firstDataTs > periodStartTs) {
+    const daysDiff = Math.ceil((firstDataTs - periodStartTs) / 86400);
+    const sampleInterval = Math.max(1, Math.floor(daysDiff / 20));
+    
+    for (let ts = periodStartTs; ts < firstDataTs; ts += sampleInterval * 86400) {
+      const date = new Date(ts * 1000);
+      let timeLabel: string;
+      
+      if (comparison.timeframe === "1D") {
+        timeLabel = date.toLocaleTimeString(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      } else if (comparison.timeframe === "1W" || comparison.timeframe === "1M") {
+        timeLabel = date.toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+        });
+      } else if (["3M", "6M", "YTD", "1Y"].includes(comparison.timeframe)) {
+        timeLabel = date.toLocaleDateString(undefined, {
+          month: "short",
+          year: "2-digit",
+        });
+      } else {
+        timeLabel = date.toLocaleDateString(undefined, {
+          month: "short",
+          year: "numeric",
+        });
+      }
+      
+      const point: Record<string, number | string | null> = {
+        time: timeLabel,
+        fullDate: date.toISOString(),
+        timestamp: ts,
+      };
+      
+      for (const symbol of comparison.symbols) {
+        if (symbol === primarySymbol && comparison.symbols.length === 1) {
+          point.price = null;
+        } else {
+          if (chartType === "price") {
+            point[`price_${symbol}`] = null;
+          } else {
+            point[`return_${symbol}`] = null;
+          }
+        }
+      }
+      
+      result.push(point);
+    }
+  }
   
   for (const ts of allTimestamps) {
     const date = new Date(ts * 1000);
@@ -344,26 +450,23 @@ export const generateChartData = (
         minute: "2-digit",
       });
     } else if (comparison.timeframe === "1W" || comparison.timeframe === "1M") {
-      // For short periods, show day and month
       timeLabel = date.toLocaleDateString(undefined, {
         month: "short",
         day: "numeric",
       });
     } else if (["3M", "6M", "YTD", "1Y"].includes(comparison.timeframe)) {
-      // For medium periods, show month and year
       timeLabel = date.toLocaleDateString(undefined, {
         month: "short",
         year: "2-digit",
       });
     } else {
-      // For long periods (3Y, 5Y, 10Y, 20Y, MAX), show abbreviated format
       timeLabel = date.toLocaleDateString(undefined, {
         month: "short",
         year: "numeric",
       });
     }
     
-    const point: Record<string, number | string> = {
+    const point: Record<string, number | string | null> = {
       time: timeLabel,
       fullDate: date.toISOString(),
       timestamp: ts,

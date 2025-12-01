@@ -627,7 +627,12 @@ const ETFDetail = () => {
                         domain={chartType === "totalReturn" ? [minValue, maxValue] : [minValue, maxValue]}
                         tickLine={false}
                         axisLine={false}
-                        tickFormatter={(value) => `${value.toFixed(1)}%`}
+                        tickFormatter={(value) => {
+                          if (typeof value === 'number' && !isNaN(value)) {
+                            return `${value.toFixed(1)}%`;
+                          }
+                          return '';
+                        }}
                       />
                       <Tooltip
                         contentStyle={{
@@ -649,10 +654,12 @@ const ETFDetail = () => {
                           }
                           return label;
                         }}
-                        formatter={(value: number, name: string) => [
-                          `${value.toFixed(2)}%`,
-                          name,
-                        ]}
+                        formatter={(value: number | string, name: string) => {
+                          if (typeof value === 'number' && !isNaN(value)) {
+                            return [`${value.toFixed(2)}%`, name];
+                          }
+                          return ['N/A', name];
+                        }}
                       />
                       {/* Primary ETF with gradient Area (only when no comparisons) */}
                       {comparisonETFs.length === 0 && (
@@ -667,6 +674,7 @@ const ETFDetail = () => {
                           name={etf.symbol}
                           animationDuration={500}
                           strokeLinecap="round"
+                          connectNulls={false}
                         />
                       )}
                       {/* All ETFs as Lines (when comparing) */}
@@ -686,6 +694,7 @@ const ETFDetail = () => {
                             animationDuration={500}
                             animationBegin={(index + 1) * 100}
                             strokeLinecap="round"
+                            connectNulls={false}
                           />
                         );
                       })}
