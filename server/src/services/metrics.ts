@@ -160,17 +160,13 @@ function calculateDividendVolatility(
   // Minimum requirement: at least 2 dividends (reduced from 4)
   if (recentDividends.length < 2) return nullResult;
 
-  // 4. Detect frequency and annualize each payment
-  const annualizedDividends: number[] = [];
-  for (let i = 0; i < recentDividends.length; i++) {
-    const frequency = detectFrequency(recentDividends, i);
-    const factor = getAnnualizationFactor(frequency);
-    const aad = recentDividends[i].amount * factor;
-    annualizedDividends.push(aad);
-  }
+  // 4. Use ACTUAL dividend payment amounts (not annualized)
+  // Industry standard (YCharts, Portfolio Visualizer, etc.) calculates CV from actual payments
+  // This gives true volatility of dividend payments, which is what investors care about
+  const actualDividendAmounts = recentDividends.map(d => d.amount);
 
   // 5. Trim high/low outliers (10% from each end, but only if we have enough data)
-  const sortedAmounts = [...annualizedDividends].sort((a, b) => a - b);
+  const sortedAmounts = [...actualDividendAmounts].sort((a, b) => a - b);
   let trimmedAmounts: number[];
   
   if (sortedAmounts.length >= 5) {
@@ -185,20 +181,46 @@ function calculateDividendVolatility(
   // Minimum requirement: at least 2 data points (reduced from 3)
   if (trimmedAmounts.length < 2) return nullResult;
 
-  // 6. Calculate statistics on trimmed annualized dividends
+  // 6. Calculate statistics on ACTUAL dividend amounts (not annualized)
   const n = trimmedAmounts.length;
   const mean = calculateMean(trimmedAmounts);
   const sd = calculateStdDev(trimmedAmounts);
   
   // CV (Coefficient of Variation) = SD / Mean
   // CV% = CV * 100
-  // This measures relative volatility (standard deviation relative to mean)
-  // For 2 data points, CV can still be calculated but may be less reliable
+  // This measures relative volatility of ACTUAL dividend payments
+  // This is the industry-standard approach used by YCharts, Portfolio Visualizer, etc.
   const cv = mean > 0.0001 && sd >= 0 ? sd / mean : null;
   const cvPercent = cv !== null && !isNaN(cv) && isFinite(cv) ? cv * 100 : null;
   
-  // Annual dividend is the mean of trimmed annualized dividends
-  const annualDividend = mean;
+  // Annual dividend: calculate from mean of actual payments and average frequency
+  // Detect overall frequency pattern to estimate annual dividend
+  let estimatedAnnualDividend: number | null = null;
+  if (recentDividends.length >= 2) {
+    // Calculate average days between payments
+    let totalDays = 0;
+    let dayCount = 0;
+    for (let i = 0; i < recentDividends.length - 1; i++) {
+      const days = (recentDividends[i + 1].date.getTime() - recentDividends[i].date.getTime()) / (1000 * 60 * 60 * 24);
+      if (days > 0 && days < 400) { // Reasonable range
+        totalDays += days;
+        dayCount++;
+      }
+    }
+    if (dayCount > 0) {
+      const avgDaysBetween = totalDays / dayCount;
+      let paymentsPerYear: number;
+      if (avgDaysBetween <= 10) paymentsPerYear = 52; // Weekly
+      else if (avgDaysBetween <= 35) paymentsPerYear = 12; // Monthly
+      else if (avgDaysBetween <= 95) paymentsPerYear = 4; // Quarterly
+      else if (avgDaysBetween <= 185) paymentsPerYear = 2; // Semi-annual
+      else paymentsPerYear = 1; // Annual
+      
+      estimatedAnnualDividend = mean * paymentsPerYear;
+    }
+  }
+  
+  const annualDividend = estimatedAnnualDividend;
   
   // Generate volatility index label
   let volatilityIndex: string | null = null;
