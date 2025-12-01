@@ -114,36 +114,51 @@ function calculateDividendVolatility(
     dataPoints: 0,
   };
 
-  if (dividends.length < 4) return nullResult;
+  if (dividends.length < 2) return nullResult;
 
-  // 1. Filter to regular dividends only (exclude special dividends)
+  // 1. Filter to regular dividends only (exclude special dividends) and filter out zero/null amounts
   const regularDivs = dividends.filter(d => {
+    const amount = d.adj_amount ?? d.div_cash;
+    if (!amount || amount <= 0) return false; // Exclude zero/null amounts
+    
     if (!d.div_type) return true; // null type = regular
     const dtype = d.div_type.toLowerCase();
     return dtype.includes('regular') || dtype === 'cash' || dtype === '' || !dtype.includes('special');
   });
 
-  if (regularDivs.length < 4) return nullResult;
+  if (regularDivs.length < 2) return nullResult;
 
   // 2. Sort by ex_date ascending and use split-adjusted amount
   const sorted = [...regularDivs].sort(
     (a, b) => new Date(a.ex_date).getTime() - new Date(b.ex_date).getTime()
   );
 
-  // Build date-indexed series with amounts
-  const series: { date: Date; amount: number }[] = sorted.map(d => ({
-    date: new Date(d.ex_date),
-    amount: d.adj_amount ?? d.div_cash,
-  }));
+  // Build date-indexed series with amounts (ensure amounts are valid)
+  const series: { date: Date; amount: number }[] = sorted
+    .map(d => ({
+      date: new Date(d.ex_date),
+      amount: d.adj_amount ?? d.div_cash ?? 0,
+    }))
+    .filter(d => d.amount > 0); // Ensure all amounts are positive
 
-  // 3. Filter to period (6 or 12 months)
+  if (series.length < 2) return nullResult;
+
+  // 3. Filter to period (6 or 12 months), but extend to 18 months if not enough data
   const now = new Date();
-  const cutoffDate = new Date(now);
+  let cutoffDate = new Date(now);
   cutoffDate.setMonth(now.getMonth() - periodInMonths);
   
-  const recentDividends = series.filter(d => d.date >= cutoffDate);
+  let recentDividends = series.filter(d => d.date >= cutoffDate);
   
-  if (recentDividends.length < 4) return nullResult;
+  // If not enough dividends in the period, extend to 18 months
+  if (recentDividends.length < 2 && periodInMonths === 12) {
+    cutoffDate = new Date(now);
+    cutoffDate.setMonth(now.getMonth() - 18);
+    recentDividends = series.filter(d => d.date >= cutoffDate);
+  }
+  
+  // Minimum requirement: at least 2 dividends (reduced from 4)
+  if (recentDividends.length < 2) return nullResult;
 
   // 4. Detect frequency and annualize each payment
   const annualizedDividends: number[] = [];
@@ -154,12 +169,21 @@ function calculateDividendVolatility(
     annualizedDividends.push(aad);
   }
 
-  // 5. Trim high/low outliers (10% from each end)
+  // 5. Trim high/low outliers (10% from each end, but only if we have enough data)
   const sortedAmounts = [...annualizedDividends].sort((a, b) => a - b);
-  const trimCount = Math.max(1, Math.floor(sortedAmounts.length * 0.1));
-  const trimmedAmounts = sortedAmounts.slice(trimCount, sortedAmounts.length - trimCount);
+  let trimmedAmounts: number[];
   
-  if (trimmedAmounts.length < 3) return nullResult;
+  if (sortedAmounts.length >= 5) {
+    // Only trim if we have at least 5 data points
+    const trimCount = Math.max(1, Math.floor(sortedAmounts.length * 0.1));
+    trimmedAmounts = sortedAmounts.slice(trimCount, sortedAmounts.length - trimCount);
+  } else {
+    // For fewer than 5 points, use all data (no trimming)
+    trimmedAmounts = sortedAmounts;
+  }
+  
+  // Minimum requirement: at least 2 data points (reduced from 3)
+  if (trimmedAmounts.length < 2) return nullResult;
 
   // 6. Calculate statistics on trimmed annualized dividends
   const n = trimmedAmounts.length;
@@ -169,8 +193,9 @@ function calculateDividendVolatility(
   // CV (Coefficient of Variation) = SD / Mean
   // CV% = CV * 100
   // This measures relative volatility (standard deviation relative to mean)
-  const cv = mean > 0.0001 ? sd / mean : null;
-  const cvPercent = cv !== null ? cv * 100 : null;
+  // For 2 data points, CV can still be calculated but may be less reliable
+  const cv = mean > 0.0001 && sd >= 0 ? sd / mean : null;
+  const cvPercent = cv !== null && !isNaN(cv) && isFinite(cv) ? cv * 100 : null;
   
   // Annual dividend is the mean of trimmed annualized dividends
   const annualDividend = mean;
