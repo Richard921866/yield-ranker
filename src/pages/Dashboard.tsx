@@ -1577,18 +1577,10 @@ export default function Dashboard() {
                       <YAxis
                         stroke="#94a3b8"
                         fontSize={chartHeight < 280 ? 9 : 12}
-                        domain={
-                          chartType === "totalReturn"
-                            ? [minChartValue, maxChartValue]
-                            : [0, "auto"]
-                        }
+                        domain={[minChartValue, maxChartValue]}
                         tickLine={false}
                         axisLine={false}
-                        tickFormatter={(value) =>
-                          chartType === "totalReturn"
-                            ? `${value.toFixed(1)}%`
-                            : `$${value.toFixed(2)}`
-                        }
+                        tickFormatter={(value) => `${value.toFixed(1)}%`}
                         width={chartHeight < 280 ? 40 : 60}
                       />
                       <Tooltip
@@ -1606,9 +1598,7 @@ export default function Dashboard() {
                           marginBottom: "4px",
                         }}
                         formatter={(value: number, name: string) => [
-                          chartType === "totalReturn"
-                            ? `${value.toFixed(2)}%`
-                            : `$${value.toFixed(2)}`,
+                          `${value.toFixed(2)}%`,
                           name,
                         ]}
                       />

@@ -354,16 +354,18 @@ export const generateChartData = (
       const price = series.closes[i];
       if (isNaN(price) || price <= 0) continue;
       
+      const base = firstValidPrice[symbol];
+      if (!base || base <= 0) continue;
+      
       if (chartType === "price") {
+        const priceReturn = ((price - base) / base) * 100;
         if (symbol === primarySymbol && comparison.symbols.length === 1) {
-          point.price = Number(price.toFixed(2));
+          point.price = Number(priceReturn.toFixed(2));
         } else {
-          point[`price_${symbol}`] = Number(price.toFixed(2));
+          point[`price_${symbol}`] = Number(priceReturn.toFixed(2));
         }
         hasValidData = true;
       } else {
-        const base = firstValidPrice[symbol];
-        if (!base || base <= 0) continue;
         const totalReturn = ((price - base) / base) * 100;
         if (symbol === primarySymbol && comparison.symbols.length === 1) {
           point.price = Number(totalReturn.toFixed(2));

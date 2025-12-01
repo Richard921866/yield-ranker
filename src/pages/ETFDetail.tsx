@@ -363,7 +363,32 @@ const ETFDetail = () => {
                       ? `${returnValue > 0 ? "+" : ""}${returnValue.toFixed(2)}%`
                       : "N/A";
                   } else {
-                    displayValue = `$${compareETF.price.toFixed(2)}`;
+                    let returnValue: number | null | undefined;
+                    switch (selectedTimeframe) {
+                      case "1W":
+                        returnValue = compareETF.priceReturn1Wk ?? compareETF.totalReturn1Wk;
+                        break;
+                      case "1M":
+                        returnValue = compareETF.priceReturn1Mo ?? compareETF.totalReturn1Mo;
+                        break;
+                      case "3M":
+                        returnValue = compareETF.priceReturn3Mo ?? compareETF.totalReturn3Mo;
+                        break;
+                      case "6M":
+                        returnValue = compareETF.priceReturn6Mo ?? compareETF.totalReturn6Mo;
+                        break;
+                      case "1Y":
+                        returnValue = compareETF.priceReturn12Mo ?? compareETF.totalReturn12Mo;
+                        break;
+                      case "3Y":
+                        returnValue = compareETF.priceReturn3Yr ?? compareETF.totalReturn3Yr;
+                        break;
+                      default:
+                        returnValue = compareETF.priceReturn12Mo ?? compareETF.totalReturn12Mo;
+                    }
+                    displayValue = returnValue != null
+                      ? `${returnValue > 0 ? "+" : ""}${returnValue.toFixed(2)}%`
+                      : "N/A";
                   }
                   
                   return (
@@ -532,14 +557,10 @@ const ETFDetail = () => {
                       <YAxis 
                         stroke="#94a3b8" 
                         fontSize={12} 
-                        domain={chartType === "totalReturn" ? [minValue, maxValue] : ['auto', 'auto']}
+                        domain={chartType === "totalReturn" ? [minValue, maxValue] : [minValue, maxValue]}
                         tickLine={false}
                         axisLine={false}
-                        tickFormatter={(value) =>
-                          chartType === "totalReturn"
-                            ? `${value.toFixed(1)}%`
-                            : `$${value.toFixed(2)}`
-                        }
+                        tickFormatter={(value) => `${value.toFixed(1)}%`}
                       />
                       <Tooltip
                         contentStyle={{
@@ -562,9 +583,7 @@ const ETFDetail = () => {
                           return label;
                         }}
                         formatter={(value: number, name: string) => [
-                          chartType === "totalReturn"
-                            ? `${value.toFixed(2)}%`
-                            : `$${value.toFixed(2)}`,
+                          `${value.toFixed(2)}%`,
                           name,
                         ]}
                       />
