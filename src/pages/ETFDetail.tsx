@@ -234,39 +234,90 @@ const ETFDetail = () => {
           </div>
         </div>
 
-        {/* Top Metrics Bar - Section 3.3: Show precomputed tr_drip_* values */}
+        {/* Top Metrics Bar - Section 3.3: Show precomputed returns based on chart type */}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 delay-150">
           <Card className="p-4 mb-4">
             <div className="flex flex-wrap gap-4 items-center justify-between">
               <div className="flex flex-wrap gap-4 text-sm">
+                <span className="font-semibold text-foreground">
+                  {chartType === "price" ? "Price Return:" : "Total Return:"}
+                </span>
                 <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">3 Yr TR:</span>
-                  <span className={`font-semibold ${(etf.trDrip3Yr ?? etf.totalReturn3Yr) != null && (etf.trDrip3Yr ?? etf.totalReturn3Yr)! >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {(etf.trDrip3Yr ?? etf.totalReturn3Yr) != null ? `${(etf.trDrip3Yr ?? etf.totalReturn3Yr)! >= 0 ? '+' : ''}${(etf.trDrip3Yr ?? etf.totalReturn3Yr)!.toFixed(1)}%` : 'N/A'}
+                  <span className="text-muted-foreground">3 Yr:</span>
+                  <span className={`font-semibold ${
+                    chartType === "price" 
+                      ? (etf.priceReturn3Yr != null && etf.priceReturn3Yr >= 0 ? 'text-green-600' : 'text-red-600')
+                      : ((etf.trDrip3Yr ?? etf.totalReturn3Yr) != null && (etf.trDrip3Yr ?? etf.totalReturn3Yr)! >= 0 ? 'text-green-600' : 'text-red-600')
+                  }`}>
+                    {chartType === "price"
+                      ? (etf.priceReturn3Yr != null ? `${etf.priceReturn3Yr >= 0 ? '+' : ''}${etf.priceReturn3Yr.toFixed(1)}%` : 'N/A')
+                      : ((etf.trDrip3Yr ?? etf.totalReturn3Yr) != null ? `${(etf.trDrip3Yr ?? etf.totalReturn3Yr)! >= 0 ? '+' : ''}${(etf.trDrip3Yr ?? etf.totalReturn3Yr)!.toFixed(1)}%` : 'N/A')
+                    }
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">12 Mo:</span>
-                  <span className={`font-semibold ${(etf.trDrip12Mo ?? etf.totalReturn12Mo) != null && (etf.trDrip12Mo ?? etf.totalReturn12Mo)! >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {(etf.trDrip12Mo ?? etf.totalReturn12Mo) != null ? `${(etf.trDrip12Mo ?? etf.totalReturn12Mo)! >= 0 ? '+' : ''}${(etf.trDrip12Mo ?? etf.totalReturn12Mo)!.toFixed(1)}%` : 'N/A'}
+                  <span className={`font-semibold ${
+                    chartType === "price" 
+                      ? (etf.priceReturn12Mo != null && etf.priceReturn12Mo >= 0 ? 'text-green-600' : 'text-red-600')
+                      : ((etf.trDrip12Mo ?? etf.totalReturn12Mo) != null && (etf.trDrip12Mo ?? etf.totalReturn12Mo)! >= 0 ? 'text-green-600' : 'text-red-600')
+                  }`}>
+                    {chartType === "price"
+                      ? (etf.priceReturn12Mo != null ? `${etf.priceReturn12Mo >= 0 ? '+' : ''}${etf.priceReturn12Mo.toFixed(1)}%` : 'N/A')
+                      : ((etf.trDrip12Mo ?? etf.totalReturn12Mo) != null ? `${(etf.trDrip12Mo ?? etf.totalReturn12Mo)! >= 0 ? '+' : ''}${(etf.trDrip12Mo ?? etf.totalReturn12Mo)!.toFixed(1)}%` : 'N/A')
+                    }
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">6 Mo:</span>
-                  <span className={`font-semibold ${(etf.trDrip6Mo ?? etf.totalReturn6Mo) != null && (etf.trDrip6Mo ?? etf.totalReturn6Mo)! >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {(etf.trDrip6Mo ?? etf.totalReturn6Mo) != null ? `${(etf.trDrip6Mo ?? etf.totalReturn6Mo)! >= 0 ? '+' : ''}${(etf.trDrip6Mo ?? etf.totalReturn6Mo)!.toFixed(1)}%` : 'N/A'}
+                  <span className={`font-semibold ${
+                    chartType === "price" 
+                      ? (etf.priceReturn6Mo != null && etf.priceReturn6Mo >= 0 ? 'text-green-600' : 'text-red-600')
+                      : ((etf.trDrip6Mo ?? etf.totalReturn6Mo) != null && (etf.trDrip6Mo ?? etf.totalReturn6Mo)! >= 0 ? 'text-green-600' : 'text-red-600')
+                  }`}>
+                    {chartType === "price"
+                      ? (etf.priceReturn6Mo != null ? `${etf.priceReturn6Mo >= 0 ? '+' : ''}${etf.priceReturn6Mo.toFixed(1)}%` : 'N/A')
+                      : ((etf.trDrip6Mo ?? etf.totalReturn6Mo) != null ? `${(etf.trDrip6Mo ?? etf.totalReturn6Mo)! >= 0 ? '+' : ''}${(etf.trDrip6Mo ?? etf.totalReturn6Mo)!.toFixed(1)}%` : 'N/A')
+                    }
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">3 Mo:</span>
-                  <span className={`font-semibold ${(etf.trDrip3Mo ?? etf.totalReturn3Mo) != null && (etf.trDrip3Mo ?? etf.totalReturn3Mo)! >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {(etf.trDrip3Mo ?? etf.totalReturn3Mo) != null ? `${(etf.trDrip3Mo ?? etf.totalReturn3Mo)! >= 0 ? '+' : ''}${(etf.trDrip3Mo ?? etf.totalReturn3Mo)!.toFixed(1)}%` : 'N/A'}
+                  <span className={`font-semibold ${
+                    chartType === "price" 
+                      ? (etf.priceReturn3Mo != null && etf.priceReturn3Mo >= 0 ? 'text-green-600' : 'text-red-600')
+                      : ((etf.trDrip3Mo ?? etf.totalReturn3Mo) != null && (etf.trDrip3Mo ?? etf.totalReturn3Mo)! >= 0 ? 'text-green-600' : 'text-red-600')
+                  }`}>
+                    {chartType === "price"
+                      ? (etf.priceReturn3Mo != null ? `${etf.priceReturn3Mo >= 0 ? '+' : ''}${etf.priceReturn3Mo.toFixed(1)}%` : 'N/A')
+                      : ((etf.trDrip3Mo ?? etf.totalReturn3Mo) != null ? `${(etf.trDrip3Mo ?? etf.totalReturn3Mo)! >= 0 ? '+' : ''}${(etf.trDrip3Mo ?? etf.totalReturn3Mo)!.toFixed(1)}%` : 'N/A')
+                    }
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">1 Mo:</span>
-                  <span className={`font-semibold ${(etf.trDrip1Mo ?? etf.totalReturn1Mo) != null && (etf.trDrip1Mo ?? etf.totalReturn1Mo)! >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {(etf.trDrip1Mo ?? etf.totalReturn1Mo) != null ? `${(etf.trDrip1Mo ?? etf.totalReturn1Mo)! >= 0 ? '+' : ''}${(etf.trDrip1Mo ?? etf.totalReturn1Mo)!.toFixed(1)}%` : 'N/A'}
+                  <span className={`font-semibold ${
+                    chartType === "price" 
+                      ? (etf.priceReturn1Mo != null && etf.priceReturn1Mo >= 0 ? 'text-green-600' : 'text-red-600')
+                      : ((etf.trDrip1Mo ?? etf.totalReturn1Mo) != null && (etf.trDrip1Mo ?? etf.totalReturn1Mo)! >= 0 ? 'text-green-600' : 'text-red-600')
+                  }`}>
+                    {chartType === "price"
+                      ? (etf.priceReturn1Mo != null ? `${etf.priceReturn1Mo >= 0 ? '+' : ''}${etf.priceReturn1Mo.toFixed(1)}%` : 'N/A')
+                      : ((etf.trDrip1Mo ?? etf.totalReturn1Mo) != null ? `${(etf.trDrip1Mo ?? etf.totalReturn1Mo)! >= 0 ? '+' : ''}${(etf.trDrip1Mo ?? etf.totalReturn1Mo)!.toFixed(1)}%` : 'N/A')
+                    }
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground">1 Wk:</span>
+                  <span className={`font-semibold ${
+                    chartType === "price" 
+                      ? (etf.priceReturn1Wk != null && etf.priceReturn1Wk >= 0 ? 'text-green-600' : 'text-red-600')
+                      : ((etf.trDrip1Wk ?? etf.totalReturn1Wk) != null && (etf.trDrip1Wk ?? etf.totalReturn1Wk)! >= 0 ? 'text-green-600' : 'text-red-600')
+                  }`}>
+                    {chartType === "price"
+                      ? (etf.priceReturn1Wk != null ? `${etf.priceReturn1Wk >= 0 ? '+' : ''}${etf.priceReturn1Wk.toFixed(1)}%` : 'N/A')
+                      : ((etf.trDrip1Wk ?? etf.totalReturn1Wk) != null ? `${(etf.trDrip1Wk ?? etf.totalReturn1Wk)! >= 0 ? '+' : ''}${(etf.trDrip1Wk ?? etf.totalReturn1Wk)!.toFixed(1)}%` : 'N/A')
+                    }
                   </span>
                 </div>
               </div>
