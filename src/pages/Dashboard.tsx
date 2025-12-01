@@ -1785,7 +1785,7 @@ export default function Dashboard() {
                         selectedETF.symbol,
                         ...comparisonETFs.filter((s) => s !== selectedETF.symbol),
                       ].map((sym, index) => {
-                        const colors = ["#3b82f6", "#f97316", "#8b5cf6", "#10b981", "#f59e0b"];
+                        const colors = ["#3b82f6", "#f97316", "#8b5cf6", "#10b981", "#ef4444"];
                         const color = colors[index % colors.length];
                         
                         const compareETF = rankedETFs.find((e) => e.symbol === sym);

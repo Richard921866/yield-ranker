@@ -298,31 +298,43 @@ export const generateChartData = (
   comparison: ComparisonResponse,
   chartType: ChartType,
 ): any[] => {
-  const primarySymbol = comparison.symbols[0];
-  const primary = comparison.data[primarySymbol];
-  if (!primary || !primary.timestamps.length || !primary.closes.length) {
+  if (!comparison.symbols.length || !comparison.data) {
     return [];
   }
   
   const firstValidPrice: Record<string, number> = {};
+  const timestampToData: Map<number, Map<string, number>> = new Map();
+  
   for (const symbol of comparison.symbols) {
     const series = comparison.data[symbol];
-    if (series && series.closes.length > 0) {
-      for (let i = 0; i < series.closes.length; i++) {
-        const close = series.closes[i];
-        if (close != null && !isNaN(close) && close > 0) {
-          firstValidPrice[symbol] = close;
-          break;
-        }
+    if (!series || !series.timestamps || !series.closes) continue;
+    
+    for (let i = 0; i < series.timestamps.length; i++) {
+      const ts = series.timestamps[i];
+      const close = series.closes[i];
+      
+      if (close == null || isNaN(close) || close <= 0) continue;
+      
+      if (!firstValidPrice[symbol]) {
+        firstValidPrice[symbol] = close;
       }
+      
+      if (!timestampToData.has(ts)) {
+        timestampToData.set(ts, new Map());
+      }
+      timestampToData.get(ts)!.set(symbol, close);
     }
   }
-
-  const length = Math.min(primary.timestamps.length, primary.closes.length);
+  
+  if (timestampToData.size === 0) {
+    return [];
+  }
+  
+  const allTimestamps = Array.from(timestampToData.keys()).sort((a, b) => a - b);
+  const primarySymbol = comparison.symbols[0];
   const result: any[] = [];
   
-  for (let i = 0; i < length; i++) {
-    const ts = primary.timestamps[i];
+  for (const ts of allTimestamps) {
     const date = new Date(ts * 1000);
     let timeLabel: string;
     
@@ -332,27 +344,24 @@ export const generateChartData = (
         minute: "2-digit",
       });
     } else {
-      // For monthly/quarterly format: "Jan 2025", "Mar 2025", etc.
       timeLabel = date.toLocaleDateString(undefined, {
         month: "short",
         year: "numeric",
       });
     }
     
-    const point: Record<string, number | string | number> = {
+    const point: Record<string, number | string> = {
       time: timeLabel,
-      fullDate: date.toISOString(), // Store full date for tooltip
-      timestamp: ts, // Store timestamp for sorting/alignment
+      fullDate: date.toISOString(),
+      timestamp: ts,
     };
     
     let hasValidData = false;
+    const dataAtTimestamp = timestampToData.get(ts)!;
     
     for (const symbol of comparison.symbols) {
-      const series = comparison.data[symbol];
-      if (!series || series.closes[i] == null) continue;
-      
-      const price = series.closes[i];
-      if (isNaN(price) || price <= 0) continue;
+      const price = dataAtTimestamp.get(symbol);
+      if (price == null || isNaN(price) || price <= 0) continue;
       
       const base = firstValidPrice[symbol];
       if (!base || base <= 0) continue;
@@ -381,29 +390,21 @@ export const generateChartData = (
     }
   }
   
-  // Sort by timestamp to ensure proper date order
-  result.sort((a, b) => (a.timestamp as number) - (b.timestamp as number));
-  
-  // For timeframes longer than 1 day, deduplicate months and show monthly intervals
   if (comparison.timeframe !== "1D" && result.length > 0) {
     const deduplicated: any[] = [];
     const seenMonths = new Set<string>();
     
-    // Always include first point
     if (result.length > 0) {
       deduplicated.push(result[0]);
       const firstDate = new Date((result[0].timestamp as number) * 1000);
       seenMonths.add(`${firstDate.getFullYear()}-${firstDate.getMonth()}`);
     }
     
-    // Process middle points - only include one per month
     for (let i = 1; i < result.length - 1; i++) {
       const date = new Date((result[i].timestamp as number) * 1000);
       const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
       
-      // Only add if we haven't seen this month yet
       if (!seenMonths.has(monthKey)) {
-        // Find the last data point of this month to use
         let lastInMonth = result[i];
         for (let j = i + 1; j < result.length - 1; j++) {
           const nextDate = new Date((result[j].timestamp as number) * 1000);
@@ -419,12 +420,10 @@ export const generateChartData = (
       }
     }
     
-    // Always include last point if it's a different month and not already included
     if (result.length > 1) {
       const lastDate = new Date((result[result.length - 1].timestamp as number) * 1000);
       const lastMonthKey = `${lastDate.getFullYear()}-${lastDate.getMonth()}`;
       
-      // Check if last point's month is already in deduplicated array
       const lastPointAlreadyIncluded = deduplicated.some((point) => {
         const pointDate = new Date((point.timestamp as number) * 1000);
         const pointMonthKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}`;
