@@ -45,7 +45,7 @@ const Index = () => {
   const [totalReturnWeight, setTotalReturnWeight] = useState(50);
   const [totalReturnTimeframe, setTotalReturnTimeframe] = useState<
     "3mo" | "6mo" | "12mo"
-  >("12mo");
+  >("6mo");
   const [showRankingPanel, setShowRankingPanel] = useState(false);
   const [returnView, setReturnView] = useState<"total" | "price">("total");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
