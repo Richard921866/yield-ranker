@@ -15,6 +15,7 @@ import {
   LineChart,
   Line,
   ComposedChart,
+  CartesianGrid,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -271,54 +272,126 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
         ))}
       </div>
 
-      {getFilteredDividends.length > 0 && (
-        <div className="mb-4 sm:mb-6">
-          <h3 className="text-xs sm:text-sm font-medium mb-3 sm:mb-4">Dividend Payments by Ex-Date</h3>
-          <ResponsiveContainer width="100%" height={450} className="sm:h-[450px]">
-            <BarChart 
-              data={getFilteredDividends.slice().reverse().slice(-50)}
-              margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
-            >
-              <XAxis 
-                dataKey="exDate" 
-                stroke="#94a3b8" 
-                fontSize={10}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => {
-                  if (!value) return '';
-                  try {
-                    return new Date(value).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                  } catch {
-                    return '';
-                  }
-                }}
-              />
-              <YAxis 
-                stroke="#94a3b8" 
-                fontSize={10}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => `$${value.toFixed(2)}`}
-                width={50}
-                domain={['dataMin', 'dataMax']}
-                allowDataOverflow={false}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "rgba(255, 255, 255, 0.98)",
-                  border: "none",
-                  borderRadius: "8px",
-                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-                }}
-                formatter={(value: number) => [`$${value.toFixed(4)}`, 'Dividend']}
-                labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-              />
-              <Bar dataKey="amount" fill="#3b82f6" radius={[2, 2, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+      {getFilteredDividends.length > 0 && (() => {
+        // Calculate equivalent weekly rate for each dividend
+        const chartDataWithWeeklyRate = getFilteredDividends.slice().reverse().slice(-50).map((div, index, array) => {
+          let equivalentWeeklyRate = div.amount;
+          
+          // Detect frequency based on days between payments
+          if (index < array.length - 1) {
+            const currentDate = new Date(div.exDate);
+            const nextDate = new Date(array[index + 1].exDate);
+            const daysBetween = (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24);
+            
+            // Normalize to weekly rate based on detected frequency
+            if (daysBetween <= 10) {
+              // Weekly - use as-is
+              equivalentWeeklyRate = div.amount;
+            } else if (daysBetween <= 35) {
+              // Monthly - divide by ~4.33 (average weeks per month)
+              equivalentWeeklyRate = div.amount / 4.33;
+            } else if (daysBetween <= 95) {
+              // Quarterly - divide by ~13 (weeks per quarter)
+              equivalentWeeklyRate = div.amount / 13;
+            } else if (daysBetween <= 185) {
+              // Semi-annual - divide by ~26 (weeks per half year)
+              equivalentWeeklyRate = div.amount / 26;
+            } else {
+              // Annual - divide by ~52 (weeks per year)
+              equivalentWeeklyRate = div.amount / 52;
+            }
+          } else if (index > 0) {
+            // For last item, use previous payment's frequency
+            const currentDate = new Date(div.exDate);
+            const prevDate = new Date(array[index - 1].exDate);
+            const daysBetween = (currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24);
+            
+            if (daysBetween <= 10) {
+              equivalentWeeklyRate = div.amount;
+            } else if (daysBetween <= 35) {
+              equivalentWeeklyRate = div.amount / 4.33;
+            } else if (daysBetween <= 95) {
+              equivalentWeeklyRate = div.amount / 13;
+            } else if (daysBetween <= 185) {
+              equivalentWeeklyRate = div.amount / 26;
+            } else {
+              equivalentWeeklyRate = div.amount / 52;
+            }
+          }
+          
+          return {
+            ...div,
+            equivalentWeeklyRate: Number(equivalentWeeklyRate.toFixed(4)),
+          };
+        });
+
+        return (
+          <div className="mb-4 sm:mb-6">
+            <h3 className="text-xs sm:text-sm font-medium mb-3 sm:mb-4">
+              {ticker} Dividend History: Individual Payments vs. Equivalent Weekly Rate
+            </h3>
+            <ResponsiveContainer width="100%" height={450} className="sm:h-[450px]">
+              <ComposedChart 
+                data={chartDataWithWeeklyRate}
+                margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis 
+                  dataKey="exDate" 
+                  stroke="#94a3b8" 
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => {
+                    if (!value) return '';
+                    try {
+                      return new Date(value).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                    } catch {
+                      return '';
+                    }
+                  }}
+                />
+                <YAxis 
+                  stroke="#94a3b8" 
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `$${value.toFixed(2)}`}
+                  width={50}
+                  domain={['dataMin', 'dataMax']}
+                  allowDataOverflow={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "rgba(255, 255, 255, 0.98)",
+                    border: "none",
+                    borderRadius: "8px",
+                    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                  }}
+                  formatter={(value: number, name: string) => {
+                    if (name === 'amount') {
+                      return [`$${value.toFixed(4)}`, 'Individual Payment Amount (Monthly/Weekly)'];
+                    } else if (name === 'equivalentWeeklyRate') {
+                      return [`$${value.toFixed(4)}`, 'Equivalent Weekly Rate (Rate Normalized to Weekly Payout)'];
+                    }
+                    return [`$${value.toFixed(4)}`, name];
+                  }}
+                  labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                />
+                <Bar dataKey="amount" fill="#93c5fd" radius={[2, 2, 0, 0]} name="Individual Payment Amount (Monthly/Weekly)" />
+                <Line 
+                  type="monotone" 
+                  dataKey="equivalentWeeklyRate" 
+                  stroke="#ef4444" 
+                  strokeWidth={2}
+                  dot={{ fill: '#ef4444', r: 3 }}
+                  name="Equivalent Weekly Rate (Rate Normalized to Weekly Payout)"
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        );
+      })()}
 
       {chartData.length > 0 && (
         <div className="mb-6 sm:mb-8">

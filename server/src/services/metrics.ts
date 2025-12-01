@@ -340,9 +340,19 @@ export async function calculateMetrics(ticker: string): Promise<ETFMetrics> {
   const week52Low = closes.length > 0 ? Math.min(...closes) : null;
   
   // Get dividend data - prefer prices_daily.div_cash, fallback to dividends_detail
+  // Get more history (up to 2 years) to ensure we have enough data for DVI calculation
   let dividends = await getDividendsFromPrices(upperTicker);
   if (dividends.length === 0) {
     dividends = await getDividendHistory(upperTicker);
+  }
+  
+  // If still no dividends, try getting from a longer period (2 years)
+  if (dividends.length === 0) {
+    const twoYearsAgo = getDateYearsAgo(2);
+    dividends = await getDividendsFromPrices(upperTicker, twoYearsAgo);
+    if (dividends.length === 0) {
+      dividends = await getDividendHistory(upperTicker, twoYearsAgo);
+    }
   }
   
   // Calculate frequency-proof dividend volatility using 12-month period
