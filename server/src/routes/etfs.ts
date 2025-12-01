@@ -386,11 +386,53 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
       }
     }
 
-    const mergedArray = Array.from(mergedMap.values()).sort((a, b) => {
+    let mergedArray = Array.from(mergedMap.values()).sort((a, b) => {
       const symbolA = (a.symbol || a.ticker || '').toUpperCase();
       const symbolB = (b.symbol || b.ticker || '').toUpperCase();
       return symbolA.localeCompare(symbolB);
     });
+
+    // For ETFs missing price returns but having total returns, calculate them
+    // Only do this for a limited number to avoid performance issues
+    const etfsNeedingPriceReturns = mergedArray.filter(etf => {
+      const hasTotalReturns = (
+        etf.tr_drip_3y != null || etf.tr_drip_12m != null || 
+        etf.tr_drip_6m != null || etf.tr_drip_3m != null || 
+        etf.tr_drip_1m != null || etf.tr_drip_1w != null
+      );
+      const missingPriceReturns = (
+        !etf.price_return_3y && !etf.price_return_12m && !etf.price_return_6m &&
+        !etf.price_return_3m && !etf.price_return_1m && !etf.price_return_1w
+      );
+      return hasTotalReturns && missingPriceReturns;
+    }).slice(0, 10); // Limit to first 10 to avoid performance issues
+
+    // Calculate price returns for ETFs that need them (in parallel, but limited)
+    if (etfsNeedingPriceReturns.length > 0) {
+      const calculations = etfsNeedingPriceReturns.map(async (etf) => {
+        try {
+          const ticker = (etf.ticker || etf.symbol || '').toUpperCase();
+          if (!ticker) return;
+          const metrics = await calculateMetrics(ticker);
+          if (metrics.priceReturn) {
+            const etfIndex = mergedArray.findIndex(e => 
+              (e.ticker || e.symbol || '').toUpperCase() === ticker
+            );
+            if (etfIndex >= 0) {
+              mergedArray[etfIndex].price_return_3y = mergedArray[etfIndex].price_return_3y ?? metrics.priceReturn['3Y'];
+              mergedArray[etfIndex].price_return_12m = mergedArray[etfIndex].price_return_12m ?? metrics.priceReturn['1Y'];
+              mergedArray[etfIndex].price_return_6m = mergedArray[etfIndex].price_return_6m ?? metrics.priceReturn['6M'];
+              mergedArray[etfIndex].price_return_3m = mergedArray[etfIndex].price_return_3m ?? metrics.priceReturn['3M'];
+              mergedArray[etfIndex].price_return_1m = mergedArray[etfIndex].price_return_1m ?? metrics.priceReturn['1M'];
+              mergedArray[etfIndex].price_return_1w = mergedArray[etfIndex].price_return_1w ?? metrics.priceReturn['1W'];
+            }
+          }
+        } catch (error) {
+          logger.warn('Routes', `Failed to calculate price returns: ${(error as Error).message}`);
+        }
+      });
+      await Promise.all(calculations);
+    }
 
     let lastUpdatedTimestamp: string | null = null;
     
