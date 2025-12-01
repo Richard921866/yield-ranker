@@ -336,14 +336,27 @@ export async function calculateMetrics(ticker: string): Promise<ETFMetrics> {
     lastDividend = sortedRegular[0].adj_amount ?? sortedRegular[0].div_cash;
   }
   
-  // Count regular payments in last 12 months
+  // Count regular payments in last 12 months to determine actual payment frequency
   const now = new Date();
   const oneYearAgo = new Date(now);
   oneYearAgo.setMonth(now.getMonth() - 12);
   const recentRegularCount = sortedRegular.filter(d => new Date(d.ex_date) >= oneYearAgo).length;
   
-  // Update paymentsPerYear to reflect actual count of regular payments
-  const actualPaymentsPerYear = recentRegularCount > 0 ? recentRegularCount : paymentsPerYear;
+  // Determine actual payments per year:
+  // 1. Use actual count from last 12 months if we have enough data (at least 4 payments)
+  // 2. Otherwise use the static payments_per_year from database
+  // 3. Fallback to 12 (monthly) if nothing is available
+  let actualPaymentsPerYear: number;
+  if (recentRegularCount >= 4) {
+    // We have enough data to trust the actual count
+    actualPaymentsPerYear = recentRegularCount;
+  } else if (paymentsPerYear > 0) {
+    // Use database value if we don't have enough recent data
+    actualPaymentsPerYear = paymentsPerYear;
+  } else {
+    // Fallback to monthly if no data available
+    actualPaymentsPerYear = 12;
+  }
   
   // Calculate annual dividend: simple calculation using last dividend * payments per year
   // This is more accurate than the volatility-based calculation which can be skewed by outliers
