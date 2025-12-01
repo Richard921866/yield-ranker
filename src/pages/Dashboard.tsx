@@ -1353,7 +1353,7 @@ export default function Dashboard() {
                 <div className="flex flex-wrap gap-4 items-center justify-between">
                   <div className="flex flex-wrap gap-4 text-sm">
                     <span className="font-semibold text-foreground">
-                      {chartType === "price" ? "Price Return:" : "Total Return:"}
+                      {chartType === "price" ? "Price Return:" : "Total Return (DRIP):"}
                     </span>
                     <div className="flex items-center gap-1">
                       <span className="text-muted-foreground">3 Yr:</span>
