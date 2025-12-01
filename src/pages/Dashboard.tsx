@@ -657,16 +657,16 @@ export default function Dashboard() {
 
   const resetToDefaults = async () => {
     const defaultWeights: RankingWeights = {
-      yield: 25,
-      volatility: 25,
-      totalReturn: 50,
-      timeframe: "6mo",
+      yield: 30,
+      volatility: 30,
+      totalReturn: 40,
+      timeframe: "12mo",
     };
 
-    setYieldWeight(25);
-    setVolatilityWeight(25);
-    setTotalReturnWeight(50);
-    setTotalReturnTimeframe("6mo");
+    setYieldWeight(30);
+    setVolatilityWeight(30);
+    setTotalReturnWeight(40);
+    setTotalReturnTimeframe("12mo");
     setWeights(defaultWeights);
 
     // Save defaults to database
@@ -1458,7 +1458,7 @@ export default function Dashboard() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="totalReturn">Total Return</SelectItem>
+                          <SelectItem value="totalReturn">Total Return (DRIP)</SelectItem>
                           <SelectItem value="priceReturn">Price Return</SelectItem>
                         </SelectContent>
                       </Select>
@@ -2602,6 +2602,19 @@ export default function Dashboard() {
                               className="pl-10 w-full h-10 sm:h-9 md:h-9 border-2 text-sm"
                             />
                           </div>
+                          {/* Current Rankings Display */}
+                          {isPremium && (
+                            <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1 sm:gap-2 flex-wrap">
+                              <span className="font-medium">Ranking:</span>
+                              <span>Yield {yieldWeight}%</span>
+                              <span>•</span>
+                              <span>Volatility {volatilityWeight ?? 0}%</span>
+                              <span>•</span>
+                              <span>Return {totalReturnWeight}%</span>
+                              <span>•</span>
+                              <span>{totalReturnTimeframe.toUpperCase()}</span>
+                            </div>
+                          )}
                           {/* Customize Rankings */}
                           <Button
                             variant="outline"

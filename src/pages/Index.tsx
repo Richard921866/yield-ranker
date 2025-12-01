@@ -35,17 +35,17 @@ const Index = () => {
   const isGuest = !profile;
   const { favorites, toggleFavorite, cleanupFavorites } = useFavorites();
   const [weights, setWeights] = useState<RankingWeights>({
-    yield: 25,
-    volatility: 25,
-    totalReturn: 50,
-    timeframe: "6mo",
+    yield: 30,
+    volatility: 30,
+    totalReturn: 40,
+    timeframe: "12mo",
   });
-  const [yieldWeight, setYieldWeight] = useState(25);
-  const [volatilityWeight, setVolatilityWeight] = useState<number>(25);
-  const [totalReturnWeight, setTotalReturnWeight] = useState(50);
+  const [yieldWeight, setYieldWeight] = useState(30);
+  const [volatilityWeight, setVolatilityWeight] = useState<number>(30);
+  const [totalReturnWeight, setTotalReturnWeight] = useState(40);
   const [totalReturnTimeframe, setTotalReturnTimeframe] = useState<
     "3mo" | "6mo" | "12mo"
-  >("6mo");
+  >("12mo");
   const [showRankingPanel, setShowRankingPanel] = useState(false);
   const [returnView, setReturnView] = useState<"total" | "price">("total");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -274,11 +274,11 @@ const Index = () => {
   };
 
   const resetToDefaults = () => {
-    setYieldWeight(25);
-    setVolatilityWeight(25);
-    setTotalReturnWeight(50);
-    setTotalReturnTimeframe("6mo");
-    setWeights({ yield: 25, volatility: 25, totalReturn: 50, timeframe: "6mo" });
+    setYieldWeight(30);
+    setVolatilityWeight(30);
+    setTotalReturnWeight(40);
+    setTotalReturnTimeframe("12mo");
+    setWeights({ yield: 30, volatility: 30, totalReturn: 40, timeframe: "12mo" });
   };
 
   const handleSavePreset = async () => {
@@ -469,6 +469,19 @@ const Index = () => {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:pt-0.5 md:flex-nowrap">
+                {/* Current Rankings Display */}
+                {isPremium && (
+                  <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1 sm:gap-2 flex-wrap">
+                    <span className="font-medium">Ranking:</span>
+                    <span>Yield {yieldWeight}%</span>
+                    <span>•</span>
+                    <span>Volatility {volatilityWeight}%</span>
+                    <span>•</span>
+                    <span>Return {totalReturnWeight}%</span>
+                    <span>•</span>
+                    <span>{totalReturnTimeframe.toUpperCase()}</span>
+                  </div>
+                )}
                 {/* Customize Rankings */}
                 <Button
                   variant="outline"

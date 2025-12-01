@@ -45,9 +45,9 @@ interface Weights {
 }
 
 const DEFAULT_WEIGHTS: Weights = {
-  yield: 25,
-  totalReturn: 50,
-  volatility: 25,
+  yield: 34,
+  totalReturn: 33,
+  volatility: 33,
 };
 
 const PRESET_STRATEGIES: { name: string; weights: Weights; description: string }[] = [
