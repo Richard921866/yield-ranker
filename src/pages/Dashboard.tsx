@@ -2519,11 +2519,11 @@ export default function Dashboard() {
               </div>
             ) : (
               <>
-                {infoBanner && (
+                {((isGuest && guestMessage) || (isPremium && premiumMessage)) && (
                   <div className="w-full max-w-[98%] mx-auto">
                     <Card className="p-4 border-2 border-primary/20 bg-primary/5">
                       <p className="text-base md:text-lg text-foreground leading-relaxed font-medium">
-                        {infoBanner}
+                        {isGuest ? guestMessage : premiumMessage}
                       </p>
                     </Card>
                   </div>
