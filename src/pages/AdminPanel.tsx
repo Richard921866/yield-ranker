@@ -163,6 +163,13 @@ const AdminPanel = () => {
       filteredData.forEach((setting) => {
         values[setting.key] = setting.value;
       });
+      // Ensure guest_message and premium_message exist in values (even if empty)
+      if (!values["guest_message"]) {
+        values["guest_message"] = "";
+      }
+      if (!values["premium_message"]) {
+        values["premium_message"] = "";
+      }
       setSettingsValues(values);
     } catch (error) {
       toast({
