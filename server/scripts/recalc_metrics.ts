@@ -19,6 +19,45 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
+const isWeeklyPayer = (ticker: string): boolean => {
+  const weeklyTickers = ['TSLY','NVDY','MSTY','CONY','GOOY','AMZY','APLY','QQQY','IWMY','QDTE','XDTE','SDTY','QDTY','RDTY','YMAX','YMAG','ULTY','LFGY','YETH','RDTE','PLTW','TSLW','HOOW','GOOW','METW','AMZW','AMDW','AVGW','MSTW','NFLW','COIW','WPAY','XBTY','YBIT','HOOY','CVNY','PLTY','NVYY','CHPY','GPTY','MAGY','TQQY','TSYY','YSPY','AZYY','PLYY','AMYY','COYY','TSII','NVII','HOII','COII','PLTI','BRKW','MSFW'];
+  return weeklyTickers.includes(ticker) || ticker.endsWith('Y');
+};
+
+const calculateDividendMetrics = (payouts: number[], frequency: 'weekly' | 'monthly', currentPrice: number | null) => {
+  if (payouts.length === 0) return { yield: null, cv: null, annualDiv: null };
+
+  const relevantPayouts = payouts.slice(0, frequency === 'weekly' ? 52 : 12);
+  let annualDiv = relevantPayouts.reduce((a, b) => a + b, 0);
+  
+  if (frequency === 'weekly' && relevantPayouts.length < 52) {
+    annualDiv *= 52 / relevantPayouts.length;
+  } else if (frequency === 'monthly' && relevantPayouts.length < 12) {
+    annualDiv *= 12 / relevantPayouts.length;
+  }
+
+  let cv: number | null = null;
+  if (payouts.length >= 4) {
+    const mean = payouts.reduce((a, b) => a + b, 0) / payouts.length;
+    const variance = payouts.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (payouts.length - 1);
+    cv = (Math.sqrt(variance) / mean) * 100;
+    
+    if (frequency === 'weekly') {
+      cv = cv * Math.sqrt(52 / 12);
+    }
+  }
+
+  const forwardYield = currentPrice && currentPrice > 0 && annualDiv > 0
+    ? (annualDiv / currentPrice) * 100
+    : null;
+
+  return {
+    yield: forwardYield,
+    cv: cv ? Number(cv.toFixed(1)) : null,
+    annualDiv: Number(annualDiv.toFixed(4)),
+  };
+};
+
 async function main() {
   console.log('Recalculating metrics for all ETFs...\n');
   
@@ -40,7 +79,39 @@ async function main() {
   for (const { ticker } of tickers) {
     try {
       console.log(`Processing ${ticker}...`);
+      
       const metrics = await calculateMetrics(ticker);
+      
+      const frequency: 'weekly' | 'monthly' = isWeeklyPayer(ticker) ? 'weekly' : 'monthly';
+      
+      const { data: dividends } = await supabase
+        .from('dividends_detail')
+        .select('div_cash, adj_amount, div_type, ex_date')
+        .eq('ticker', ticker)
+        .order('ex_date', { ascending: false });
+      
+      const regularDividends = (dividends || []).filter(d => {
+        const amount = d.adj_amount ?? d.div_cash;
+        if (!amount || amount <= 0) return false;
+        if (!d.div_type) return true;
+        const dtype = d.div_type.toLowerCase();
+        return dtype.includes('regular') || dtype === 'cash' || dtype === '' || !dtype.includes('special');
+      });
+      
+      const payouts = regularDividends
+        .map(d => d.adj_amount ?? d.div_cash ?? 0)
+        .filter(a => a > 0)
+        .reverse();
+      
+      const divMetrics = calculateDividendMetrics(payouts, frequency, metrics.currentPrice);
+      
+      const volatilityIndex = divMetrics.cv !== null
+        ? divMetrics.cv < 5 ? 'Very Low'
+          : divMetrics.cv < 10 ? 'Low'
+          : divMetrics.cv < 20 ? 'Moderate'
+          : divMetrics.cv < 30 ? 'High'
+          : 'Very High'
+        : null;
       
       updates.push({
         ticker,
@@ -48,13 +119,13 @@ async function main() {
           price: metrics.currentPrice,
           price_change: metrics.priceChange,
           price_change_pct: metrics.priceChangePercent,
-          last_dividend: metrics.lastDividend,
-          annual_dividend: metrics.annualizedDividend,
-          forward_yield: metrics.forwardYield,
+          last_dividend: payouts.length > 0 ? payouts[payouts.length - 1] : metrics.lastDividend,
+          annual_dividend: divMetrics.annualDiv,
+          forward_yield: divMetrics.yield,
           dividend_sd: metrics.dividendSD,
-          dividend_cv: metrics.dividendCV,
-          dividend_cv_percent: metrics.dividendCVPercent,
-          dividend_volatility_index: metrics.dividendVolatilityIndex,
+          dividend_cv: divMetrics.cv ? divMetrics.cv / 100 : null,
+          dividend_cv_percent: divMetrics.cv,
+          dividend_volatility_index: volatilityIndex,
           week_52_high: metrics.week52High,
           week_52_low: metrics.week52Low,
           tr_drip_3y: metrics.totalReturnDrip['3Y'],
@@ -78,7 +149,7 @@ async function main() {
         },
       });
       
-      console.log(`  ✓ yield=${metrics.forwardYield?.toFixed(2) ?? 'N/A'}%, CV=${metrics.dividendCVPercent?.toFixed(1) ?? 'N/A'}%`);
+      console.log(`  ✓ yield=${divMetrics.yield?.toFixed(2) ?? 'N/A'}%, CV=${divMetrics.cv?.toFixed(1) ?? 'N/A'}%`);
     } catch (err) {
       console.error(`  ✗ Error: ${(err as Error).message}`);
     }
