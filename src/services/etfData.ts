@@ -390,59 +390,6 @@ export const generateChartData = (
     }
   }
   
-  if (comparison.timeframe !== "1D" && result.length > 0) {
-    const deduplicated: any[] = [];
-    const seenMonths = new Set<string>();
-    
-    if (result.length > 0) {
-      deduplicated.push(result[0]);
-      const firstDate = new Date((result[0].timestamp as number) * 1000);
-      seenMonths.add(`${firstDate.getFullYear()}-${firstDate.getMonth()}`);
-    }
-    
-    for (let i = 1; i < result.length - 1; i++) {
-      const date = new Date((result[i].timestamp as number) * 1000);
-      const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
-      
-      if (!seenMonths.has(monthKey)) {
-        let lastInMonth = result[i];
-        for (let j = i + 1; j < result.length - 1; j++) {
-          const nextDate = new Date((result[j].timestamp as number) * 1000);
-          const nextMonthKey = `${nextDate.getFullYear()}-${nextDate.getMonth()}`;
-          if (nextMonthKey === monthKey) {
-            lastInMonth = result[j];
-          } else {
-            break;
-          }
-        }
-        deduplicated.push(lastInMonth);
-        seenMonths.add(monthKey);
-      }
-    }
-    
-    if (result.length > 1) {
-      const lastDate = new Date((result[result.length - 1].timestamp as number) * 1000);
-      const lastMonthKey = `${lastDate.getFullYear()}-${lastDate.getMonth()}`;
-      
-      const lastPointAlreadyIncluded = deduplicated.some((point) => {
-        const pointDate = new Date((point.timestamp as number) * 1000);
-        const pointMonthKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}`;
-        return pointMonthKey === lastMonthKey;
-      });
-      
-      if (!lastPointAlreadyIncluded) {
-        const lastPoint = { ...result[result.length - 1] };
-        lastPoint.time = lastDate.toLocaleDateString(undefined, {
-          month: "short",
-          year: "numeric",
-        });
-        deduplicated.push(lastPoint);
-      }
-    }
-    
-    return deduplicated.length > 0 ? deduplicated : result;
-  }
-  
   return result;
 };
 
