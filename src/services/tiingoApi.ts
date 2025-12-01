@@ -183,6 +183,20 @@ export interface SyncStatus {
 
 export type ChartPeriod = '1W' | '1M' | '3M' | '6M' | '1Y' | '3Y' | '5Y' | 'MAX';
 
+export interface DividendDates {
+  exDate: string;
+  recordDate: string | null;
+  paymentDate: string | null;
+  declarationDate: string | null;
+  amount: number;
+}
+
+export interface DividendDatesResponse {
+  ticker: string;
+  dividends: DividendDates[];
+  count: number;
+}
+
 // ============================================================================
 // API Functions
 // ============================================================================
@@ -306,6 +320,26 @@ export async function fetchSyncStatus(): Promise<SyncStatus> {
 }
 
 /**
+ * Fetch dividend dates (record date, payment date) from Alpha Vantage
+ */
+export async function fetchDividendDates(
+  ticker: string,
+  limit?: number
+): Promise<DividendDatesResponse> {
+  const url = limit 
+    ? `${API_BASE_URL}/api/etfs/${ticker}/dividend-dates?limit=${limit}`
+    : `${API_BASE_URL}/api/etfs/${ticker}/dividend-dates`;
+    
+  const response = await fetch(url);
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch dividend dates for ${ticker}`);
+  }
+  
+  return response.json();
+}
+
+/**
  * Generate chart-ready data from comparison response
  */
 export function generateComparisonChartData(
@@ -420,6 +454,7 @@ export default {
   fetchTiingoPrices,
   fetchLatestPrice,
   fetchDividends,
+  fetchDividendDates,
   fetchMetrics,
   fetchComparison,
   fetchRankings,

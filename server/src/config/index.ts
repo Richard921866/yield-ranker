@@ -36,6 +36,15 @@ interface Config {
     };
   };
   
+  alphaVantage: {
+    apiKey: string;
+    baseUrl: string;
+    rateLimit: {
+      requestsPerMinute: number;
+      minDelayMs: number;
+    };
+  };
+  
   upload: {
     maxFileSize: number;
     allowedMimeTypes: string[];
@@ -86,6 +95,15 @@ export const config: Config = {
       requestsPerHour: optionalEnvNumber('TIINGO_RATE_LIMIT_HOURLY', 500),
       requestsPerDay: optionalEnvNumber('TIINGO_RATE_LIMIT_DAILY', 5000),
       minDelayMs: optionalEnvNumber('TIINGO_MIN_DELAY_MS', 200),
+    },
+  },
+  
+  alphaVantage: {
+    apiKey: process.env.ALPHA_VANTAGE_API_KEY || '',
+    baseUrl: 'https://www.alphavantage.co',
+    rateLimit: {
+      requestsPerMinute: 5, // Free tier limit
+      minDelayMs: 12000, // 12 seconds between requests for free tier
     },
   },
   

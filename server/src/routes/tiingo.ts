@@ -15,7 +15,7 @@ import {
 import { fetchPriceHistory as fetchTiingoPrices } from '../services/tiingo.js';
 import { calculateMetrics, getChartData, calculateRankings } from '../services/metrics.js';
 import { periodToStartDate, getDateYearsAgo, logger, formatDate } from '../utils/index.js';
-import type { ChartPeriod, RankingWeights } from '../types/index.js';
+import type { ChartPeriod, RankingWeights, DividendRecord } from '../types/index.js';
 
 const router = Router();
 
@@ -219,8 +219,8 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
     }
     
     // Detect frequency from actual dividend dates for each dividend
-    const detectFrequencyFromDates = (dividends: typeof dividends, index: number): string => {
-      if (dividends.length < 2) {
+    const detectFrequencyFromDates = (records: DividendRecord[], index: number): string => {
+      if (records.length < 2) {
         // Fallback to paymentsPerYear if not enough data
         if (paymentsPerYear === 12) return 'Mo';
         if (paymentsPerYear === 4) return 'Qtr';
@@ -230,16 +230,16 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
       }
       
       // Sort dividends by date (ascending) for frequency detection
-      const sorted = [...dividends].sort((a, b) => 
+      const sorted = [...records].sort((a, b) => 
         new Date(a.ex_date).getTime() - new Date(b.ex_date).getTime()
       );
       
-      const currentDate = new Date(dividends[index].ex_date);
+      const currentDate = new Date(records[index].ex_date);
       let daysBetween: number | null = null;
       
       // Try to find next dividend
       for (let i = 0; i < sorted.length - 1; i++) {
-        if (sorted[i].ex_date === dividends[index].ex_date) {
+        if (sorted[i].ex_date === records[index].ex_date) {
           const nextDate = new Date(sorted[i + 1].ex_date);
           daysBetween = (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24);
           break;
@@ -249,7 +249,7 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
       // If no next dividend found, try previous dividend
       if (daysBetween === null) {
         for (let i = sorted.length - 1; i > 0; i--) {
-          if (sorted[i].ex_date === dividends[index].ex_date) {
+          if (sorted[i].ex_date === records[index].ex_date) {
             const prevDate = new Date(sorted[i - 1].ex_date);
             daysBetween = (currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24);
             break;

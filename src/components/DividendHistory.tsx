@@ -34,7 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, ChevronDown, ChevronUp, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
-import { fetchDividends, type DividendData, type DividendRecord } from "@/services/tiingoApi";
+import { fetchDividends, fetchDividendDates, type DividendData, type DividendRecord, type DividendDates } from "@/services/tiingoApi";
 
 interface DividendHistoryProps {
   ticker: string;
@@ -53,6 +53,7 @@ type TimeRange = '1Y' | '3Y' | '5Y' | '10Y' | '20Y' | 'ALL';
 
 export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps) {
   const [dividendData, setDividendData] = useState<DividendData | null>(null);
+  const [alphaVantageDates, setAlphaVantageDates] = useState<Map<string, DividendDates>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAllRecords, setShowAllRecords] = useState(false);
@@ -172,10 +173,25 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
       setError(null);
       
       try {
-        const data = await fetchDividends(ticker, 10);
-        setDividendData(data);
-        if (data.dividends.length > 0) {
-          const firstYear = new Date(data.dividends[0].exDate).getFullYear();
+        // Fetch Tiingo dividend data and Alpha Vantage dates in parallel
+        const [tiingoData, avDatesResponse] = await Promise.all([
+          fetchDividends(ticker, 10),
+          fetchDividendDates(ticker).catch(() => ({ dividends: [] as DividendDates[] }))
+        ]);
+        
+        setDividendData(tiingoData);
+        
+        // Create a map of ex-date to Alpha Vantage dates for quick lookup
+        const datesMap = new Map<string, DividendDates>();
+        avDatesResponse.dividends.forEach((div: DividendDates) => {
+          // Normalize date format for matching
+          const exDate = div.exDate.split('T')[0];
+          datesMap.set(exDate, div);
+        });
+        setAlphaVantageDates(datesMap);
+        
+        if (tiingoData.dividends.length > 0) {
+          const firstYear = new Date(tiingoData.dividends[0].exDate).getFullYear();
           setExpandedYears(new Set([firstYear]));
         }
       } catch (err) {
@@ -385,8 +401,16 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
                     </TableRow>
                     {isExpanded && displayRecords.map((div, idx) => {
                       const exDate = new Date(div.exDate);
-                      const payDate = div.payDate ? new Date(div.payDate) : null;
-                      const recordDate = div.recordDate ? new Date(div.recordDate) : null;
+                      const exDateStr = div.exDate.split('T')[0];
+                      
+                      // Try to get dates from Alpha Vantage first, fall back to Tiingo data
+                      const avDates = alphaVantageDates.get(exDateStr);
+                      const payDate = avDates?.paymentDate 
+                        ? new Date(avDates.paymentDate) 
+                        : (div.payDate ? new Date(div.payDate) : null);
+                      const recordDate = avDates?.recordDate 
+                        ? new Date(avDates.recordDate) 
+                        : (div.recordDate ? new Date(div.recordDate) : null);
                       
                       const typeLabel = div.type === 'Special' ? 'Special' : 'Regular';
                       
@@ -489,7 +513,7 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
             year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
-          })} • Source: Tiingo
+          })} • Source: Tiingo{alphaVantageDates.size > 0 ? ' + Alpha Vantage' : ''}
         </p>
       </div>
     </Card>

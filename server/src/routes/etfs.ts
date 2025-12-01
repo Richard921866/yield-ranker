@@ -14,6 +14,7 @@ import config from '../config/index.js';
 import { logger, parseNumeric } from '../utils/index.js';
 import type { ETFStaticRecord } from '../types/index.js';
 import { calculateMetrics } from '../services/metrics.js';
+import { fetchDividendDates, getLatestDividendDates } from '../services/alphaVantage.js';
 
 const router = Router();
 
@@ -616,6 +617,74 @@ router.get('/:symbol', async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     logger.error('Routes', `Error fetching ETF: ${(error as Error).message}`);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// Dividend Dates (Alpha Vantage)
+// ============================================================================
+
+/**
+ * GET /api/etfs/:ticker/dividend-dates
+ * Fetch dividend record and payment dates from Alpha Vantage
+ */
+router.get('/:ticker/dividend-dates', async (req: Request, res: Response) => {
+  try {
+    const { ticker } = req.params;
+    const { limit } = req.query;
+    
+    if (!ticker) {
+      res.status(400).json({ error: 'Ticker is required' });
+      return;
+    }
+
+    logger.info('Routes', `Fetching dividend dates for ${ticker}`);
+    
+    let dividends = await fetchDividendDates(ticker.toUpperCase());
+    
+    // Apply limit if specified
+    if (limit && !isNaN(Number(limit))) {
+      dividends = dividends.slice(0, Number(limit));
+    }
+
+    res.json({
+      ticker: ticker.toUpperCase(),
+      dividends,
+      count: dividends.length,
+    });
+  } catch (error) {
+    logger.error('Routes', `Error fetching dividend dates: ${(error as Error).message}`);
+    res.status(500).json({ error: 'Failed to fetch dividend dates' });
+  }
+});
+
+/**
+ * GET /api/etfs/:ticker/latest-dividend
+ * Get the most recent dividend with dates
+ */
+router.get('/:ticker/latest-dividend', async (req: Request, res: Response) => {
+  try {
+    const { ticker } = req.params;
+    
+    if (!ticker) {
+      res.status(400).json({ error: 'Ticker is required' });
+      return;
+    }
+
+    const dividend = await getLatestDividendDates(ticker.toUpperCase());
+
+    if (!dividend) {
+      res.status(404).json({ error: 'No dividend data found' });
+      return;
+    }
+
+    res.json({
+      ticker: ticker.toUpperCase(),
+      ...dividend,
+    });
+  } catch (error) {
+    logger.error('Routes', `Error fetching latest dividend: ${(error as Error).message}`);
+    res.status(500).json({ error: 'Failed to fetch latest dividend' });
   }
 });
 

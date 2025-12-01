@@ -344,10 +344,9 @@ export const generateChartData = (
         minute: "2-digit",
       });
     } else {
-      // Show daily date format (e.g., "Nov 24") for all other timeframes
       timeLabel = date.toLocaleDateString(undefined, {
         month: "short",
-        day: "numeric",
+        year: "numeric",
       });
     }
     
