@@ -94,12 +94,15 @@ function getAnnualizationFactor(frequency: 'weekly' | 'monthly' | 'quarterly' | 
 }
 
 /**
- * Calculate frequency-proof dividend volatility using annualized adjusted dividends.
- * Implements the formula from Rich Hill's email:
+ * Calculate dividend volatility using actual dividend payment amounts.
+ * Industry-standard approach (YCharts, Portfolio Visualizer, etc.):
  * 1. Filter out special dividends
- * 2. Annualize each payment by frequency (Weekly=52, Monthly=12, Quarterly=4, Semi-Annual=2)
- * 3. Trim high/low outliers (10% from each end)
- * 4. Calculate Mean, SD, and CV from trimmed annualized series
+ * 2. Use ACTUAL dividend payment amounts (not annualized)
+ * 3. Trim high/low outliers (10% from each end) if enough data
+ * 4. Calculate Mean, SD, and CV from actual payment amounts
+ * 
+ * This gives true volatility of dividend payments, which is what investors care about.
+ * Annualizing payments before calculating CV artificially reduces volatility.
  */
 function calculateDividendVolatility(
   dividends: DividendRecord[],
@@ -190,8 +193,25 @@ function calculateDividendVolatility(
   // CV% = CV * 100
   // This measures relative volatility of ACTUAL dividend payments
   // This is the industry-standard approach used by YCharts, Portfolio Visualizer, etc.
-  const cv = mean > 0.0001 && sd >= 0 ? sd / mean : null;
-  const cvPercent = cv !== null && !isNaN(cv) && isFinite(cv) ? cv * 100 : null;
+  // Ensure we calculate correctly - if sd > 0 and mean > 0, CV should be > 0
+  let cv: number | null = null;
+  let cvPercent: number | null = null;
+  
+  if (mean > 0.0001 && sd >= 0) {
+    cv = sd / mean;
+    if (!isNaN(cv) && isFinite(cv) && cv > 0) {
+      cvPercent = cv * 100;
+    }
+  }
+  
+  // Double-check: if we have variation but CV is 0, recalculate
+  if (sd > 0 && mean > 0 && (cvPercent === null || cvPercent === 0)) {
+    const recalcCV = sd / mean;
+    if (!isNaN(recalcCV) && isFinite(recalcCV) && recalcCV > 0) {
+      cv = recalcCV;
+      cvPercent = recalcCV * 100;
+    }
+  }
   
   // Annual dividend: calculate from mean of actual payments and average frequency
   // Detect overall frequency pattern to estimate annual dividend
