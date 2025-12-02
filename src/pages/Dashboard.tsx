@@ -42,6 +42,7 @@ import {
   ShieldCheck,
   RefreshCw,
   Clock,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -1053,10 +1054,10 @@ export default function Dashboard() {
       if (typeof price === 'number' && !isNaN(price) && isFinite(price) && price > 0) {
         const percent = (priceChange / price) * 100;
         if (typeof percent === 'number' && !isNaN(percent) && isFinite(percent)) {
-          return percent.toFixed(2);
+          return percent;
         }
       }
-      return '0.00';
+      return 0;
     })();
     const isPositive = priceChange >= 0;
 
