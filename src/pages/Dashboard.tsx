@@ -927,18 +927,8 @@ export default function Dashboard() {
   };
 
   const handleETFClick = (etf: ETF) => {
-    setSelectedETF(etf);
-    setChartType("totalReturn");
-    setSelectedTimeframe("6M");
-    setComparisonETFs((prev) => prev.filter((s) => s !== etf.symbol));
-    setShowAllETFs(false);
-    setTimeout(() => {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      const mainContainer = document.querySelector("main");
-      if (mainContainer) {
-        mainContainer.scrollTop = 0;
-      }
-    }, 0);
+    // Navigate to the individual ETF detail page
+    navigate(`/etf/${etf.symbol}`);
   };
 
   type ChartPoint = { [key: string]: number | string | null };
