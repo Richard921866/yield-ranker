@@ -1918,7 +1918,7 @@ export default function Dashboard() {
                             <span className={`font-bold text-sm ${
                               isPositiveReturn ? "text-green-600" : "text-red-600"
                             }`}>
-                              {returnValue != null 
+                              {returnValue != null && typeof returnValue === 'number' && !isNaN(returnValue) && isFinite(returnValue)
                                 ? `${returnValue >= 0 ? '+' : ''}${returnValue.toFixed(2)}%`
                                 : 'N/A'
                               }
@@ -1949,25 +1949,34 @@ export default function Dashboard() {
                   <div className="text-center p-3 bg-slate-50 rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">Forward Yield</p>
                     <p className="text-xl font-bold text-primary">
-                      {selectedETF.forwardYield != null ? `${selectedETF.forwardYield.toFixed(2)}%` : 'N/A'}
+                      {selectedETF.forwardYield != null && typeof selectedETF.forwardYield === 'number' && !isNaN(selectedETF.forwardYield) && isFinite(selectedETF.forwardYield) 
+                        ? `${selectedETF.forwardYield.toFixed(2)}%` 
+                        : 'N/A'}
                     </p>
                   </div>
                   <div className="text-center p-3 bg-slate-50 rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">52-Week Range</p>
                     <p className="text-sm font-medium">
-                      ${selectedETF.week52Low?.toFixed(2) ?? 'N/A'} - ${selectedETF.week52High?.toFixed(2) ?? 'N/A'}
+                      {selectedETF.week52Low != null && typeof selectedETF.week52Low === 'number' && !isNaN(selectedETF.week52Low) && isFinite(selectedETF.week52Low) && 
+                       selectedETF.week52High != null && typeof selectedETF.week52High === 'number' && !isNaN(selectedETF.week52High) && isFinite(selectedETF.week52High)
+                        ? `$${selectedETF.week52Low.toFixed(2)} - $${selectedETF.week52High.toFixed(2)}`
+                        : 'N/A'}
                     </p>
                   </div>
                   <div className="text-center p-3 bg-slate-50 rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">Annual Dividend</p>
                     <p className="text-xl font-bold text-green-600">
-                      ${selectedETF.annualDividend?.toFixed(2) ?? 'N/A'}
+                      {selectedETF.annualDividend != null && typeof selectedETF.annualDividend === 'number' && !isNaN(selectedETF.annualDividend) && isFinite(selectedETF.annualDividend)
+                        ? `$${selectedETF.annualDividend.toFixed(2)}`
+                        : 'N/A'}
                     </p>
                   </div>
                   <div className="text-center p-3 bg-slate-50 rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">Dividend Volatility</p>
                     <p className="text-sm font-medium">
-                      {selectedETF.dividendVolatilityIndex ?? (selectedETF.dividendCVPercent != null ? `${selectedETF.dividendCVPercent.toFixed(1)}%` : 'N/A')}
+                      {selectedETF.dividendCVPercent != null && typeof selectedETF.dividendCVPercent === 'number' && !isNaN(selectedETF.dividendCVPercent) && isFinite(selectedETF.dividendCVPercent)
+                        ? `${selectedETF.dividendCVPercent.toFixed(1)}%`
+                        : 'N/A'}
                     </p>
                   </div>
                 </div>
