@@ -25,6 +25,7 @@
     "cron:daily": "tsx scripts/daily_update.ts",
     "cron:daily:force": "tsx scripts/daily_update.ts --force",
     "recalc:metrics": "tsx scripts/recalc_metrics.ts",
+    "sync:volatility": "tsx scripts/sync_dividend_volatility.ts",
     "tiingo:test": "tsx -e \"import { healthCheck } from './src/services/tiingo.js'; healthCheck().then(console.log)\""
   },
   "dependencies": {
