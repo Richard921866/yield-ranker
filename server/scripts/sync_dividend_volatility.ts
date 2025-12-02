@@ -48,7 +48,7 @@ async function fetchTiingoDividends(ticker: string): Promise<any[]> {
       throw new Error(`HTTP ${response.status}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as any[];
     // Filter to only records with dividends
     return data.filter((d: any) => d.divCash && d.divCash > 0);
   } catch (error) {
