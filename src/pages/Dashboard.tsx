@@ -1747,7 +1747,10 @@ export default function Dashboard() {
                   <div className="flex-1 min-w-0 order-2 lg:order-1">
                     <ResponsiveContainer width="100%" height={400}>
                       {chartData && Array.isArray(chartData) && chartData.length > 0 ? (
-                        <ComposedChart data={chartData}>
+                        <ComposedChart 
+                          key={`chart-${selectedETF.symbol}-${chartType}-${selectedTimeframe}`}
+                          data={chartData}
+                        >
                       <defs>
                         <linearGradient
                           id="colorPricePrimary"
