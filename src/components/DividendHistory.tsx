@@ -272,7 +272,7 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
       {getFilteredDividends.length > 0 && (() => {
         const dividends = getFilteredDividends.slice().reverse();
         
-        // Detect if frequency changed using actual frequency field from API
+        // Detect if frequency changed using both API frequency field and actual payment intervals
         const frequencies = dividends
           .map(div => {
             const freq = div.frequency || '';
@@ -287,9 +287,43 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
           })
           .filter((f): f is string => f !== null);
         
-        // Check if frequency changed (more than one unique frequency)
+        // Check if frequency changed based on API frequency field
         const uniqueFrequencies = new Set(frequencies);
-        const frequencyChanged = uniqueFrequencies.size > 1;
+        let frequencyChanged = uniqueFrequencies.size > 1;
+        
+        // Also check actual payment intervals to verify frequency change
+        // If all intervals are similar, frequency hasn't actually changed
+        if (dividends.length >= 3) {
+          const intervals: number[] = [];
+          for (let i = 0; i < dividends.length - 1; i++) {
+            const currentDate = new Date(dividends[i].exDate);
+            const nextDate = new Date(dividends[i + 1].exDate);
+            const daysBetween = (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24);
+            if (daysBetween > 0 && daysBetween < 365) { // Valid interval
+              intervals.push(daysBetween);
+            }
+          }
+          
+          if (intervals.length >= 2) {
+            // Calculate average interval
+            const avgInterval = intervals.reduce((sum, d) => sum + d, 0) / intervals.length;
+            // Check if intervals are consistent (within 20% of average)
+            const isConsistent = intervals.every(d => {
+              const deviation = Math.abs(d - avgInterval) / avgInterval;
+              return deviation <= 0.2; // Within 20% of average
+            });
+            
+            // Only show frequency change if intervals are NOT consistent
+            // AND we have different frequency labels
+            frequencyChanged = !isConsistent && uniqueFrequencies.size > 1;
+          } else {
+            // Not enough intervals to determine, rely on frequency field
+            frequencyChanged = uniqueFrequencies.size > 1;
+          }
+        } else {
+          // Not enough data points, rely on frequency field
+          frequencyChanged = uniqueFrequencies.size > 1;
+        }
         
         // Calculate equivalent weekly rate only if frequency changed
         const chartData = dividends.map((div, index, array) => {
