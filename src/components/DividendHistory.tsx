@@ -397,7 +397,7 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
                       return '';
                     }}
                     width={50}
-                    domain={['dataMin', 'dataMax']}
+                    domain={[0, 'dataMax']}
                     allowDataOverflow={false}
                   />
                   <Tooltip
@@ -421,7 +421,7 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
                     }}
                     labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                   />
-                  <Bar dataKey="amount" fill="#93c5fd" radius={[2, 2, 0, 0]} name="Individual Payment Amount (Monthly/Weekly)" />
+                  <Bar dataKey="amount" fill="#93c5fd" radius={[2, 2, 0, 0]} name="Individual Payment Amount (Monthly/Weekly)" minPointSize={3} />
                   <Line 
                     type="monotone" 
                     dataKey="equivalentWeeklyRate" 
@@ -464,7 +464,7 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
                       return '';
                     }}
                     width={50}
-                    domain={['auto', 'auto']}
+                    domain={[0, 'dataMax']}
                     allowDataOverflow={false}
                   />
                   <Tooltip
@@ -487,7 +487,7 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
                     dataKey="amount" 
                     fill="#3b82f6" 
                     radius={[2, 2, 0, 0]}
-                    minPointSize={1}
+                    minPointSize={3}
                   />
                 </BarChart>
               )}
