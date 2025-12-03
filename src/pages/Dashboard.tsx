@@ -2641,29 +2641,23 @@ export default function Dashboard() {
                           <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">
                             Covered Call Option ETFs
                           </h3>
-                          <div className="text-xs text-muted-foreground leading-tight space-y-0.5">
+                          <div className="text-xs text-muted-foreground leading-tight">
                             {lastDataUpdate ? (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 mb-1">
                                 <Clock className="h-3 w-3" />
                                 <span>Last updated: {lastDataUpdate}</span>
                                 <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
                               </div>
                             ) : (
-                              <div>
+                              <div className="mb-1">
                                 <span>Last updated: {lastDataUpdate || 'N/A'}</span>
                                 <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
                               </div>
                             )}
-                            <div>Records: {uniqueSymbolETFs.length}</div>
+                            <div className="mt-1">Records: {uniqueSymbolETFs.length}</div>
                           </div>
                         </div>
                         <div className="flex flex-col gap-2">
-                          {/* Current Rankings Display - Above button */}
-                          {isPremium && (
-                            <div className="text-xs sm:text-sm text-muted-foreground font-medium">
-                              {yieldWeight} {volatilityWeight ?? 0} {totalReturnWeight} {totalReturnTimeframe.toUpperCase()}
-                            </div>
-                          )}
                           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:pt-0.5 w-full sm:w-auto md:flex-nowrap">
                             {/* Search */}
                             <div className="relative w-full sm:w-auto min-w-[200px] sm:max-w-xs md:max-w-sm">
@@ -2675,22 +2669,29 @@ export default function Dashboard() {
                                 className="pl-10 w-full h-10 sm:h-9 md:h-9 border-2 text-sm"
                               />
                             </div>
-                            {/* Customize Rankings */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                if (isGuest) {
-                                  setShowUpgradeModal(true);
-                                } else {
-                                  setShowRankingPanel(true);
-                                }
-                              }}
-                              className="border-2 border-primary bg-white text-primary hover:bg-white hover:text-primary h-10 sm:h-9 md:h-9 rounded-md whitespace-nowrap w-full sm:w-auto md:flex-shrink-0 justify-center"
-                            >
-                              <Sliders className="h-4 w-4 mr-2" />
-                              Customize Rankings
-                            </Button>
+                            {/* Customize Rankings with centered ranking numbers above */}
+                            <div className="flex flex-col items-center">
+                              {isPremium && (
+                                <div className="text-xs sm:text-sm text-muted-foreground font-medium mb-1">
+                                  {yieldWeight} {volatilityWeight ?? 0} {totalReturnWeight} {totalReturnTimeframe.toUpperCase()}
+                                </div>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  if (isGuest) {
+                                    setShowUpgradeModal(true);
+                                  } else {
+                                    setShowRankingPanel(true);
+                                  }
+                                }}
+                                className="border-2 border-primary bg-white text-primary hover:bg-white hover:text-primary h-10 sm:h-9 md:h-9 rounded-md whitespace-nowrap w-full sm:w-auto md:flex-shrink-0 justify-center"
+                              >
+                                <Sliders className="h-4 w-4 mr-2" />
+                                Customize Rankings
+                              </Button>
+                            </div>
                             {/* Total Return / Price Return Toggle */}
                             <div className="inline-flex items-center h-10 sm:h-9 md:h-9 border-2 border-slate-300 rounded-md overflow-hidden">
                               <button

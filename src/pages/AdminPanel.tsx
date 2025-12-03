@@ -777,6 +777,9 @@ const AdminPanel = () => {
                               Premium
                             </th>
                             <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">
+                              Mail
+                            </th>
+                            <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -805,7 +808,7 @@ const AdminPanel = () => {
                           {loading ? (
                             <tr>
                               <td
-                                colSpan={7}
+                                colSpan={8}
                                 className="px-4 py-10 text-center text-sm text-muted-foreground"
                               >
                                 Loading users...
@@ -814,7 +817,7 @@ const AdminPanel = () => {
                           ) : filteredAndSortedProfiles.length === 0 ? (
                             <tr>
                               <td
-                                colSpan={7}
+                                colSpan={8}
                                 className="px-4 py-10 text-center text-sm text-muted-foreground"
                               >
                                 No users found for "{searchQuery}"
@@ -856,6 +859,17 @@ const AdminPanel = () => {
                                       }
                                       disabled={updatingId === premiumKey}
                                     />
+                                  </td>
+                                  <td className="px-3 sm:px-4 py-3 text-sm text-foreground whitespace-nowrap">
+                                    <span
+                                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                                        profile.preferences?.emailNotifications !== false
+                                          ? "border-green-300 bg-green-50 text-green-700"
+                                          : "border-slate-300 bg-slate-50 text-slate-700"
+                                      }`}
+                                    >
+                                      {profile.preferences?.emailNotifications !== false ? "ON" : "OFF"}
+                                    </span>
                                   </td>
                                   <td className="px-3 sm:px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
                                     {profile.last_login

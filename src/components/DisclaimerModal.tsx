@@ -88,36 +88,30 @@ export const DisclaimerModal = () => {
               </div>
 
               {/* Mobile: Minimal version with Terms link */}
-              <div className="px-4 md:px-5 py-3 md:py-4 space-y-3 md:hidden">
-                <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-3">
-                  <div className="flex items-start gap-2.5">
-                    <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <h3 className="text-sm font-bold text-amber-900 mb-1">END OF DAY (EOD) DATA NOTICE</h3>
-                      <p className="text-xs text-amber-800 leading-relaxed">
-                        All data on this website is <span className="font-bold">END OF DAY (EOD)</span> data and <span className="font-bold">IS NOT REAL-TIME</span>. 
-                        Price data, dividends, and returns are updated periodically and may be delayed.
-                      </p>
-                    </div>
+              <div className="px-4 md:px-5 py-3 md:py-4 space-y-2 md:hidden">
+                <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-2.5">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      All data is <span className="font-bold">END OF DAY (EOD)</span> and <span className="font-bold">NOT REAL-TIME</span>.
+                    </p>
                   </div>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="flex items-start gap-2.5">
-                    <Shield className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <h3 className="text-sm font-bold text-blue-900 mb-1.5">IMPORTANT DISCLAIMER</h3>
-                      <p className="text-xs text-blue-800 leading-relaxed mb-3">
-                        We are not financial advisors. This website provides educational information only and does not constitute financial advice. 
-                        All investments involve risk. You must conduct your own research and consult with a licensed professional before making investment decisions.
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5">
+                  <div className="flex items-start gap-2">
+                    <Shield className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs text-blue-800 leading-relaxed mb-2">
+                        We are not financial advisors. This is educational information only. All investments involve risk.
                       </p>
                       <Link 
                         to="/terms" 
                         target="_blank"
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-blue-900 underline"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:text-blue-900 underline"
                       >
-                        View Full Terms of Service
-                        <ExternalLink className="h-3.5 w-3.5" />
+                        View Full Terms
+                        <ExternalLink className="h-3 w-3" />
                       </Link>
                     </div>
                   </div>

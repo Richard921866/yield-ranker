@@ -24,7 +24,7 @@ export const listProfiles = async (): Promise<ProfileRow[]> => {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id,email,role,is_premium,display_name,created_at,updated_at,last_login"
+      "id,email,role,is_premium,display_name,created_at,updated_at,last_login,preferences"
     )
     .order("created_at", { ascending: false });
   if (error) {
