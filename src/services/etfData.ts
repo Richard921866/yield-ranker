@@ -533,3 +533,65 @@ export const generateChartData = (
 
 // Note: Quick updates and dividend history are now fetched via Tiingo API
 // Use tiingoApi.ts for these functions
+
+/**
+ * Update ETF data with realtime returns from IEX
+ * This provides accurate current prices and returns during market hours
+ */
+export async function updateETFsWithRealtimeData(
+  etfs: ETF[]
+): Promise<{ updatedETFs: ETF[]; isRealtime: boolean }> {
+  const { fetchRealtimeReturnsBatch } = await import('@/services/tiingoApi');
+  
+  const tickers = etfs.map(etf => etf.symbol);
+  const realtimeData = await fetchRealtimeReturnsBatch(tickers);
+  
+  if (Object.keys(realtimeData).length === 0) {
+    return { updatedETFs: etfs, isRealtime: false };
+  }
+  
+  const updatedETFs = etfs.map(etf => {
+    const realtime = realtimeData[etf.symbol.toUpperCase()];
+    if (!realtime) return etf;
+    
+    // Update price and returns with realtime data
+    return {
+      ...etf,
+      price: realtime.currentPrice,
+      priceChange: realtime.priceChange,
+      priceChangePercent: realtime.priceChangePercent,
+      // Update price returns
+      priceReturn1Wk: realtime.priceReturn['1W'],
+      priceReturn1Mo: realtime.priceReturn['1M'],
+      priceReturn3Mo: realtime.priceReturn['3M'],
+      priceReturn6Mo: realtime.priceReturn['6M'],
+      priceReturn12Mo: realtime.priceReturn['1Y'],
+      priceReturn3Yr: realtime.priceReturn['3Y'],
+      // Update total returns with DRIP
+      trDrip1Wk: realtime.totalReturnDrip['1W'],
+      trDrip1Mo: realtime.totalReturnDrip['1M'],
+      trDrip3Mo: realtime.totalReturnDrip['3M'],
+      trDrip6Mo: realtime.totalReturnDrip['6M'],
+      trDrip12Mo: realtime.totalReturnDrip['1Y'],
+      trDrip3Yr: realtime.totalReturnDrip['3Y'],
+      // Legacy fields
+      totalReturn1Wk: realtime.totalReturnDrip['1W'],
+      totalReturn1Mo: realtime.totalReturnDrip['1M'],
+      totalReturn3Mo: realtime.totalReturnDrip['3M'],
+      totalReturn6Mo: realtime.totalReturnDrip['6M'],
+      totalReturn12Mo: realtime.totalReturnDrip['1Y'],
+      totalReturn3Yr: realtime.totalReturnDrip['3Y'],
+      // Recalculate forward yield with new price
+      forwardYield: etf.annualDividend && realtime.currentPrice > 0
+        ? (etf.annualDividend / realtime.currentPrice) * 100
+        : etf.forwardYield,
+      // Mark as realtime updated
+      lastUpdated: realtime.timestamp,
+    };
+  });
+  
+  return { 
+    updatedETFs, 
+    isRealtime: Object.values(realtimeData).some(r => r.isRealtime) 
+  };
+}

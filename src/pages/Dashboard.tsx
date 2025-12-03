@@ -8,6 +8,7 @@ import {
   generateChartData,
   ChartType,
   ComparisonTimeframe,
+  updateETFsWithRealtimeData,
 } from "@/services/etfData";
 import { rankETFs } from "@/utils/ranking";
 import { RankingWeights } from "@/types/etf";
@@ -137,6 +138,9 @@ export default function Dashboard() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [lastDataUpdate, setLastDataUpdate] = useState<string | null>(null);
   const [chartHeight, setChartHeight] = useState(300);
+  const [isRealtimeData, setIsRealtimeData] = useState(false);
+  const [isRefreshingRealtime, setIsRefreshingRealtime] = useState(false);
+  const [lastRealtimeUpdate, setLastRealtimeUpdate] = useState<Date | null>(null);
 
   const isAdmin = profile?.role === "admin";
   const isPremium = !!profile;
@@ -199,8 +203,67 @@ export default function Dashboard() {
     loadSiteSettings();
   }, []);
 
-  // Removed quick-update polling: once ETF data is loaded from our database,
-  // keep it stable instead of continuously sweeping/refreshing prices.
+  // Function to refresh ETF data with realtime prices from IEX
+  const refreshRealtimeData = useCallback(async () => {
+    if (etfData.length === 0 || isRefreshingRealtime) return;
+    
+    setIsRefreshingRealtime(true);
+    try {
+      const { updatedETFs, isRealtime } = await updateETFsWithRealtimeData(etfData);
+      setEtfData(updatedETFs);
+      setIsRealtimeData(isRealtime);
+      setLastRealtimeUpdate(new Date());
+      
+      if (isRealtime) {
+        toast({
+          title: "Realtime data updated",
+          description: "Prices and returns are now current",
+          duration: 2000,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to refresh realtime data:", error);
+    } finally {
+      setIsRefreshingRealtime(false);
+    }
+  }, [etfData, isRefreshingRealtime, toast]);
+
+  // Auto-refresh realtime data every 60 seconds during market hours
+  useEffect(() => {
+    if (etfData.length === 0) return;
+    
+    // Check if within market hours (9:30 AM - 4:00 PM ET, Mon-Fri)
+    const isMarketHours = () => {
+      const now = new Date();
+      const etHour = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false });
+      const etMinute = now.toLocaleString('en-US', { timeZone: 'America/New_York', minute: 'numeric' });
+      const day = now.getDay();
+      
+      // Skip weekends
+      if (day === 0 || day === 6) return false;
+      
+      const hour = parseInt(etHour);
+      const minute = parseInt(etMinute);
+      const timeInMinutes = hour * 60 + minute;
+      
+      // Market hours: 9:30 AM to 4:00 PM ET
+      return timeInMinutes >= 9 * 60 + 30 && timeInMinutes < 16 * 60;
+    };
+    
+    // Initial fetch on load
+    if (!lastRealtimeUpdate) {
+      refreshRealtimeData();
+    }
+    
+    // Set up auto-refresh during market hours
+    const interval = setInterval(() => {
+      if (isMarketHours()) {
+        refreshRealtimeData();
+      }
+    }, 60000); // Every 60 seconds
+    
+    return () => clearInterval(interval);
+  }, [etfData.length, lastRealtimeUpdate, refreshRealtimeData]);
 
   const fetchAdminProfiles = useCallback(async () => {
     setAdminLoading(true);
@@ -2642,18 +2705,29 @@ export default function Dashboard() {
                             Covered Call Option ETFs
                           </h3>
                           <div className="text-xs text-muted-foreground leading-tight">
-                            {lastDataUpdate ? (
-                              <div className="flex items-center gap-1 mb-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <div className="flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
-                                <span>Last updated: {lastDataUpdate}</span>
-                                <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
-                              </div>
-                            ) : (
-                              <div className="mb-1">
                                 <span>Last updated: {lastDataUpdate || 'N/A'}</span>
-                                <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
                               </div>
-                            )}
+                              {isRealtimeData && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-semibold">
+                                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                                  LIVE
+                                </span>
+                              )}
+                              <span className="text-primary font-medium">Source: Tiingo</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={refreshRealtimeData}
+                                disabled={isRefreshingRealtime}
+                                className="h-5 px-1.5 text-[10px] hover:bg-slate-100"
+                                title="Refresh realtime prices"
+                              >
+                                <RefreshCw className={`h-3 w-3 ${isRefreshingRealtime ? 'animate-spin' : ''}`} />
+                              </Button>
+                            </div>
                             <div className="mt-1">Records: {uniqueSymbolETFs.length}</div>
                           </div>
                         </div>

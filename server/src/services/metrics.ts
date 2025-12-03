@@ -16,6 +16,7 @@ import {
   getETFStatic,
   getAllTickers,
 } from './database.js';
+import { fetchRealtimePrice, fetchRealtimePricesBatch } from './tiingo.js';
 import {
   getDateDaysAgo,
   getDateYearsAgo,
@@ -882,4 +883,272 @@ export async function calculateRankings(
   ranked.forEach((r, i) => { r.rank = i + 1; });
   
   return ranked;
+}
+
+// ============================================================================
+// Realtime Returns Calculation
+// ============================================================================
+
+interface RealtimeReturnData {
+  priceReturn: number | null;
+  totalReturnDrip: number | null;
+  currentPrice: number;
+  prevClose: number;
+  priceChange: number;
+  priceChangePercent: number;
+  isRealtime: boolean;
+  timestamp: string;
+}
+
+interface RealtimeReturns {
+  ticker: string;
+  currentPrice: number;
+  prevClose: number;
+  priceChange: number;
+  priceChangePercent: number;
+  isRealtime: boolean;
+  timestamp: string;
+  priceReturn: {
+    '1W': number | null;
+    '1M': number | null;
+    '3M': number | null;
+    '6M': number | null;
+    '1Y': number | null;
+    '3Y': number | null;
+  };
+  totalReturnDrip: {
+    '1W': number | null;
+    '1M': number | null;
+    '3M': number | null;
+    '6M': number | null;
+    '1Y': number | null;
+    '3Y': number | null;
+  };
+}
+
+/**
+ * Calculate realtime returns using current IEX price as the end price.
+ * This gives more accurate returns during market hours.
+ */
+async function calculateRealtimeReturnForPeriod(
+  ticker: string,
+  period: '1W' | '1M' | '3M' | '6M' | '1Y' | '3Y',
+  currentPrice: number,
+  currentAdjPrice: number | null
+): Promise<{ priceReturn: number | null; totalReturnDrip: number | null }> {
+  // Calculate start date based on today (not the last trading day)
+  const today = new Date();
+  let startDateObj = new Date(today);
+  
+  switch (period) {
+    case '1W':
+      startDateObj.setDate(today.getDate() - 7);
+      break;
+    case '1M':
+      startDateObj.setMonth(today.getMonth() - 1);
+      break;
+    case '3M':
+      startDateObj.setMonth(today.getMonth() - 3);
+      break;
+    case '6M':
+      startDateObj.setMonth(today.getMonth() - 6);
+      break;
+    case '1Y':
+      startDateObj.setFullYear(today.getFullYear() - 1);
+      break;
+    case '3Y':
+      startDateObj.setFullYear(today.getFullYear() - 3);
+      break;
+  }
+  
+  const startDate = formatDate(startDateObj);
+  
+  // Fetch historical price with buffer
+  const bufferDate = new Date(startDateObj);
+  bufferDate.setDate(bufferDate.getDate() - 14);
+  const fetchStartDate = formatDate(bufferDate);
+  
+  const prices = await getPriceHistory(ticker, fetchStartDate, formatDate(today));
+  
+  if (prices.length === 0) {
+    return { priceReturn: null, totalReturnDrip: null };
+  }
+  
+  // Find the start price (first price on or after startDate)
+  const startRecord = findStartPrice(prices, startDate);
+  
+  if (!startRecord) {
+    return { priceReturn: null, totalReturnDrip: null };
+  }
+  
+  // Calculate Price Return: (current - start) / start * 100
+  let priceReturn: number | null = null;
+  if (startRecord.close && startRecord.close > 0) {
+    priceReturn = ((currentPrice / startRecord.close) - 1) * 100;
+    if (priceReturn < -99 || priceReturn > 10000 || !isFinite(priceReturn)) {
+      priceReturn = null;
+    }
+  }
+  
+  // Calculate Total Return DRIP: (current_adj / start_adj) - 1 * 100
+  // For realtime, we approximate adj_close by using the ratio from the last known day
+  let totalReturnDrip: number | null = null;
+  if (startRecord.adj_close && startRecord.adj_close > 0 && currentAdjPrice && currentAdjPrice > 0) {
+    totalReturnDrip = ((currentAdjPrice / startRecord.adj_close) - 1) * 100;
+    if (totalReturnDrip < -99 || totalReturnDrip > 10000 || !isFinite(totalReturnDrip)) {
+      totalReturnDrip = null;
+    }
+  }
+  
+  return { priceReturn, totalReturnDrip };
+}
+
+/**
+ * Calculate realtime returns for a single ticker.
+ * Uses current IEX price for accurate intraday returns.
+ */
+export async function calculateRealtimeReturns(ticker: string): Promise<RealtimeReturns | null> {
+  const upperTicker = ticker.toUpperCase();
+  
+  // Get realtime price from IEX
+  const realtimeData = await fetchRealtimePrice(upperTicker);
+  
+  if (!realtimeData) {
+    logger.warn('Metrics', `No realtime price available for ${upperTicker}`);
+    return null;
+  }
+  
+  const { price: currentPrice, prevClose, timestamp, isRealtime } = realtimeData;
+  
+  // Calculate price change
+  const priceChange = prevClose > 0 ? currentPrice - prevClose : 0;
+  const priceChangePercent = prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0;
+  
+  // Get the latest stored prices to calculate adj_close ratio
+  const latestPrices = await getLatestPrice(upperTicker, 1);
+  let adjCloseRatio = 1;
+  
+  if (latestPrices.length > 0) {
+    const lastPrice = latestPrices[0];
+    if (lastPrice.close && lastPrice.adj_close && lastPrice.close > 0) {
+      adjCloseRatio = lastPrice.adj_close / lastPrice.close;
+    }
+  }
+  
+  // Approximate current adjusted price
+  const currentAdjPrice = currentPrice * adjCloseRatio;
+  
+  // Calculate returns for all periods
+  const [ret1W, ret1M, ret3M, ret6M, ret1Y, ret3Y] = await Promise.all([
+    calculateRealtimeReturnForPeriod(upperTicker, '1W', currentPrice, currentAdjPrice),
+    calculateRealtimeReturnForPeriod(upperTicker, '1M', currentPrice, currentAdjPrice),
+    calculateRealtimeReturnForPeriod(upperTicker, '3M', currentPrice, currentAdjPrice),
+    calculateRealtimeReturnForPeriod(upperTicker, '6M', currentPrice, currentAdjPrice),
+    calculateRealtimeReturnForPeriod(upperTicker, '1Y', currentPrice, currentAdjPrice),
+    calculateRealtimeReturnForPeriod(upperTicker, '3Y', currentPrice, currentAdjPrice),
+  ]);
+  
+  return {
+    ticker: upperTicker,
+    currentPrice,
+    prevClose,
+    priceChange,
+    priceChangePercent,
+    isRealtime,
+    timestamp,
+    priceReturn: {
+      '1W': ret1W.priceReturn,
+      '1M': ret1M.priceReturn,
+      '3M': ret3M.priceReturn,
+      '6M': ret6M.priceReturn,
+      '1Y': ret1Y.priceReturn,
+      '3Y': ret3Y.priceReturn,
+    },
+    totalReturnDrip: {
+      '1W': ret1W.totalReturnDrip,
+      '1M': ret1M.totalReturnDrip,
+      '3M': ret3M.totalReturnDrip,
+      '6M': ret6M.totalReturnDrip,
+      '1Y': ret1Y.totalReturnDrip,
+      '3Y': ret3Y.totalReturnDrip,
+    },
+  };
+}
+
+/**
+ * Calculate realtime returns for multiple tickers in batch.
+ * Uses batch IEX fetch for efficiency.
+ */
+export async function calculateRealtimeReturnsBatch(tickers: string[]): Promise<Map<string, RealtimeReturns>> {
+  const results = new Map<string, RealtimeReturns>();
+  
+  if (tickers.length === 0) return results;
+  
+  // Batch fetch realtime prices
+  const realtimePrices = await fetchRealtimePricesBatch(tickers);
+  
+  // Calculate returns for each ticker that has realtime data
+  const promises = tickers.map(async (ticker) => {
+    const upperTicker = ticker.toUpperCase();
+    const realtimeData = realtimePrices.get(upperTicker);
+    
+    if (!realtimeData) return;
+    
+    const { price: currentPrice, prevClose, timestamp, isRealtime } = realtimeData;
+    
+    const priceChange = prevClose > 0 ? currentPrice - prevClose : 0;
+    const priceChangePercent = prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0;
+    
+    // Get the latest stored prices to calculate adj_close ratio
+    const latestPrices = await getLatestPrice(upperTicker, 1);
+    let adjCloseRatio = 1;
+    
+    if (latestPrices.length > 0) {
+      const lastPrice = latestPrices[0];
+      if (lastPrice.close && lastPrice.adj_close && lastPrice.close > 0) {
+        adjCloseRatio = lastPrice.adj_close / lastPrice.close;
+      }
+    }
+    
+    const currentAdjPrice = currentPrice * adjCloseRatio;
+    
+    const [ret1W, ret1M, ret3M, ret6M, ret1Y, ret3Y] = await Promise.all([
+      calculateRealtimeReturnForPeriod(upperTicker, '1W', currentPrice, currentAdjPrice),
+      calculateRealtimeReturnForPeriod(upperTicker, '1M', currentPrice, currentAdjPrice),
+      calculateRealtimeReturnForPeriod(upperTicker, '3M', currentPrice, currentAdjPrice),
+      calculateRealtimeReturnForPeriod(upperTicker, '6M', currentPrice, currentAdjPrice),
+      calculateRealtimeReturnForPeriod(upperTicker, '1Y', currentPrice, currentAdjPrice),
+      calculateRealtimeReturnForPeriod(upperTicker, '3Y', currentPrice, currentAdjPrice),
+    ]);
+    
+    results.set(upperTicker, {
+      ticker: upperTicker,
+      currentPrice,
+      prevClose,
+      priceChange,
+      priceChangePercent,
+      isRealtime,
+      timestamp,
+      priceReturn: {
+        '1W': ret1W.priceReturn,
+        '1M': ret1M.priceReturn,
+        '3M': ret3M.priceReturn,
+        '6M': ret6M.priceReturn,
+        '1Y': ret1Y.priceReturn,
+        '3Y': ret3Y.priceReturn,
+      },
+      totalReturnDrip: {
+        '1W': ret1W.totalReturnDrip,
+        '1M': ret1M.totalReturnDrip,
+        '3M': ret3M.totalReturnDrip,
+        '6M': ret6M.totalReturnDrip,
+        '1Y': ret1Y.totalReturnDrip,
+        '3Y': ret3Y.totalReturnDrip,
+      },
+    });
+  });
+  
+  await Promise.all(promises);
+  
+  return results;
 }
