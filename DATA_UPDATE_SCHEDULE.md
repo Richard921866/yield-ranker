@@ -22,17 +22,21 @@
 - **Metrics**: Recalculated after each update
 
 ### Manual Updates
-To manually trigger an update:
+To manually trigger an update, navigate to the `server` directory first:
 ```bash
+cd server
+
 # Update all tickers
-npx tsx server/scripts/daily_update.ts
+npx tsx scripts/daily_update.ts
 
 # Update specific ticker
-npx tsx server/scripts/daily_update.ts --ticker GOOP
+npx tsx scripts/daily_update.ts --ticker GOOP
 
 # Force full resync (last 60 days)
-npx tsx server/scripts/daily_update.ts --force
+npx tsx scripts/daily_update.ts --force
 ```
+
+**Note**: Make sure you're in the `server` directory when running these commands, or use the full path from the project root.
 
 ### Frontend Cache
 - Frontend caches ETF data for **10 seconds** to reduce API calls
