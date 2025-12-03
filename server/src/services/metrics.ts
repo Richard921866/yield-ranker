@@ -16,6 +16,7 @@ import {
   getETFStatic,
   getAllTickers,
 } from './database.js';
+import { fetchRealtimePrice, fetchRealtimePricesBatch } from './tiingo.js';
 import {
   getDateDaysAgo,
   getDateYearsAgo,
@@ -301,11 +302,20 @@ function findStartPrice(
       }
       
       // Check if we have enough data points for the requested period
+      // This ensures we don't use short period data for longer period calculations
       const endDate = prices[prices.length - 1]?.date;
       if (endDate) {
         const actualPeriodDays = Math.abs((new Date(endDate).getTime() - actualStartDateObj.getTime()) / (1000 * 60 * 60 * 24));
         if (actualPeriodDays < minRequiredDays) {
-          logger.debug('Metrics', `Insufficient data: only ${actualPeriodDays} days of data available (minimum required: ${minRequiredDays} days)`);
+          logger.debug('Metrics', `Insufficient data: only ${actualPeriodDays} days of data available (minimum required: ${minRequiredDays} days for ${requestedDays}-day period)`);
+          return null;
+        }
+        
+        // Additional check: ensure the actual period is at least 70% of requested period
+        // This prevents using 3-month data for 6-month, 12-month, or 3-year calculations
+        const periodRatio = actualPeriodDays / requestedDays;
+        if (periodRatio < 0.7) {
+          logger.debug('Metrics', `Insufficient period coverage: ${actualPeriodDays} days is only ${(periodRatio * 100).toFixed(1)}% of requested ${requestedDays} days`);
           return null;
         }
       }
@@ -490,30 +500,120 @@ interface FullReturnData {
   priceNoDrip: number | null;  // Total return without DRIP
 }
 
+/**
+ * Get the proper start date for a period using calendar-based calculation.
+ * This matches how financial sites calculate returns (e.g., 1Y = exactly 1 year ago).
+ */
+function getPeriodStartDate(period: '1W' | '1M' | '3M' | '6M' | '1Y' | '3Y'): string {
+  const now = new Date();
+  
+  switch (period) {
+    case '1W':
+      // 1 week = 7 calendar days ago
+      now.setDate(now.getDate() - 7);
+      break;
+    case '1M':
+      // 1 month ago (same date)
+      now.setMonth(now.getMonth() - 1);
+      break;
+    case '3M':
+      // 3 months ago
+      now.setMonth(now.getMonth() - 3);
+      break;
+    case '6M':
+      // 6 months ago
+      now.setMonth(now.getMonth() - 6);
+      break;
+    case '1Y':
+      // 1 year ago (exactly)
+      now.setFullYear(now.getFullYear() - 1);
+      break;
+    case '3Y':
+      // 3 years ago
+      now.setFullYear(now.getFullYear() - 3);
+      break;
+  }
+  
+  return formatDate(now);
+}
+
+/**
+ * Calculate returns for a specific period using calendar-based dates.
+ * 
+ * Key improvements:
+ * 1. Uses calendar-based periods (1Y = 1 year ago, not 365 days)
+ * 2. End date is the most recent available trading day in the database
+ * 3. Start date finds the nearest trading day to the target period start
+ */
 async function calculateReturnsForPeriod(
   ticker: string,
-  days: number,
+  period: '1W' | '1M' | '3M' | '6M' | '1Y' | '3Y',
   dividends: DividendRecord[]
 ): Promise<FullReturnData> {
-  const startDate = getDateDaysAgo(days);
-  const endDate = getDateDaysAgo(0);
+  // Get the most recent price to determine actual end date
+  const latestPrices = await getLatestPrice(ticker, 1);
+  if (latestPrices.length === 0) {
+    return { priceDrip: null, priceReturn: null, priceNoDrip: null };
+  }
   
-  // Get prices from startDate to endDate (inclusive)
-  // We fetch a bit earlier to ensure we have data, then filter
-  const bufferDays = Math.min(7, Math.floor(days * 0.1)); // 10% buffer or 7 days, whichever is less
-  const fetchStartDate = getDateDaysAgo(days + bufferDays);
+  // Use the actual latest trading day as end date (not today if it's a weekend)
+  const endDate = latestPrices[latestPrices.length - 1].date;
+  
+  // Calculate start date based on the end date (not today)
+  // This ensures we're measuring exactly 1 year, 6 months, etc. from the last trading day
+  const endDateObj = new Date(endDate);
+  let startDateObj = new Date(endDate);
+  
+  switch (period) {
+    case '1W':
+      startDateObj.setDate(endDateObj.getDate() - 7);
+      break;
+    case '1M':
+      startDateObj.setMonth(endDateObj.getMonth() - 1);
+      break;
+    case '3M':
+      startDateObj.setMonth(endDateObj.getMonth() - 3);
+      break;
+    case '6M':
+      startDateObj.setMonth(endDateObj.getMonth() - 6);
+      break;
+    case '1Y':
+      startDateObj.setFullYear(endDateObj.getFullYear() - 1);
+      break;
+    case '3Y':
+      startDateObj.setFullYear(endDateObj.getFullYear() - 3);
+      break;
+  }
+  
+  const startDate = formatDate(startDateObj);
+  
+  // Fetch prices with a buffer to ensure we find the nearest trading day
+  // Buffer: 10 trading days (~2 weeks) before the target start date
+  const bufferDate = new Date(startDateObj);
+  bufferDate.setDate(bufferDate.getDate() - 14);
+  const fetchStartDate = formatDate(bufferDate);
+  
   const prices = await getPriceHistory(ticker, fetchStartDate, endDate);
   
-  // Filter prices to only include those within our actual date range
-  const filteredPrices = prices.filter(p => p.date >= startDate && p.date <= endDate);
+  if (prices.length < 2) {
+    return { priceDrip: null, priceReturn: null, priceNoDrip: null };
+  }
   
-  // If we don't have enough filtered prices, use all prices but ensure we have valid start/end
-  const pricesToUse = filteredPrices.length >= 2 ? filteredPrices : prices;
+  // Convert period to approximate days for validation
+  const periodDaysMap: Record<string, number> = {
+    '1W': 7,
+    '1M': 30,
+    '3M': 90,
+    '6M': 180,
+    '1Y': 365,
+    '3Y': 1095,
+  };
+  const requestedDays = periodDaysMap[period];
   
   return {
-    priceDrip: calculateTotalReturnDrip(pricesToUse, startDate, endDate, days),
-    priceReturn: calculatePriceReturn(pricesToUse, startDate, endDate, days),
-    priceNoDrip: calculateTotalReturnNoDrip(pricesToUse, dividends, startDate, endDate, days),
+    priceDrip: calculateTotalReturnDrip(prices, startDate, endDate, requestedDays),
+    priceReturn: calculatePriceReturn(prices, startDate, endDate, requestedDays),
+    priceNoDrip: calculateTotalReturnNoDrip(prices, dividends, startDate, endDate, requestedDays),
   };
 }
 
@@ -638,14 +738,14 @@ export async function calculateMetrics(ticker: string): Promise<ETFMetrics> {
     forwardYield = (annualizedDividend / currentPrice) * 100;
   }
   
-  // Calculate returns for all periods
+  // Calculate returns for all periods using calendar-based dates
   const [ret1W, ret1M, ret3M, ret6M, ret1Y, ret3Y] = await Promise.all([
-    calculateReturnsForPeriod(upperTicker, 7, dividends),
-    calculateReturnsForPeriod(upperTicker, 30, dividends),
-    calculateReturnsForPeriod(upperTicker, 90, dividends),
-    calculateReturnsForPeriod(upperTicker, 180, dividends),
-    calculateReturnsForPeriod(upperTicker, 365, dividends),
-    calculateReturnsForPeriod(upperTicker, 1095, dividends),
+    calculateReturnsForPeriod(upperTicker, '1W', dividends),
+    calculateReturnsForPeriod(upperTicker, '1M', dividends),
+    calculateReturnsForPeriod(upperTicker, '3M', dividends),
+    calculateReturnsForPeriod(upperTicker, '6M', dividends),
+    calculateReturnsForPeriod(upperTicker, '1Y', dividends),
+    calculateReturnsForPeriod(upperTicker, '3Y', dividends),
   ]);
   
   return {
@@ -852,4 +952,272 @@ export async function calculateRankings(
   ranked.forEach((r, i) => { r.rank = i + 1; });
   
   return ranked;
+}
+
+// ============================================================================
+// Realtime Returns Calculation
+// ============================================================================
+
+interface RealtimeReturnData {
+  priceReturn: number | null;
+  totalReturnDrip: number | null;
+  currentPrice: number;
+  prevClose: number;
+  priceChange: number;
+  priceChangePercent: number;
+  isRealtime: boolean;
+  timestamp: string;
+}
+
+interface RealtimeReturns {
+  ticker: string;
+  currentPrice: number;
+  prevClose: number;
+  priceChange: number;
+  priceChangePercent: number;
+  isRealtime: boolean;
+  timestamp: string;
+  priceReturn: {
+    '1W': number | null;
+    '1M': number | null;
+    '3M': number | null;
+    '6M': number | null;
+    '1Y': number | null;
+    '3Y': number | null;
+  };
+  totalReturnDrip: {
+    '1W': number | null;
+    '1M': number | null;
+    '3M': number | null;
+    '6M': number | null;
+    '1Y': number | null;
+    '3Y': number | null;
+  };
+}
+
+/**
+ * Calculate realtime returns using current IEX price as the end price.
+ * This gives more accurate returns during market hours.
+ */
+async function calculateRealtimeReturnForPeriod(
+  ticker: string,
+  period: '1W' | '1M' | '3M' | '6M' | '1Y' | '3Y',
+  currentPrice: number,
+  currentAdjPrice: number | null
+): Promise<{ priceReturn: number | null; totalReturnDrip: number | null }> {
+  // Calculate start date based on today (not the last trading day)
+  const today = new Date();
+  let startDateObj = new Date(today);
+  
+  switch (period) {
+    case '1W':
+      startDateObj.setDate(today.getDate() - 7);
+      break;
+    case '1M':
+      startDateObj.setMonth(today.getMonth() - 1);
+      break;
+    case '3M':
+      startDateObj.setMonth(today.getMonth() - 3);
+      break;
+    case '6M':
+      startDateObj.setMonth(today.getMonth() - 6);
+      break;
+    case '1Y':
+      startDateObj.setFullYear(today.getFullYear() - 1);
+      break;
+    case '3Y':
+      startDateObj.setFullYear(today.getFullYear() - 3);
+      break;
+  }
+  
+  const startDate = formatDate(startDateObj);
+  
+  // Fetch historical price with buffer
+  const bufferDate = new Date(startDateObj);
+  bufferDate.setDate(bufferDate.getDate() - 14);
+  const fetchStartDate = formatDate(bufferDate);
+  
+  const prices = await getPriceHistory(ticker, fetchStartDate, formatDate(today));
+  
+  if (prices.length === 0) {
+    return { priceReturn: null, totalReturnDrip: null };
+  }
+  
+  // Find the start price (first price on or after startDate)
+  const startRecord = findStartPrice(prices, startDate);
+  
+  if (!startRecord) {
+    return { priceReturn: null, totalReturnDrip: null };
+  }
+  
+  // Calculate Price Return: (current - start) / start * 100
+  let priceReturn: number | null = null;
+  if (startRecord.close && startRecord.close > 0) {
+    priceReturn = ((currentPrice / startRecord.close) - 1) * 100;
+    if (priceReturn < -99 || priceReturn > 10000 || !isFinite(priceReturn)) {
+      priceReturn = null;
+    }
+  }
+  
+  // Calculate Total Return DRIP: (current_adj / start_adj) - 1 * 100
+  // For realtime, we approximate adj_close by using the ratio from the last known day
+  let totalReturnDrip: number | null = null;
+  if (startRecord.adj_close && startRecord.adj_close > 0 && currentAdjPrice && currentAdjPrice > 0) {
+    totalReturnDrip = ((currentAdjPrice / startRecord.adj_close) - 1) * 100;
+    if (totalReturnDrip < -99 || totalReturnDrip > 10000 || !isFinite(totalReturnDrip)) {
+      totalReturnDrip = null;
+    }
+  }
+  
+  return { priceReturn, totalReturnDrip };
+}
+
+/**
+ * Calculate realtime returns for a single ticker.
+ * Uses current IEX price for accurate intraday returns.
+ */
+export async function calculateRealtimeReturns(ticker: string): Promise<RealtimeReturns | null> {
+  const upperTicker = ticker.toUpperCase();
+  
+  // Get realtime price from IEX
+  const realtimeData = await fetchRealtimePrice(upperTicker);
+  
+  if (!realtimeData) {
+    logger.warn('Metrics', `No realtime price available for ${upperTicker}`);
+    return null;
+  }
+  
+  const { price: currentPrice, prevClose, timestamp, isRealtime } = realtimeData;
+  
+  // Calculate price change
+  const priceChange = prevClose > 0 ? currentPrice - prevClose : 0;
+  const priceChangePercent = prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0;
+  
+  // Get the latest stored prices to calculate adj_close ratio
+  const latestPrices = await getLatestPrice(upperTicker, 1);
+  let adjCloseRatio = 1;
+  
+  if (latestPrices.length > 0) {
+    const lastPrice = latestPrices[0];
+    if (lastPrice.close && lastPrice.adj_close && lastPrice.close > 0) {
+      adjCloseRatio = lastPrice.adj_close / lastPrice.close;
+    }
+  }
+  
+  // Approximate current adjusted price
+  const currentAdjPrice = currentPrice * adjCloseRatio;
+  
+  // Calculate returns for all periods
+  const [ret1W, ret1M, ret3M, ret6M, ret1Y, ret3Y] = await Promise.all([
+    calculateRealtimeReturnForPeriod(upperTicker, '1W', currentPrice, currentAdjPrice),
+    calculateRealtimeReturnForPeriod(upperTicker, '1M', currentPrice, currentAdjPrice),
+    calculateRealtimeReturnForPeriod(upperTicker, '3M', currentPrice, currentAdjPrice),
+    calculateRealtimeReturnForPeriod(upperTicker, '6M', currentPrice, currentAdjPrice),
+    calculateRealtimeReturnForPeriod(upperTicker, '1Y', currentPrice, currentAdjPrice),
+    calculateRealtimeReturnForPeriod(upperTicker, '3Y', currentPrice, currentAdjPrice),
+  ]);
+  
+  return {
+    ticker: upperTicker,
+    currentPrice,
+    prevClose,
+    priceChange,
+    priceChangePercent,
+    isRealtime,
+    timestamp,
+    priceReturn: {
+      '1W': ret1W.priceReturn,
+      '1M': ret1M.priceReturn,
+      '3M': ret3M.priceReturn,
+      '6M': ret6M.priceReturn,
+      '1Y': ret1Y.priceReturn,
+      '3Y': ret3Y.priceReturn,
+    },
+    totalReturnDrip: {
+      '1W': ret1W.totalReturnDrip,
+      '1M': ret1M.totalReturnDrip,
+      '3M': ret3M.totalReturnDrip,
+      '6M': ret6M.totalReturnDrip,
+      '1Y': ret1Y.totalReturnDrip,
+      '3Y': ret3Y.totalReturnDrip,
+    },
+  };
+}
+
+/**
+ * Calculate realtime returns for multiple tickers in batch.
+ * Uses batch IEX fetch for efficiency.
+ */
+export async function calculateRealtimeReturnsBatch(tickers: string[]): Promise<Map<string, RealtimeReturns>> {
+  const results = new Map<string, RealtimeReturns>();
+  
+  if (tickers.length === 0) return results;
+  
+  // Batch fetch realtime prices
+  const realtimePrices = await fetchRealtimePricesBatch(tickers);
+  
+  // Calculate returns for each ticker that has realtime data
+  const promises = tickers.map(async (ticker) => {
+    const upperTicker = ticker.toUpperCase();
+    const realtimeData = realtimePrices.get(upperTicker);
+    
+    if (!realtimeData) return;
+    
+    const { price: currentPrice, prevClose, timestamp, isRealtime } = realtimeData;
+    
+    const priceChange = prevClose > 0 ? currentPrice - prevClose : 0;
+    const priceChangePercent = prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0;
+    
+    // Get the latest stored prices to calculate adj_close ratio
+    const latestPrices = await getLatestPrice(upperTicker, 1);
+    let adjCloseRatio = 1;
+    
+    if (latestPrices.length > 0) {
+      const lastPrice = latestPrices[0];
+      if (lastPrice.close && lastPrice.adj_close && lastPrice.close > 0) {
+        adjCloseRatio = lastPrice.adj_close / lastPrice.close;
+      }
+    }
+    
+    const currentAdjPrice = currentPrice * adjCloseRatio;
+    
+    const [ret1W, ret1M, ret3M, ret6M, ret1Y, ret3Y] = await Promise.all([
+      calculateRealtimeReturnForPeriod(upperTicker, '1W', currentPrice, currentAdjPrice),
+      calculateRealtimeReturnForPeriod(upperTicker, '1M', currentPrice, currentAdjPrice),
+      calculateRealtimeReturnForPeriod(upperTicker, '3M', currentPrice, currentAdjPrice),
+      calculateRealtimeReturnForPeriod(upperTicker, '6M', currentPrice, currentAdjPrice),
+      calculateRealtimeReturnForPeriod(upperTicker, '1Y', currentPrice, currentAdjPrice),
+      calculateRealtimeReturnForPeriod(upperTicker, '3Y', currentPrice, currentAdjPrice),
+    ]);
+    
+    results.set(upperTicker, {
+      ticker: upperTicker,
+      currentPrice,
+      prevClose,
+      priceChange,
+      priceChangePercent,
+      isRealtime,
+      timestamp,
+      priceReturn: {
+        '1W': ret1W.priceReturn,
+        '1M': ret1M.priceReturn,
+        '3M': ret3M.priceReturn,
+        '6M': ret6M.priceReturn,
+        '1Y': ret1Y.priceReturn,
+        '3Y': ret3Y.priceReturn,
+      },
+      totalReturnDrip: {
+        '1W': ret1W.totalReturnDrip,
+        '1M': ret1M.totalReturnDrip,
+        '3M': ret3M.totalReturnDrip,
+        '6M': ret6M.totalReturnDrip,
+        '1Y': ret1Y.totalReturnDrip,
+        '3Y': ret3Y.totalReturnDrip,
+      },
+    });
+  });
+  
+  await Promise.all(promises);
+  
+  return results;
 }

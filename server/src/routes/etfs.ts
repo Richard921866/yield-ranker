@@ -702,4 +702,155 @@ router.get('/:ticker/latest-dividend', async (req: Request, res: Response) => {
   }
 });
 
+// ============================================================================
+// Excel Export Endpoint
+// ============================================================================
+
+/**
+ * GET /export - Export all ETF data to Excel file
+ * Returns an Excel file with all ETF data matching the dashboard table format
+ */
+router.get('/export', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const supabase = getSupabase();
+    
+    const staticResult = await supabase
+      .from('etf_static')
+      .select('*')
+      .order('ticker', { ascending: true })
+      .limit(10000);
+
+    const legacyResult = await supabase
+      .from('etfs')
+      .select('*')
+      .order('symbol', { ascending: true })
+      .limit(10000);
+
+    if (staticResult.error) {
+      logger.error('Routes', `Error fetching etf_static: ${staticResult.error.message}`);
+    }
+    if (legacyResult.error) {
+      logger.error('Routes', `Error fetching etfs: ${legacyResult.error.message}`);
+    }
+
+    const staticData = staticResult.data || [];
+    const legacyData = legacyResult.data || [];
+    
+    const preferValue = (a: any, b: any): any => {
+      if (a !== null && a !== undefined && a !== 0 && a !== '0' && a !== '') {
+        return a;
+      }
+      if (b !== null && b !== undefined && b !== 0 && b !== '0' && b !== '') {
+        return b;
+      }
+      return a ?? b;
+    };
+
+    const preferNumeric = (a: any, b: any): any => {
+      const numA = typeof a === 'number' ? a : parseFloat(String(a || 0));
+      const numB = typeof b === 'number' ? b : parseFloat(String(b || 0));
+      if (!isNaN(numA) && numA !== 0) return numA;
+      if (!isNaN(numB) && numB !== 0) return numB;
+      return numA || numB || null;
+    };
+
+    const tickerMap = new Map<string, any>();
+    
+    staticData.forEach((row: any) => {
+      tickerMap.set(row.ticker, row);
+    });
+    
+    legacyData.forEach((row: any) => {
+      const ticker = row.symbol;
+      if (tickerMap.has(ticker)) {
+        const existing = tickerMap.get(ticker);
+        tickerMap.set(ticker, {
+          ...existing,
+          issuer: preferValue(existing.issuer, row.issuer),
+          description: preferValue(existing.description, row.description),
+          pay_day_text: preferValue(existing.pay_day_text, row.pay_day),
+          payments_per_year: preferNumeric(existing.payments_per_year, row.payments_per_year),
+          ipo_price: preferNumeric(existing.ipo_price, row.ipo_price),
+        });
+      } else {
+        tickerMap.set(ticker, {
+          ticker: row.symbol,
+          issuer: row.issuer,
+          description: row.description,
+          pay_day_text: row.pay_day,
+          payments_per_year: row.payments_per_year,
+          ipo_price: row.ipo_price,
+          price: null,
+          price_change: null,
+          price_change_pct: null,
+          last_dividend: null,
+          annual_dividend: null,
+          forward_yield: null,
+          dividend_cv_percent: null,
+          dividend_volatility_index: null,
+          weighted_rank: null,
+          tr_drip_3y: null,
+          tr_drip_12m: null,
+          tr_drip_6m: null,
+          tr_drip_3m: null,
+          tr_drip_1m: null,
+          tr_drip_1w: null,
+          price_return_3y: null,
+          price_return_12m: null,
+          price_return_6m: null,
+          price_return_3m: null,
+          price_return_1m: null,
+          price_return_1w: null,
+          week_52_high: null,
+          week_52_low: null,
+        });
+      }
+    });
+
+    const allETFs = Array.from(tickerMap.values()).sort((a, b) => 
+      (a.ticker || '').localeCompare(b.ticker || '')
+    );
+
+    const worksheetData = allETFs.map((etf: any) => ({
+      'Favorites': '',
+      'SYMBOL': etf.ticker || '',
+      'Issuer': etf.issuer || '',
+      'DESC': etf.description || '',
+      'Pay Day': etf.pay_day_text || '',
+      'IPO PRICE': etf.ipo_price || null,
+      'Price': etf.price || null,
+      'Price Change': etf.price_change || null,
+      'Dividend': etf.last_dividend || null,
+      '# Pmts': etf.payments_per_year || null,
+      'Annual Div': etf.annual_dividend || null,
+      'Forward Yield': etf.forward_yield ? (etf.forward_yield * 100).toFixed(2) + '%' : null,
+      'Dividend Volatility Index': etf.dividend_volatility_index || etf.dividend_cv_percent || null,
+      'Weighted Rank': etf.weighted_rank || null,
+      '3 YR Annlzd': etf.tr_drip_3y ? (etf.tr_drip_3y >= 0 ? '+' : '') + etf.tr_drip_3y.toFixed(1) + '%' : null,
+      '12 Month': etf.tr_drip_12m ? (etf.tr_drip_12m >= 0 ? '+' : '') + etf.tr_drip_12m.toFixed(1) + '%' : null,
+      '6 Month': etf.tr_drip_6m ? (etf.tr_drip_6m >= 0 ? '+' : '') + etf.tr_drip_6m.toFixed(1) + '%' : null,
+      '3 Month': etf.tr_drip_3m ? (etf.tr_drip_3m >= 0 ? '+' : '') + etf.tr_drip_3m.toFixed(1) + '%' : null,
+      '1 Month': etf.tr_drip_1m ? (etf.tr_drip_1m >= 0 ? '+' : '') + etf.tr_drip_1m.toFixed(1) + '%' : null,
+      '1 Week': etf.tr_drip_1w ? (etf.tr_drip_1w >= 0 ? '+' : '') + etf.tr_drip_1w.toFixed(1) + '%' : null,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+
+    const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    
+    const filename = `ETF_Data_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
+    
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(excelBuffer);
+    
+    logger.info('Routes', `Exported ${allETFs.length} ETFs to Excel`);
+  } catch (error) {
+    logger.error('Routes', `Error exporting ETF data: ${(error as Error).message}`);
+    res.status(500).json({ error: 'Failed to export ETF data' });
+  }
+});
+
 export default router;

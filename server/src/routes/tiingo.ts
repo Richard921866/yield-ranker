@@ -14,7 +14,7 @@ import {
   upsertDividends,
 } from '../services/database.js';
 import { fetchPriceHistory as fetchTiingoPrices } from '../services/tiingo.js';
-import { calculateMetrics, getChartData, calculateRankings } from '../services/metrics.js';
+import { calculateMetrics, getChartData, calculateRankings, calculateRealtimeReturns, calculateRealtimeReturnsBatch } from '../services/metrics.js';
 import { periodToStartDate, getDateYearsAgo, logger, formatDate } from '../utils/index.js';
 import type { ChartPeriod, RankingWeights, DividendRecord } from '../types/index.js';
 
@@ -636,6 +636,81 @@ router.post('/live/compare', async (req: Request, res: Response): Promise<void> 
   } catch (error) {
     logger.error('Routes', `Error in live compare endpoint: ${(error as Error).message}`);
     res.status(500).json({ error: 'Failed to fetch live comparison data' });
+  }
+});
+
+// ============================================================================
+// Realtime Returns Endpoints
+// ============================================================================
+
+/**
+ * GET /realtime-returns/:ticker - Get realtime returns for a single ticker
+ * Uses IEX intraday prices for accurate realtime calculations
+ */
+router.get('/realtime-returns/:ticker', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { ticker } = req.params;
+    
+    if (!ticker) {
+      res.status(400).json({ error: 'Ticker is required' });
+      return;
+    }
+    
+    const returns = await calculateRealtimeReturns(ticker);
+    
+    if (!returns) {
+      res.status(404).json({ error: `No realtime data available for ${ticker}` });
+      return;
+    }
+    
+    res.json({
+      success: true,
+      data: returns,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.error('Routes', `Error fetching realtime returns: ${(error as Error).message}`);
+    res.status(500).json({ error: 'Failed to fetch realtime returns' });
+  }
+});
+
+interface RealtimeReturnsBatchBody {
+  tickers: string[];
+}
+
+/**
+ * POST /realtime-returns/batch - Get realtime returns for multiple tickers
+ * More efficient for fetching multiple tickers at once
+ */
+router.post('/realtime-returns/batch', async (req: Request<object, object, RealtimeReturnsBatchBody>, res: Response): Promise<void> => {
+  try {
+    const { tickers } = req.body;
+    
+    if (!tickers || !Array.isArray(tickers) || tickers.length === 0) {
+      res.status(400).json({ error: 'tickers array is required' });
+      return;
+    }
+    
+    // Limit to 50 tickers per request
+    const limitedTickers = tickers.slice(0, 50);
+    
+    const returnsMap = await calculateRealtimeReturnsBatch(limitedTickers);
+    
+    // Convert Map to object for JSON response
+    const returns: Record<string, unknown> = {};
+    returnsMap.forEach((value, key) => {
+      returns[key] = value;
+    });
+    
+    res.json({
+      success: true,
+      count: returnsMap.size,
+      data: returns,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.error('Routes', `Error fetching batch realtime returns: ${(error as Error).message}`);
+    res.status(500).json({ error: 'Failed to fetch realtime returns' });
   }
 });
 

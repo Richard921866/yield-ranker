@@ -6,7 +6,7 @@
 
 import config from '../config/index.js';
 import { logger, sleep, retry } from '../utils/index.js';
-import type { TiingoPriceData, TiingoDividendData, TiingoMetaData } from '../types/index.js';
+import type { TiingoPriceData, TiingoDividendData, TiingoMetaData, TiingoIEXQuote } from '../types/index.js';
 
 // ============================================================================
 // Rate Limiting State
@@ -178,6 +178,129 @@ export async function fetchLatestPrice(ticker: string): Promise<TiingoPriceData 
     logger.error('Tiingo', `Error fetching latest price for ${ticker}: ${(error as Error).message}`);
     return null;
   }
+}
+
+/**
+ * Fetch realtime IEX quote for a ticker.
+ * This provides current intraday prices during market hours.
+ * Falls back to EOD data if IEX quote is unavailable.
+ */
+export async function fetchRealtimePrice(ticker: string): Promise<{
+  price: number;
+  prevClose: number;
+  timestamp: string;
+  isRealtime: boolean;
+} | null> {
+  try {
+    // Try IEX endpoint first for realtime data
+    const iexData = await tiingoRequest<TiingoIEXQuote[]>(`/iex/${ticker.toUpperCase()}`);
+    
+    if (iexData.length > 0) {
+      const quote = iexData[0];
+      // Use tngoLast (Tiingo's last price) or last price
+      const price = quote.tngoLast || quote.last || quote.mid;
+      
+      if (price && price > 0) {
+        return {
+          price,
+          prevClose: quote.prevClose || 0,
+          timestamp: quote.lastSaleTimestamp || quote.timestamp,
+          isRealtime: true,
+        };
+      }
+    }
+    
+    // Fallback to EOD data if IEX is unavailable
+    const eodData = await fetchLatestPrice(ticker);
+    if (eodData) {
+      return {
+        price: eodData.close,
+        prevClose: eodData.close, // Same day, so no previous close available
+        timestamp: eodData.date,
+        isRealtime: false,
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    logger.warn('Tiingo', `IEX fetch failed for ${ticker}, trying EOD: ${(error as Error).message}`);
+    
+    // Fallback to EOD data
+    try {
+      const eodData = await fetchLatestPrice(ticker);
+      if (eodData) {
+        return {
+          price: eodData.close,
+          prevClose: eodData.close,
+          timestamp: eodData.date,
+          isRealtime: false,
+        };
+      }
+    } catch {
+      logger.error('Tiingo', `Both IEX and EOD fetch failed for ${ticker}`);
+    }
+    
+    return null;
+  }
+}
+
+/**
+ * Fetch realtime prices for multiple tickers in batch
+ * Uses the IEX endpoint which supports comma-separated tickers
+ */
+export async function fetchRealtimePricesBatch(tickers: string[]): Promise<Map<string, {
+  price: number;
+  prevClose: number;
+  timestamp: string;
+  isRealtime: boolean;
+}>> {
+  const results = new Map<string, {
+    price: number;
+    prevClose: number;
+    timestamp: string;
+    isRealtime: boolean;
+  }>();
+  
+  if (tickers.length === 0) return results;
+  
+  try {
+    // IEX supports comma-separated tickers (up to ~100 at a time)
+    const tickerChunks: string[][] = [];
+    for (let i = 0; i < tickers.length; i += 50) {
+      tickerChunks.push(tickers.slice(i, i + 50));
+    }
+    
+    for (const chunk of tickerChunks) {
+      const tickerList = chunk.map(t => t.toUpperCase()).join(',');
+      const iexData = await tiingoRequest<TiingoIEXQuote[]>(`/iex/?tickers=${tickerList}`);
+      
+      for (const quote of iexData) {
+        const price = quote.tngoLast || quote.last || quote.mid;
+        if (price && price > 0) {
+          results.set(quote.ticker.toUpperCase(), {
+            price,
+            prevClose: quote.prevClose || 0,
+            timestamp: quote.lastSaleTimestamp || quote.timestamp,
+            isRealtime: true,
+          });
+        }
+      }
+    }
+  } catch (error) {
+    logger.warn('Tiingo', `Batch IEX fetch failed: ${(error as Error).message}`);
+  }
+  
+  // Fetch EOD for any tickers that didn't get IEX data
+  for (const ticker of tickers) {
+    if (!results.has(ticker.toUpperCase())) {
+      const realtimePrice = await fetchRealtimePrice(ticker);
+      if (realtimePrice) {
+        results.set(ticker.toUpperCase(), realtimePrice);
+      }
+    }
+  }
+  
+  return results;
 }
 
 export async function healthCheck(): Promise<boolean> {

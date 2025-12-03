@@ -181,6 +181,33 @@ export interface SyncStatus {
   errorCount: number;
 }
 
+// Realtime returns data from IEX
+export interface RealtimeReturns {
+  ticker: string;
+  currentPrice: number;
+  prevClose: number;
+  priceChange: number;
+  priceChangePercent: number;
+  isRealtime: boolean;
+  timestamp: string;
+  priceReturn: {
+    '1W': number | null;
+    '1M': number | null;
+    '3M': number | null;
+    '6M': number | null;
+    '1Y': number | null;
+    '3Y': number | null;
+  };
+  totalReturnDrip: {
+    '1W': number | null;
+    '1M': number | null;
+    '3M': number | null;
+    '6M': number | null;
+    '1Y': number | null;
+    '3Y': number | null;
+  };
+}
+
 export type ChartPeriod = '1W' | '1M' | '3M' | '6M' | '1Y' | '3Y' | '5Y' | 'MAX';
 
 export interface DividendDates {
@@ -342,6 +369,52 @@ export async function fetchDividendDates(
 }
 
 /**
+ * Fetch realtime returns for a single ticker
+ * Uses IEX intraday prices for accurate realtime calculations
+ */
+export async function fetchRealtimeReturns(ticker: string): Promise<RealtimeReturns | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/tiingo/realtime-returns/${ticker}`);
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch realtime returns for ${ticker}`);
+      return null;
+    }
+    
+    const json = await response.json();
+    return json.data || null;
+  } catch (error) {
+    console.error(`Error fetching realtime returns for ${ticker}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Fetch realtime returns for multiple tickers in batch
+ * More efficient for updating multiple ETFs at once
+ */
+export async function fetchRealtimeReturnsBatch(tickers: string[]): Promise<Record<string, RealtimeReturns>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/tiingo/realtime-returns/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tickers }),
+    });
+    
+    if (!response.ok) {
+      console.warn('Failed to fetch batch realtime returns');
+      return {};
+    }
+    
+    const json = await response.json();
+    return json.data || {};
+  } catch (error) {
+    console.error('Error fetching batch realtime returns:', error);
+    return {};
+  }
+}
+
+/**
  * Generate chart-ready data from comparison response
  */
 export function generateComparisonChartData(
@@ -461,6 +534,8 @@ export default {
   fetchComparison,
   fetchRankings,
   fetchSyncStatus,
+  fetchRealtimeReturns,
+  fetchRealtimeReturnsBatch,
   generateComparisonChartData,
   metricsToETF,
 };

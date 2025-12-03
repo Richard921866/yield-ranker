@@ -29,6 +29,7 @@ import {
   BarChart3,
   ChevronLeft,
   Database,
+  Download,
   LogOut,
   Menu,
   PanelLeft,
@@ -451,6 +452,46 @@ const AdminPanel = () => {
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportData = async () => {
+    setExporting(true);
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || "";
+      const response = await fetch(`${apiUrl}/api/etfs/export`, {
+        method: "GET",
+      });
+
+      if (!response.ok) {
+        throw new Error("Export failed");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ETF_Data_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Export successful",
+        description: "ETF data has been exported to Excel file",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Export failed";
+      toast({
+        variant: "destructive",
+        title: "Export failed",
+        description: message,
+      });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -993,6 +1034,32 @@ const AdminPanel = () => {
                         </p>
                       </Card>
                     )}
+                  </div>
+
+                  <div className="border-t pt-6">
+                    <h3 className="text-sm font-semibold text-foreground mb-3">
+                      Export Data
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Download all ETF data as an Excel file matching the dashboard table format.
+                    </p>
+                    <Button
+                      onClick={handleExportData}
+                      disabled={exporting}
+                      className="w-full sm:w-auto"
+                    >
+                      {exporting ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Exporting...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-4 h-4 mr-2" />
+                          Export to Excel
+                        </>
+                      )}
+                    </Button>
                   </div>
 
                   <div className="border-t pt-6">
