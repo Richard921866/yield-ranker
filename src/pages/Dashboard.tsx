@@ -2669,10 +2669,10 @@ export default function Dashboard() {
                                 className="pl-10 w-full h-10 sm:h-9 md:h-9 border-2 text-sm"
                               />
                             </div>
-                            {/* Customize Rankings with centered ranking numbers above */}
-                            <div className="flex flex-col items-center">
+                            {/* Customize Rankings with ranking numbers positioned above without affecting alignment */}
+                            <div className="relative">
                               {isPremium && (
-                                <div className="text-xs sm:text-sm text-muted-foreground font-medium mb-1">
+                                <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs sm:text-sm text-muted-foreground font-medium whitespace-nowrap">
                                   {yieldWeight} {volatilityWeight ?? 0} {totalReturnWeight} {totalReturnTimeframe.toUpperCase()}
                                 </div>
                               )}

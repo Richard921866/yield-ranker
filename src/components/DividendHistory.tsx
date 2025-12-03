@@ -295,7 +295,14 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
         const chartData = dividends.map((div, index, array) => {
           let equivalentWeeklyRate: number | null = null;
           
-          if (frequencyChanged) {
+          // Ensure amount is a valid number
+          const amount = typeof div.amount === 'number' && !isNaN(div.amount) && isFinite(div.amount) && div.amount > 0
+            ? div.amount
+            : (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0
+              ? div.adjAmount
+              : 0);
+          
+          if (frequencyChanged && amount > 0) {
             // Detect frequency based on days between payments
             if (index < array.length - 1) {
               const currentDate = new Date(div.exDate);
@@ -304,15 +311,15 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
               
               // Normalize to weekly rate based on detected frequency
               if (daysBetween <= 10) {
-                equivalentWeeklyRate = div.amount;
+                equivalentWeeklyRate = amount;
               } else if (daysBetween <= 35) {
-                equivalentWeeklyRate = div.amount / 4.33;
+                equivalentWeeklyRate = amount / 4.33;
               } else if (daysBetween <= 95) {
-                equivalentWeeklyRate = div.amount / 13;
+                equivalentWeeklyRate = amount / 13;
               } else if (daysBetween <= 185) {
-                equivalentWeeklyRate = div.amount / 26;
+                equivalentWeeklyRate = amount / 26;
               } else {
-                equivalentWeeklyRate = div.amount / 52;
+                equivalentWeeklyRate = amount / 52;
               }
             } else if (index > 0) {
               // For last item, use previous payment's frequency
@@ -321,24 +328,25 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
               const daysBetween = (currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24);
               
               if (daysBetween <= 10) {
-                equivalentWeeklyRate = div.amount;
+                equivalentWeeklyRate = amount;
               } else if (daysBetween <= 35) {
-                equivalentWeeklyRate = div.amount / 4.33;
+                equivalentWeeklyRate = amount / 4.33;
               } else if (daysBetween <= 95) {
-                equivalentWeeklyRate = div.amount / 13;
+                equivalentWeeklyRate = amount / 13;
               } else if (daysBetween <= 185) {
-                equivalentWeeklyRate = div.amount / 26;
+                equivalentWeeklyRate = amount / 26;
               } else {
-                equivalentWeeklyRate = div.amount / 52;
+                equivalentWeeklyRate = amount / 52;
               }
             }
           }
           
           return {
             ...div,
+            amount: amount, // Ensure amount is always a valid number
             equivalentWeeklyRate: equivalentWeeklyRate !== null && typeof equivalentWeeklyRate === 'number' && !isNaN(equivalentWeeklyRate) && isFinite(equivalentWeeklyRate) ? Number(equivalentWeeklyRate.toFixed(4)) : null,
           };
-        });
+        }).filter(item => item.amount > 0); // Filter out any items with zero or invalid amounts
 
         return (
           <div className="mb-4 sm:mb-6">
@@ -441,9 +449,14 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
                     fontSize={10}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) => `$${value.toFixed(2)}`}
+                    tickFormatter={(value) => {
+                      if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
+                        return `$${value.toFixed(2)}`;
+                      }
+                      return '';
+                    }}
                     width={50}
-                    domain={['dataMin', 'dataMax']}
+                    domain={['auto', 'auto']}
                     allowDataOverflow={false}
                   />
                   <Tooltip
@@ -462,7 +475,12 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
                     }}
                     labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                   />
-                  <Bar dataKey="amount" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+                  <Bar 
+                    dataKey="amount" 
+                    fill="#3b82f6" 
+                    radius={[2, 2, 0, 0]}
+                    minPointSize={1}
+                  />
                 </BarChart>
               )}
             </ResponsiveContainer>

@@ -471,10 +471,10 @@ const Index = () => {
               </div>
               <div className="flex flex-col gap-2">
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:pt-0.5 md:flex-nowrap">
-                  {/* Customize Rankings with centered ranking numbers above */}
-                  <div className="flex flex-col items-center">
+                  {/* Customize Rankings with ranking numbers positioned above without affecting alignment */}
+                  <div className="relative">
                     {isPremium && (
-                      <div className="text-xs sm:text-sm text-muted-foreground font-medium mb-1">
+                      <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs sm:text-sm text-muted-foreground font-medium whitespace-nowrap">
                         {yieldWeight} {volatilityWeight} {totalReturnWeight} {totalReturnTimeframe.toUpperCase()}
                       </div>
                     )}
