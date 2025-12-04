@@ -8,7 +8,6 @@ import {
   generateChartData,
   ChartType,
   ComparisonTimeframe,
-  updateETFsWithRealtimeData,
 } from "@/services/etfData";
 import { rankETFs } from "@/utils/ranking";
 import { RankingWeights } from "@/types/etf";
@@ -138,9 +137,6 @@ export default function Dashboard() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [lastDataUpdate, setLastDataUpdate] = useState<string | null>(null);
   const [chartHeight, setChartHeight] = useState(300);
-  const [isRealtimeData, setIsRealtimeData] = useState(false);
-  const [isRefreshingRealtime, setIsRefreshingRealtime] = useState(false);
-  const [lastRealtimeUpdate, setLastRealtimeUpdate] = useState<Date | null>(null);
   const [isLandscape, setIsLandscape] = useState(false);
 
   const isAdmin = profile?.role === "admin";
@@ -2708,29 +2704,18 @@ export default function Dashboard() {
                             Covered Call Option ETFs
                           </h3>
                           <div className="text-xs text-muted-foreground leading-tight">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <div className="flex items-center gap-1">
+                            {lastDataUpdate ? (
+                              <div className="flex items-center gap-1 mb-1">
                                 <Clock className="h-3 w-3" />
-                                <span>Last updated: {lastDataUpdate || 'N/A'}</span>
+                                <span>Last updated: {lastDataUpdate}</span>
+                                <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
                               </div>
-                              {isRealtimeData && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-semibold">
-                                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                                  LIVE
-                                </span>
-                              )}
-                              <span className="text-primary font-medium">Source: Tiingo</span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={refreshRealtimeData}
-                                disabled={isRefreshingRealtime}
-                                className="h-5 px-1.5 text-[10px] hover:bg-slate-100"
-                                title="Refresh realtime prices"
-                              >
-                                <RefreshCw className={`h-3 w-3 ${isRefreshingRealtime ? 'animate-spin' : ''}`} />
-                              </Button>
-                            </div>
+                            ) : (
+                              <div className="mb-1">
+                                <span>Last updated: {lastDataUpdate || 'N/A'}</span>
+                                <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
+                              </div>
+                            )}
                             <div className="mt-1">Records: {uniqueSymbolETFs.length}</div>
                           </div>
                         </div>
