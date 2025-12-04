@@ -200,67 +200,6 @@ export default function Dashboard() {
     loadSiteSettings();
   }, []);
 
-  // Function to refresh ETF data with realtime prices from IEX
-  const refreshRealtimeData = useCallback(async () => {
-    if (etfData.length === 0 || isRefreshingRealtime) return;
-    
-    setIsRefreshingRealtime(true);
-    try {
-      const { updatedETFs, isRealtime } = await updateETFsWithRealtimeData(etfData);
-      setEtfData(updatedETFs);
-      setIsRealtimeData(isRealtime);
-      setLastRealtimeUpdate(new Date());
-      
-      if (isRealtime) {
-        toast({
-          title: "Realtime data updated",
-          description: "Prices and returns are now current",
-          duration: 2000,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to refresh realtime data:", error);
-    } finally {
-      setIsRefreshingRealtime(false);
-    }
-  }, [etfData, isRefreshingRealtime, toast]);
-
-  // Auto-refresh realtime data every 60 seconds during market hours
-  useEffect(() => {
-    if (etfData.length === 0) return;
-    
-    // Check if within market hours (9:30 AM - 4:00 PM ET, Mon-Fri)
-    const isMarketHours = () => {
-      const now = new Date();
-      const etHour = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false });
-      const etMinute = now.toLocaleString('en-US', { timeZone: 'America/New_York', minute: 'numeric' });
-      const day = now.getDay();
-      
-      // Skip weekends
-      if (day === 0 || day === 6) return false;
-      
-      const hour = parseInt(etHour);
-      const minute = parseInt(etMinute);
-      const timeInMinutes = hour * 60 + minute;
-      
-      // Market hours: 9:30 AM to 4:00 PM ET
-      return timeInMinutes >= 9 * 60 + 30 && timeInMinutes < 16 * 60;
-    };
-    
-    // Initial fetch on load
-    if (!lastRealtimeUpdate) {
-      refreshRealtimeData();
-    }
-    
-    // Set up auto-refresh during market hours
-    const interval = setInterval(() => {
-      if (isMarketHours()) {
-        refreshRealtimeData();
-      }
-    }, 60000); // Every 60 seconds
-    
-    return () => clearInterval(interval);
-  }, [etfData.length, lastRealtimeUpdate, refreshRealtimeData]);
 
   const fetchAdminProfiles = useCallback(async () => {
     setAdminLoading(true);
