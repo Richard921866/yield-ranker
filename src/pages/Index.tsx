@@ -494,24 +494,30 @@ const Index = () => {
                       Customize Rankings
                     </Button>
                   </div>
-                  {/* Total Return / Price Return Toggle */}
-                  <div className="inline-flex items-center h-10 sm:h-9 md:h-9 border-2 border-slate-300 rounded-md overflow-hidden">
+                  {/* Total Return / Price Return Toggle - 50/50 split with blue background */}
+                  <div className="relative inline-flex items-center h-10 sm:h-9 md:h-9 border-2 border-slate-300 rounded-md overflow-hidden w-full sm:w-auto">
+                    <div 
+                      className={`absolute top-0 bottom-0 left-0 bg-primary transition-all duration-200 ${
+                        returnView === "total" ? 'w-1/2' : 'w-1/2 translate-x-full'
+                      }`}
+                      style={{ zIndex: 0 }}
+                    />
                     <button
                       onClick={() => setReturnView("total")}
-                      className={`px-3 sm:px-4 py-2 text-xs font-semibold transition-all duration-200 ${
+                      className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 ${
                         returnView === "total"
-                          ? "bg-primary text-white shadow-sm"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white"
+                          ? "text-white"
+                          : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
                       Total Returns
                     </button>
                     <button
                       onClick={() => setReturnView("price")}
-                      className={`px-3 sm:px-4 py-2 text-xs font-semibold transition-all duration-200 ${
+                      className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 ${
                         returnView === "price"
-                          ? "bg-primary text-white shadow-sm"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white"
+                          ? "text-white"
+                          : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
                       Price Returns

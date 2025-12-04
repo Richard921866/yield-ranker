@@ -141,6 +141,7 @@ export default function Dashboard() {
   const [isRealtimeData, setIsRealtimeData] = useState(false);
   const [isRefreshingRealtime, setIsRefreshingRealtime] = useState(false);
   const [lastRealtimeUpdate, setLastRealtimeUpdate] = useState<Date | null>(null);
+  const [isLandscape, setIsLandscape] = useState(false);
 
   const isAdmin = profile?.role === "admin";
   const isPremium = !!profile;
@@ -428,15 +429,16 @@ export default function Dashboard() {
     return () => window.removeEventListener("resize", calculateInitialCount);
   }, []);
 
-  // Calculate chart height for mobile landscape/portrait
+  // Calculate chart height for mobile landscape/portrait and detect landscape
   useEffect(() => {
     const calculateChartHeight = () => {
       const height = window.innerHeight;
       const width = window.innerWidth;
-      const isLandscape = width > height;
+      const landscape = width > height;
+      setIsLandscape(landscape);
 
       // Mobile landscape (horizontal) - show more data
-      if (width < 1024 && isLandscape && height < 600) {
+      if (width < 1024 && landscape && height < 600) {
         setChartHeight(Math.max(300, Math.min(400, height * 0.5)));
       }
       // Mobile portrait
@@ -2083,10 +2085,10 @@ export default function Dashboard() {
                     </p>
                   </div>
                   <div className="text-center p-3 bg-slate-50 rounded-lg">
-                    <p className="text-xs text-muted-foreground mb-1">Annual Dividend</p>
+                    <p className="text-xs text-muted-foreground mb-1">Div #pmt</p>
                     <p className="text-xl font-bold text-green-600">
-                      {selectedETF.annualDividend != null && typeof selectedETF.annualDividend === 'number' && !isNaN(selectedETF.annualDividend) && isFinite(selectedETF.annualDividend)
-                        ? `$${selectedETF.annualDividend.toFixed(2)}`
+                      {selectedETF.dividend != null && typeof selectedETF.dividend === 'number' && !isNaN(selectedETF.dividend) && isFinite(selectedETF.dividend)
+                        ? `$${selectedETF.dividend.toFixed(4)}`
                         : 'N/A'}
                     </p>
                   </div>
@@ -2733,7 +2735,8 @@ export default function Dashboard() {
                         </div>
                         <div className="flex flex-col gap-2">
                           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:pt-0.5 w-full sm:w-auto md:flex-nowrap">
-                            {/* Search */}
+                            {/* Search - Hidden on mobile landscape */}
+                            {!(isLandscape && typeof window !== 'undefined' && window.innerWidth < 1024) && (
                             <div className="relative w-full sm:w-auto min-w-[200px] sm:max-w-xs md:max-w-sm">
                               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                               <Input
@@ -2743,6 +2746,7 @@ export default function Dashboard() {
                                 className="pl-10 w-full h-10 sm:h-9 md:h-9 border-2 text-sm"
                               />
                             </div>
+                            )}
                             {/* Customize Rankings with ranking numbers positioned above without affecting alignment */}
                             <div className="relative">
                               {isPremium && (
@@ -2766,24 +2770,30 @@ export default function Dashboard() {
                                 Customize Rankings
                               </Button>
                             </div>
-                            {/* Total Return / Price Return Toggle */}
-                            <div className="inline-flex items-center h-10 sm:h-9 md:h-9 border-2 border-slate-300 rounded-md overflow-hidden">
+                            {/* Total Return / Price Return Toggle - 50/50 split with blue background */}
+                            <div className="relative inline-flex items-center h-10 sm:h-9 md:h-9 border-2 border-slate-300 rounded-md overflow-hidden w-full sm:w-auto">
+                              <div 
+                                className={`absolute top-0 bottom-0 left-0 bg-primary transition-all duration-200 ${
+                                  showTotalReturns ? 'w-1/2' : 'w-1/2 translate-x-full'
+                                }`}
+                                style={{ zIndex: 0 }}
+                              />
                               <button
                                 onClick={() => setShowTotalReturns(true)}
-                                className={`px-3 sm:px-4 py-2 text-xs font-semibold transition-all duration-200 ${
+                                className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 ${
                                   showTotalReturns
-                                    ? "bg-primary text-white shadow-sm"
-                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white"
+                                    ? "text-white"
+                                    : "text-slate-600 hover:text-slate-900"
                                 }`}
                               >
                                 Total Returns
                               </button>
                               <button
                                 onClick={() => setShowTotalReturns(false)}
-                                className={`px-3 sm:px-4 py-2 text-xs font-semibold transition-all duration-200 ${
+                                className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 ${
                                   !showTotalReturns
-                                    ? "bg-primary text-white shadow-sm"
-                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white"
+                                    ? "text-white"
+                                    : "text-slate-600 hover:text-slate-900"
                                 }`}
                               >
                                 Price Returns
