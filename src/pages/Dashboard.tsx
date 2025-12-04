@@ -2086,10 +2086,10 @@ export default function Dashboard() {
                     </p>
                   </div>
                   <div className="text-center p-3 bg-slate-50 rounded-lg">
-                    <p className="text-xs text-muted-foreground mb-1">Div #pmt</p>
+                    <p className="text-xs text-muted-foreground mb-1">Annual Dividend</p>
                     <p className="text-xl font-bold text-green-600">
-                      {selectedETF.dividend != null && typeof selectedETF.dividend === 'number' && !isNaN(selectedETF.dividend) && isFinite(selectedETF.dividend)
-                        ? `$${selectedETF.dividend.toFixed(4)}`
+                      {selectedETF.annualDividend != null && typeof selectedETF.annualDividend === 'number' && !isNaN(selectedETF.annualDividend) && isFinite(selectedETF.annualDividend)
+                        ? `$${selectedETF.annualDividend.toFixed(2)}`
                         : 'N/A'}
                     </p>
                   </div>
