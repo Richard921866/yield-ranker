@@ -111,7 +111,13 @@ export const config: Config = {
   cors: {
     origins: process.env.CORS_ORIGINS
       ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
-      : ['http://localhost:5173', 'http://localhost:3000'],
+      : [
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'http://localhost:8081',
+        'https://dividendsandtotalreturns.com',
+        'https://www.dividendsandtotalreturns.com',
+      ],
   },
 };
 
