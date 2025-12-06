@@ -3,6 +3,14 @@
  * Yield Ranker API Server (Railway Compatible)
  */
 
+// Early startup logging for Railway debugging
+console.log('[STARTUP] Server starting...');
+console.log('[STARTUP] PORT env:', process.env.PORT);
+console.log('[STARTUP] NODE_ENV:', process.env.NODE_ENV);
+console.log('[STARTUP] SUPABASE_URL set:', !!process.env.SUPABASE_URL);
+console.log('[STARTUP] SUPABASE_SERVICE_ROLE_KEY set:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+console.log('[STARTUP] TIINGO_API_KEY set:', !!process.env.TIINGO_API_KEY);
+
 import express, { Express, Request, Response, NextFunction } from "express";
 import cors from "cors";
 
