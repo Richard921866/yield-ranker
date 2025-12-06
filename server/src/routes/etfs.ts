@@ -92,7 +92,7 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
 
     // Read Excel file
     const workbook = XLSX.readFile(filePath as string);
-    
+
     if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
       cleanupFile(filePath);
       res.status(400).json({ error: 'Excel file has no sheets' });
@@ -101,7 +101,7 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
 
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
-    
+
     // Find header row
     let headerRowIndex = 0;
     for (let i = 0; i < Math.min(allRows.length, 20); i++) {
@@ -115,7 +115,7 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
     }
 
     const rawData = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex, defval: null }) as Record<string, unknown>[];
-    
+
     if (!rawData || rawData.length === 0) {
       cleanupFile(filePath);
       res.status(400).json({ error: 'Excel file is empty' });
@@ -248,22 +248,23 @@ router.post('/upload-static', upload.single('file'), handleStaticUpload);
 // ============================================================================
 
 /**
- * GET / - Get all ETFs
- * Merges data from etf_static (Excel uploads) and etfs (legacy/API data)
+ * GET / - Get all ETFs with LIVE data from Tiingo API
+ * Fetches static identity data from database, then calculates all metrics live from API
  */
 router.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
     const supabase = getSupabase();
-    
+
+    // Fetch only static identity fields from database
     const staticResult = await supabase
       .from('etf_static')
-      .select('*')
+      .select('ticker, issuer, description, pay_day_text, payments_per_year, ipo_price')
       .order('ticker', { ascending: true })
       .limit(10000);
 
     const legacyResult = await supabase
       .from('etfs')
-      .select('*')
+      .select('symbol, issuer, description, pay_day, payments_per_year, ipo_price')
       .order('symbol', { ascending: true })
       .limit(10000);
 
@@ -276,205 +277,172 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
 
     const staticData = staticResult.data || [];
     const legacyData = legacyResult.data || [];
-    
+
     logger.info('Routes', `Fetched ${staticData.length} from etf_static, ${legacyData.length} from etfs`);
 
-    const preferValue = (a: any, b: any): any => {
-      if (a !== null && a !== undefined && a !== 0 && a !== '0' && a !== '') {
-        return a;
-      }
-      if (b !== null && b !== undefined && b !== 0 && b !== '0' && b !== '') {
-        return b;
-      }
-      return a ?? b;
-    };
+    // Build unique tickers list with static data
+    const tickerMap = new Map<string, {
+      ticker: string;
+      issuer: string | null;
+      description: string | null;
+      pay_day_text: string | null;
+      payments_per_year: number | null;
+      ipo_price: number | null;
+    }>();
 
-    const preferNumeric = (a: any, b: any): any => {
-      if (a === null || a === undefined || a === '') {
-        return b ?? null;
+    // Add tickers from etf_static (preferred)
+    for (const item of staticData) {
+      const ticker = (item.ticker || '').toUpperCase().trim();
+      if (ticker && !tickerMap.has(ticker)) {
+        tickerMap.set(ticker, {
+          ticker,
+          issuer: item.issuer || null,
+          description: item.description || null,
+          pay_day_text: item.pay_day_text || null,
+          payments_per_year: item.payments_per_year || null,
+          ipo_price: item.ipo_price || null,
+        });
       }
-      if (b === null || b === undefined || b === '') {
-        return a ?? null;
-      }
-      const numA = typeof a === 'number' ? a : parseFloat(String(a));
-      const numB = typeof b === 'number' ? b : parseFloat(String(b));
-      if (!isNaN(numA) && numA !== 0) return numA;
-      if (!isNaN(numB) && numB !== 0) return numB;
-      if (!isNaN(numA)) return numA;
-      if (!isNaN(numB)) return numB;
-      return a ?? b ?? null;
-    };
+    }
 
-    const legacyMap = new Map<string, any>();
+    // Add tickers from legacy table if not already present
     for (const item of legacyData) {
-      const symbol = (item.symbol || '').toUpperCase();
-      if (symbol) {
-        legacyMap.set(symbol, item);
+      const ticker = (item.symbol || '').toUpperCase().trim();
+      if (ticker && !tickerMap.has(ticker)) {
+        tickerMap.set(ticker, {
+          ticker,
+          issuer: item.issuer || null,
+          description: item.description || null,
+          pay_day_text: item.pay_day || null,
+          payments_per_year: item.payments_per_year || null,
+          ipo_price: item.ipo_price || null,
+        });
       }
     }
 
-    const mergedMap = new Map<string, any>();
+    const tickers = Array.from(tickerMap.keys()).sort();
+    logger.info('Routes', `Calculating live metrics for ${tickers.length} tickers from Tiingo API...`);
 
-    for (const staticItem of staticData) {
-      const ticker = (staticItem.ticker || '').toUpperCase();
-      if (!ticker) continue;
+    // Calculate live metrics for ALL tickers from Tiingo API
+    const metricsPromises = tickers.map(async (ticker) => {
+      try {
+        const staticInfo = tickerMap.get(ticker)!;
+        const metrics = await calculateMetrics(ticker);
 
-      const legacyItem = legacyMap.get(ticker);
-      
-      if (legacyItem) {
-        const merged = {
-          ticker: staticItem.ticker,
-          symbol: staticItem.ticker,
-          issuer: preferValue(staticItem.issuer, legacyItem.issuer),
-          description: preferValue(staticItem.description, legacyItem.description),
-          pay_day_text: preferValue(staticItem.pay_day_text, legacyItem.pay_day),
-          pay_day: preferValue(staticItem.pay_day_text, legacyItem.pay_day),
-          payments_per_year: preferNumeric(staticItem.payments_per_year, legacyItem.payments_per_year),
-          ipo_price: preferNumeric(staticItem.ipo_price, legacyItem.ipo_price),
-          price: preferNumeric(staticItem.price, legacyItem.price),
-          price_change: preferNumeric(staticItem.price_change, legacyItem.price_change),
-          price_change_pct: preferNumeric(staticItem.price_change_pct, legacyItem.price_change_pct),
-          dividend: preferNumeric(legacyItem.dividend, staticItem.last_dividend),
-          last_dividend: preferNumeric(staticItem.last_dividend, legacyItem.dividend),
-          annual_div: preferNumeric(legacyItem.annual_div, staticItem.annual_dividend),
-          annual_dividend: preferNumeric(staticItem.annual_dividend, legacyItem.annual_dividend ?? legacyItem.annual_div),
-          forward_yield: preferNumeric(staticItem.forward_yield, legacyItem.forward_yield),
-          dividend_sd: preferNumeric(staticItem.dividend_sd, legacyItem.dividend_sd),
-          dividend_cv: preferNumeric(staticItem.dividend_cv, legacyItem.dividend_cv),
-          dividend_cv_percent: preferNumeric(staticItem.dividend_cv_percent, legacyItem.dividend_cv_percent),
-          // Only use string volatility index values (ignore legacy numeric values)
-          dividend_volatility_index: typeof staticItem.dividend_volatility_index === 'string' 
-            ? staticItem.dividend_volatility_index 
-            : (typeof legacyItem.dividend_volatility_index === 'string' ? legacyItem.dividend_volatility_index : null),
-          weighted_rank: preferNumeric(staticItem.weighted_rank, legacyItem.weighted_rank),
-          tr_drip_3y: preferNumeric(staticItem.tr_drip_3y, legacyItem.tr_drip_3y ?? legacyItem.three_year_annualized),
-          tr_drip_12m: preferNumeric(staticItem.tr_drip_12m, legacyItem.tr_drip_12m ?? legacyItem.total_return_12m),
-          tr_drip_6m: preferNumeric(staticItem.tr_drip_6m, legacyItem.tr_drip_6m ?? legacyItem.total_return_6m),
-          tr_drip_3m: preferNumeric(staticItem.tr_drip_3m, legacyItem.tr_drip_3m ?? legacyItem.total_return_3m),
-          tr_drip_1m: preferNumeric(staticItem.tr_drip_1m, legacyItem.tr_drip_1m ?? legacyItem.total_return_1m),
-          tr_drip_1w: preferNumeric(staticItem.tr_drip_1w, legacyItem.tr_drip_1w ?? legacyItem.total_return_1w),
-          price_return_3y: preferNumeric(staticItem.price_return_3y, legacyItem.price_return_3y),
-          price_return_12m: preferNumeric(staticItem.price_return_12m, legacyItem.price_return_12m),
-          price_return_6m: preferNumeric(staticItem.price_return_6m, legacyItem.price_return_6m),
-          price_return_3m: preferNumeric(staticItem.price_return_3m, legacyItem.price_return_3m),
-          price_return_1m: preferNumeric(staticItem.price_return_1m, legacyItem.price_return_1m),
-          price_return_1w: preferNumeric(staticItem.price_return_1w, legacyItem.price_return_1w),
-          week_52_high: preferNumeric(staticItem.week_52_high, legacyItem.week_52_high),
-          week_52_low: preferNumeric(staticItem.week_52_low, legacyItem.week_52_low),
-          last_updated: preferValue(staticItem.last_updated, legacyItem.last_updated),
-          spreadsheet_updated_at: preferValue(staticItem.updated_at, legacyItem.spreadsheet_updated_at),
-          three_year_annualized: preferNumeric(staticItem.tr_drip_3y, legacyItem.three_year_annualized),
-          total_return_12m: preferNumeric(staticItem.tr_drip_12m, legacyItem.total_return_12m),
-          total_return_6m: preferNumeric(staticItem.tr_drip_6m, legacyItem.total_return_6m),
-          total_return_3m: preferNumeric(staticItem.tr_drip_3m, legacyItem.total_return_3m),
-          total_return_1m: preferNumeric(staticItem.tr_drip_1m, legacyItem.total_return_1m),
-          total_return_1w: preferNumeric(staticItem.tr_drip_1w, legacyItem.total_return_1w),
+        return {
+          ticker,
+          symbol: ticker,
+          issuer: staticInfo.issuer,
+          description: staticInfo.description || metrics.name,
+          pay_day_text: staticInfo.pay_day_text,
+          pay_day: staticInfo.pay_day_text,
+          payments_per_year: metrics.paymentsPerYear || staticInfo.payments_per_year,
+          ipo_price: staticInfo.ipo_price,
+          // Live price data from API
+          price: metrics.currentPrice,
+          price_change: metrics.priceChange,
+          price_change_pct: metrics.priceChangePercent,
+          // Live dividend data from API
+          dividend: metrics.lastDividend,
+          last_dividend: metrics.lastDividend,
+          annual_div: metrics.annualizedDividend,
+          annual_dividend: metrics.annualizedDividend,
+          forward_yield: metrics.forwardYield,
+          // Volatility metrics from API
+          dividend_sd: metrics.dividendSD,
+          dividend_cv: metrics.dividendCV,
+          dividend_cv_percent: metrics.dividendCVPercent,
+          dividend_volatility_index: metrics.dividendVolatilityIndex,
+          // 52-week range from API
+          week_52_high: metrics.week52High,
+          week_52_low: metrics.week52Low,
+          // Total Return WITH DRIP from API
+          tr_drip_3y: metrics.totalReturnDrip?.['3Y'] ?? null,
+          tr_drip_12m: metrics.totalReturnDrip?.['1Y'] ?? null,
+          tr_drip_6m: metrics.totalReturnDrip?.['6M'] ?? null,
+          tr_drip_3m: metrics.totalReturnDrip?.['3M'] ?? null,
+          tr_drip_1m: metrics.totalReturnDrip?.['1M'] ?? null,
+          tr_drip_1w: metrics.totalReturnDrip?.['1W'] ?? null,
+          // Price Return from API
+          price_return_3y: metrics.priceReturn?.['3Y'] ?? null,
+          price_return_12m: metrics.priceReturn?.['1Y'] ?? null,
+          price_return_6m: metrics.priceReturn?.['6M'] ?? null,
+          price_return_3m: metrics.priceReturn?.['3M'] ?? null,
+          price_return_1m: metrics.priceReturn?.['1M'] ?? null,
+          price_return_1w: metrics.priceReturn?.['1W'] ?? null,
+          // Legacy fields for backward compatibility
+          three_year_annualized: metrics.totalReturnDrip?.['3Y'] ?? null,
+          total_return_12m: metrics.totalReturnDrip?.['1Y'] ?? null,
+          total_return_6m: metrics.totalReturnDrip?.['6M'] ?? null,
+          total_return_3m: metrics.totalReturnDrip?.['3M'] ?? null,
+          total_return_1m: metrics.totalReturnDrip?.['1M'] ?? null,
+          total_return_1w: metrics.totalReturnDrip?.['1W'] ?? null,
+          // Metadata
+          last_updated: new Date().toISOString(),
+          weighted_rank: null, // Ranking is calculated on frontend
         };
-        mergedMap.set(ticker, merged);
-      } else {
-        // Only use string volatility index values
-        const volatilityIndex = typeof staticItem.dividend_volatility_index === 'string' 
-          ? staticItem.dividend_volatility_index : null;
-        mergedMap.set(ticker, {
-          ...staticItem,
-          symbol: staticItem.ticker,
-          dividend_volatility_index: volatilityIndex,
-        });
+      } catch (error) {
+        logger.warn('Routes', `Failed to calculate metrics for ${ticker}: ${(error as Error).message}`);
+        // Return basic static data if metrics calculation fails
+        const staticInfo = tickerMap.get(ticker)!;
+        return {
+          ticker,
+          symbol: ticker,
+          issuer: staticInfo.issuer,
+          description: staticInfo.description,
+          pay_day_text: staticInfo.pay_day_text,
+          pay_day: staticInfo.pay_day_text,
+          payments_per_year: staticInfo.payments_per_year,
+          ipo_price: staticInfo.ipo_price,
+          price: null,
+          price_change: null,
+          price_change_pct: null,
+          dividend: null,
+          last_dividend: null,
+          annual_div: null,
+          annual_dividend: null,
+          forward_yield: null,
+          dividend_sd: null,
+          dividend_cv: null,
+          dividend_cv_percent: null,
+          dividend_volatility_index: null,
+          week_52_high: null,
+          week_52_low: null,
+          tr_drip_3y: null,
+          tr_drip_12m: null,
+          tr_drip_6m: null,
+          tr_drip_3m: null,
+          tr_drip_1m: null,
+          tr_drip_1w: null,
+          price_return_3y: null,
+          price_return_12m: null,
+          price_return_6m: null,
+          price_return_3m: null,
+          price_return_1m: null,
+          price_return_1w: null,
+          three_year_annualized: null,
+          total_return_12m: null,
+          total_return_6m: null,
+          total_return_3m: null,
+          total_return_1m: null,
+          total_return_1w: null,
+          last_updated: null,
+          weighted_rank: null,
+        };
       }
-    }
-
-    for (const legacyItem of legacyData) {
-      const symbol = (legacyItem.symbol || '').toUpperCase();
-      if (symbol && !mergedMap.has(symbol)) {
-        // Only use string volatility index values
-        const volatilityIndex = typeof legacyItem.dividend_volatility_index === 'string' 
-          ? legacyItem.dividend_volatility_index : null;
-        mergedMap.set(symbol, {
-          ...legacyItem,
-          ticker: legacyItem.symbol,
-          pay_day_text: legacyItem.pay_day,
-          dividend_volatility_index: volatilityIndex,
-        });
-      }
-    }
-
-    let mergedArray = Array.from(mergedMap.values()).sort((a, b) => {
-      const symbolA = (a.symbol || a.ticker || '').toUpperCase();
-      const symbolB = (b.symbol || b.ticker || '').toUpperCase();
-      return symbolA.localeCompare(symbolB);
     });
 
-    // For ETFs missing price returns but having total returns, calculate them
-    // Only do this for a limited number to avoid performance issues
-    const etfsNeedingPriceReturns = mergedArray.filter(etf => {
-      const hasTotalReturns = (
-        etf.tr_drip_3y != null || etf.tr_drip_12m != null || 
-        etf.tr_drip_6m != null || etf.tr_drip_3m != null || 
-        etf.tr_drip_1m != null || etf.tr_drip_1w != null
-      );
-      const missingPriceReturns = (
-        !etf.price_return_3y && !etf.price_return_12m && !etf.price_return_6m &&
-        !etf.price_return_3m && !etf.price_return_1m && !etf.price_return_1w
-      );
-      return hasTotalReturns && missingPriceReturns;
-    }).slice(0, 10); // Limit to first 10 to avoid performance issues
+    const results = await Promise.all(metricsPromises);
 
-    // Calculate price returns for ETFs that need them (in parallel, but limited)
-    if (etfsNeedingPriceReturns.length > 0) {
-      const calculations = etfsNeedingPriceReturns.map(async (etf) => {
-        try {
-          const ticker = (etf.ticker || etf.symbol || '').toUpperCase();
-          if (!ticker) return;
-          const metrics = await calculateMetrics(ticker);
-          if (metrics.priceReturn) {
-            const etfIndex = mergedArray.findIndex(e => 
-              (e.ticker || e.symbol || '').toUpperCase() === ticker
-            );
-            if (etfIndex >= 0) {
-              mergedArray[etfIndex].price_return_3y = mergedArray[etfIndex].price_return_3y ?? metrics.priceReturn['3Y'];
-              mergedArray[etfIndex].price_return_12m = mergedArray[etfIndex].price_return_12m ?? metrics.priceReturn['1Y'];
-              mergedArray[etfIndex].price_return_6m = mergedArray[etfIndex].price_return_6m ?? metrics.priceReturn['6M'];
-              mergedArray[etfIndex].price_return_3m = mergedArray[etfIndex].price_return_3m ?? metrics.priceReturn['3M'];
-              mergedArray[etfIndex].price_return_1m = mergedArray[etfIndex].price_return_1m ?? metrics.priceReturn['1M'];
-              mergedArray[etfIndex].price_return_1w = mergedArray[etfIndex].price_return_1w ?? metrics.priceReturn['1W'];
-            }
-          }
-        } catch (error) {
-          logger.warn('Routes', `Failed to calculate price returns: ${(error as Error).message}`);
-        }
-      });
-      await Promise.all(calculations);
-    }
+    // Sort by ticker
+    const sortedResults = results.sort((a, b) => a.ticker.localeCompare(b.ticker));
 
-    let lastUpdatedTimestamp: string | null = null;
-    
-    const syncLogResult = await supabase
-      .from('data_sync_log')
-      .select('updated_at')
-      .eq('data_type', 'prices')
-      .eq('status', 'success')
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .single();
-    
-    if (syncLogResult.data?.updated_at) {
-      lastUpdatedTimestamp = syncLogResult.data.updated_at;
-    } else {
-      for (const item of mergedArray) {
-        const timestamp = item.last_updated || item.updated_at || item.spreadsheet_updated_at;
-        if (timestamp) {
-          const ts = new Date(timestamp).getTime();
-          if (!lastUpdatedTimestamp || ts > new Date(lastUpdatedTimestamp).getTime()) {
-            lastUpdatedTimestamp = timestamp;
-          }
-        }
-      }
-    }
+    logger.info('Routes', `Successfully calculated live metrics for ${sortedResults.length} ETFs`);
 
     res.json({
-      data: mergedArray,
-      last_updated: lastUpdatedTimestamp,
-      last_updated_timestamp: lastUpdatedTimestamp,
+      data: sortedResults,
+      last_updated: new Date().toISOString(),
+      last_updated_timestamp: new Date().toISOString(),
     });
   } catch (error) {
     logger.error('Routes', `Error fetching ETFs: ${(error as Error).message}`);
@@ -493,7 +461,7 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
 router.get('/export', async (_req: Request, res: Response): Promise<void> => {
   try {
     const supabase = getSupabase();
-    
+
     const staticResult = await supabase
       .from('etf_static')
       .select('*')
@@ -515,7 +483,7 @@ router.get('/export', async (_req: Request, res: Response): Promise<void> => {
 
     const staticData = staticResult.data || [];
     const legacyData = legacyResult.data || [];
-    
+
     const preferValue = (a: any, b: any): any => {
       if (a !== null && a !== undefined && a !== 0 && a !== '0' && a !== '') {
         return a;
@@ -535,11 +503,11 @@ router.get('/export', async (_req: Request, res: Response): Promise<void> => {
     };
 
     const tickerMap = new Map<string, any>();
-    
+
     staticData.forEach((row: any) => {
       tickerMap.set(row.ticker, row);
     });
-    
+
     legacyData.forEach((row: any) => {
       const ticker = row.symbol;
       if (tickerMap.has(ticker)) {
@@ -587,7 +555,7 @@ router.get('/export', async (_req: Request, res: Response): Promise<void> => {
       }
     });
 
-    const allETFs = Array.from(tickerMap.values()).sort((a, b) => 
+    const allETFs = Array.from(tickerMap.values()).sort((a, b) =>
       (a.ticker || '').localeCompare(b.ticker || '')
     );
 
@@ -627,13 +595,13 @@ router.get('/export', async (_req: Request, res: Response): Promise<void> => {
     XLSX.utils.book_append_sheet(workbook, worksheet, 'ETF Data');
 
     const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-    
+
     const filename = `ETF_Data_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
-    
+
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(excelBuffer);
-    
+
     logger.info('Routes', `Exported ${allETFs.length} ETFs to Excel`);
   } catch (error) {
     logger.error('Routes', `Error exporting ETF data: ${(error as Error).message}`);
@@ -650,7 +618,7 @@ router.get('/:symbol', async (req: Request, res: Response): Promise<void> => {
     const { symbol } = req.params;
     const ticker = symbol.toUpperCase();
     const supabase = getSupabase();
-    
+
     const staticResult = await supabase
       .from('etf_static')
       .select('*')
@@ -720,8 +688,8 @@ router.get('/:symbol', async (req: Request, res: Response): Promise<void> => {
         dividend_cv: preferNumeric(staticData.dividend_cv, legacyData.dividend_cv),
         dividend_cv_percent: preferNumeric(staticData.dividend_cv_percent, legacyData.dividend_cv_percent),
         // Only use string volatility index values (ignore legacy numeric values)
-        dividend_volatility_index: typeof staticData.dividend_volatility_index === 'string' 
-          ? staticData.dividend_volatility_index 
+        dividend_volatility_index: typeof staticData.dividend_volatility_index === 'string'
+          ? staticData.dividend_volatility_index
           : (typeof legacyData.dividend_volatility_index === 'string' ? legacyData.dividend_volatility_index : null),
         weighted_rank: preferNumeric(staticData.weighted_rank, legacyData.weighted_rank),
         tr_drip_3y: preferNumeric(staticData.tr_drip_3y, legacyData.tr_drip_3y ?? legacyData.three_year_annualized),
@@ -805,16 +773,16 @@ router.get('/:ticker/dividend-dates', async (req: Request, res: Response) => {
   try {
     const { ticker } = req.params;
     const { limit } = req.query;
-    
+
     if (!ticker) {
       res.status(400).json({ error: 'Ticker is required' });
       return;
     }
 
     logger.info('Routes', `Fetching dividend dates for ${ticker}`);
-    
+
     let dividends = await fetchDividendDates(ticker.toUpperCase());
-    
+
     // Apply limit if specified
     if (limit && !isNaN(Number(limit))) {
       dividends = dividends.slice(0, Number(limit));
@@ -838,7 +806,7 @@ router.get('/:ticker/dividend-dates', async (req: Request, res: Response) => {
 router.get('/:ticker/latest-dividend', async (req: Request, res: Response) => {
   try {
     const { ticker } = req.params;
-    
+
     if (!ticker) {
       res.status(400).json({ error: 'Ticker is required' });
       return;

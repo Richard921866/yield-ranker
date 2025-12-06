@@ -457,12 +457,12 @@ const Index = () => {
                     <div className="flex items-center gap-1 mb-1">
                       <Clock className="h-3 w-3" />
                       <span>Last updated: {lastDataUpdate}</span>
-                      <span className="ml-2 text-primary font-medium">Source: FMP</span>
+                      <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
                     </div>
                   ) : (
                     <div className="mb-1">
                       <span>Last updated: {lastDataUpdate || 'N/A'}</span>
-                      <span className="ml-2 text-primary font-medium">Source: FMP</span>
+                      <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
                     </div>
                   )}
                   <div className="mt-1">Records: {filteredETFs.length}</div>
@@ -503,8 +503,8 @@ const Index = () => {
                     <button
                       onClick={() => setReturnView("total")}
                       className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 ${returnView === "total"
-                          ? "text-white"
-                          : "text-slate-600 hover:text-slate-900"
+                        ? "text-white"
+                        : "text-slate-600 hover:text-slate-900"
                         }`}
                     >
                       Total Returns
@@ -512,8 +512,8 @@ const Index = () => {
                     <button
                       onClick={() => setReturnView("price")}
                       className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 ${returnView === "price"
-                          ? "text-white"
-                          : "text-slate-600 hover:text-slate-900"
+                        ? "text-white"
+                        : "text-slate-600 hover:text-slate-900"
                         }`}
                     >
                       Price Returns
@@ -526,8 +526,8 @@ const Index = () => {
                       size="sm"
                       onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
                       className={`border-2 h-10 sm:h-9 md:h-9 transition-colors whitespace-nowrap w-full sm:w-auto md:flex-shrink-0 justify-center ${showFavoritesOnly
-                          ? "bg-yellow-500 hover:bg-yellow-600 border-yellow-500 text-white"
-                          : "border-yellow-400 text-yellow-600 hover:bg-yellow-50 hover:text-yellow-600"
+                        ? "bg-yellow-500 hover:bg-yellow-600 border-yellow-500 text-white"
+                        : "border-yellow-400 text-yellow-600 hover:bg-yellow-50 hover:text-yellow-600"
                         }`}
                     >
                       <Star
@@ -550,7 +550,7 @@ const Index = () => {
                     Loading ETF Data
                   </h3>
                   <p className="text-sm text-muted-foreground text-center max-w-md">
-                    Fetching latest prices and data from FMP...
+                    Fetching latest prices and data from Tiingo...
                   </p>
                 </div>
               ) : etfData.length === 0 ? (
@@ -706,8 +706,8 @@ const Index = () => {
                       <button
                         onClick={() => handleTimeframeChange("3mo")}
                         className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${totalReturnTimeframe === "3mo"
-                            ? "bg-primary text-white"
-                            : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"
+                          ? "bg-primary text-white"
+                          : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"
                           }`}
                       >
                         3 Mo
@@ -715,8 +715,8 @@ const Index = () => {
                       <button
                         onClick={() => handleTimeframeChange("6mo")}
                         className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${totalReturnTimeframe === "6mo"
-                            ? "bg-primary text-white"
-                            : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"
+                          ? "bg-primary text-white"
+                          : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"
                           }`}
                       >
                         6 Mo
@@ -724,8 +724,8 @@ const Index = () => {
                       <button
                         onClick={() => handleTimeframeChange("12mo")}
                         className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${totalReturnTimeframe === "12mo"
-                            ? "bg-primary text-white"
-                            : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"
+                          ? "bg-primary text-white"
+                          : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"
                           }`}
                       >
                         12 Mo
