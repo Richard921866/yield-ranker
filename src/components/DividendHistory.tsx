@@ -581,8 +581,8 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
         <div className="mb-3 sm:mb-4">
           <h3 className="text-xs sm:text-sm font-medium mb-2">Dividend Payout Schedule</h3>
           <p className="text-xs text-muted-foreground">
-            <strong>Scaled Amount</strong> shows dividends adjusted to match the adjusted price series scale (divCash × adjClose/close), 
-            making historical dividends comparable to current prices.
+            <strong>Amount:</strong> Original dividend paid. <strong>Scaled Amount:</strong> Adjusted to today's share price level (accounts for splits and dividends over time). 
+            Use Scaled Amount to compare historical dividends on equal footing with current prices.
           </p>
         </div>
         <div className="border rounded-lg overflow-hidden overflow-x-auto -mx-3 sm:mx-0">
@@ -590,9 +590,9 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
             <TableHeader>
               <TableRow className="bg-slate-50">
                 <TableHead className="font-semibold text-xs sm:text-sm px-2 sm:px-4 whitespace-nowrap">Year</TableHead>
-                <TableHead className="font-semibold text-xs sm:text-sm px-2 sm:px-4 whitespace-nowrap">Amount</TableHead>
-                <TableHead className="font-semibold text-xs sm:text-sm px-2 sm:px-4 whitespace-nowrap hidden sm:table-cell">Adj. Amount</TableHead>
-                <TableHead className="font-semibold text-xs sm:text-sm px-2 sm:px-4 whitespace-nowrap">Scaled Amount</TableHead>
+                <TableHead className="font-semibold text-xs sm:text-sm px-2 sm:px-4 whitespace-nowrap" title="Original dividend amount paid">Amount</TableHead>
+                <TableHead className="font-semibold text-xs sm:text-sm px-2 sm:px-4 whitespace-nowrap hidden sm:table-cell" title="Split-adjusted dividend">Adj. Amount</TableHead>
+                <TableHead className="font-semibold text-xs sm:text-sm px-2 sm:px-4 whitespace-nowrap" title="Scaled to match adjusted price series - use this to compare historical dividends with current prices">Scaled Amount ⭐</TableHead>
                 <TableHead className="font-semibold text-xs sm:text-sm px-2 sm:px-4 whitespace-nowrap">Dividend Type</TableHead>
                 <TableHead className="font-semibold text-xs sm:text-sm px-2 sm:px-4 whitespace-nowrap">Frequency</TableHead>
                 <TableHead className="font-semibold text-xs sm:text-sm px-2 sm:px-4 whitespace-nowrap">Ex-Div Date</TableHead>
