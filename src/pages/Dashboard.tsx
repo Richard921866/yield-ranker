@@ -2713,7 +2713,7 @@ export default function Dashboard() {
                               />
                               <button
                                 onClick={() => setShowTotalReturns(true)}
-                                className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 ${
+                                className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 whitespace-nowrap ${
                                   showTotalReturns
                                     ? "text-white"
                                     : "text-slate-600 hover:text-slate-900"
@@ -2723,7 +2723,7 @@ export default function Dashboard() {
                               </button>
                               <button
                                 onClick={() => setShowTotalReturns(false)}
-                                className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 ${
+                                className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 md:whitespace-nowrap ${
                                   !showTotalReturns
                                     ? "text-white"
                                     : "text-slate-600 hover:text-slate-900"

@@ -107,16 +107,22 @@ function isWeeklyPayerTicker(ticker: string): boolean {
 }
 
 /**
- * Calculate dividend volatility using the exact professional rule:
+ * Calculate dividend volatility with frequency normalization:
  *
  * 1. Look back a maximum of 365 days from today.
- * 2. Collect all ACTUAL ex-date dividend payments within that 365-day window.
+ * 2. Collect all ACTUAL ex-date dividend payments (using adjusted amounts) within that 365-day window.
  * 3. If there are 12 or more payments in the last year → use exactly the most recent 12.
  * 4. If there are fewer than 12 payments in the last year → use ALL available payments in that year.
- * 5. Dividend Volatility (%) = (population standard deviation ÷ average) × 100
- * 6. Round to 1 decimal place.
+ * 5. Normalize each payment to annual equivalent based on its detected frequency:
+ *    - Weekly: multiply by 52
+ *    - Monthly: multiply by 12
+ *    - Quarterly: multiply by 4
+ *    - Semi-annual: multiply by 2
+ *    - Annual: multiply by 1
+ * 6. Calculate volatility on normalized annual amounts: (population standard deviation ÷ average) × 100
+ * 7. Round to 1 decimal place.
  *
- * This matches the behaviour of professional sites (e.g., DividendsandTotalReturns.com).
+ * This ensures frequency changes (e.g., monthly to weekly) don't artificially inflate volatility.
  */
 function calculateDividendVolatility(
   dividends: DividendRecord[],
@@ -134,6 +140,7 @@ function calculateDividendVolatility(
 
   // 1. Filter to regular dividends only (exclude special dividends) and filter out zero/null amounts.
   //    Use ex-date dividends (ex_date field), not just announced ones.
+  //    Use adjusted amounts (adj_amount) for accurate comparison.
   const regularDivs = dividends.filter(d => {
     // Must have ex_date (actual ex-date dividend)
     if (!d.ex_date) return false;
@@ -166,35 +173,83 @@ function calculateDividendVolatility(
   const recentSeries = sortedAsc
     .map(d => ({
       date: new Date(d.ex_date),
-      amount: d.adj_amount ?? d.div_cash ?? 0,
+      amount: d.adj_amount ?? d.div_cash ?? 0, // Use adjusted amounts
     }))
     .filter(d => d.amount > 0 && d.date >= oneYearAgo);
 
   // If no dividends in the last year, we can't calculate volatility
   if (recentSeries.length < 2) return nullResult;
 
-  // Extract amounts from the last 365 days
-  const recentAmounts = recentSeries.map(d => d.amount);
-  const n = recentAmounts.length;
+  // 4. Normalize each payment to annual equivalent based on detected frequency
+  // IMPORTANT: Annualize each payment FIRST, then calculate SD on annualized amounts
+  // Example: $0.3 quarterly = $1.2 annual, $0.10 monthly = $1.20 annual
+  // SD on raw payments [0.3, 0.10] = ~0.14 (wrong - inflated by frequency change)
+  // SD on annualized [1.2, 1.20] = ~0 (correct - shows true stability)
+  const normalizedAnnualAmounts: number[] = [];
+  
+  for (let i = 0; i < recentSeries.length; i++) {
+    const current = recentSeries[i];
+    let daysBetween: number | null = null;
+    
+    // Detect frequency: prefer interval TO this payment (from previous)
+    // This correctly handles frequency changes
+    if (i > 0) {
+      // Use interval from previous payment to current (most accurate for current payment)
+      const prev = recentSeries[i - 1];
+      daysBetween = (current.date.getTime() - prev.date.getTime()) / (1000 * 60 * 60 * 24);
+    } else if (i < recentSeries.length - 1) {
+      // For first payment, use interval to next payment as fallback
+      const next = recentSeries[i + 1];
+      daysBetween = (next.date.getTime() - current.date.getTime()) / (1000 * 60 * 60 * 24);
+    }
+    
+    // Determine annualization factor based on detected frequency
+    let annualizationFactor: number;
+    if (daysBetween !== null && daysBetween > 0 && daysBetween < 400) {
+      if (daysBetween <= 10) {
+        annualizationFactor = 52; // Weekly: multiply by 52
+      } else if (daysBetween <= 35) {
+        annualizationFactor = 12; // Monthly: multiply by 12
+      } else if (daysBetween <= 95) {
+        annualizationFactor = 4; // Quarterly: multiply by 4
+      } else if (daysBetween <= 185) {
+        annualizationFactor = 2; // Semi-annual: multiply by 2
+      } else {
+        annualizationFactor = 1; // Annual: multiply by 1
+      }
+    } else {
+      // Fallback: assume monthly if we can't determine frequency
+      annualizationFactor = 12;
+    }
+    
+    // Annualize this payment: raw_amount × annualization_factor
+    // This converts each payment to its annual equivalent
+    const normalizedAnnual = current.amount * annualizationFactor;
+    normalizedAnnualAmounts.push(normalizedAnnual);
+  }
 
-  // 4. Apply the 12-or-all rule within the last 365 days
-  const finalAmounts =
-    n >= 12 ? recentAmounts.slice(-12) : recentAmounts;
+  // 5. Apply the 12-or-all rule within the last 365 days (on normalized annual amounts)
+  const n = normalizedAnnualAmounts.length;
+  const finalNormalizedAmounts =
+    n >= 12 ? normalizedAnnualAmounts.slice(-12) : normalizedAnnualAmounts;
 
   // Need at least 2 data points to compute standard deviation
-  if (finalAmounts.length < 2) return nullResult;
+  if (finalNormalizedAmounts.length < 2) return nullResult;
 
-  // 5. Calculate the average of the selected dividends
-  const average = calculateMean(finalAmounts);
+  // 6. Calculate the average of the normalized annual amounts
+  const average = calculateMean(finalNormalizedAmounts);
 
-  // 6. Calculate the POPULATION standard deviation of the same dividends
-  //    (matches np.std with ddof=0)
+  // 7. Calculate the POPULATION standard deviation on the ANNUALIZED amounts
+  //    This is the key: SD is calculated on annualized values, not raw payments
+  //    Example: [1.2, 1.20] annualized → SD ≈ 0 (correct, shows stability)
+  //    vs [0.3, 0.10] raw → SD ≈ 0.14 (wrong, inflated by frequency change)
+  //    Formula: variance = Σ(x - mean)² / n (population SD, not sample)
   let varianceSum = 0;
-  for (const val of finalAmounts) {
+  for (const val of finalNormalizedAmounts) {
     const diff = val - average;
     varianceSum += diff * diff;
   }
-  const variance = varianceSum / finalAmounts.length;
+  const variance = varianceSum / finalNormalizedAmounts.length;
   const standardDeviation = Math.sqrt(variance);
 
   // Guard against invalid values
@@ -209,44 +264,18 @@ function calculateDividendVolatility(
     return nullResult;
   }
 
-  // 7. Dividend Volatility (%) = (standard deviation ÷ average) × 100
+  // 8. Dividend Volatility (%) = (standard deviation ÷ average) × 100
   const cvPercentRaw = (standardDeviation / average) * 100;
 
-  // 8. Round to 1 decimal place
+  // 9. Round to 1 decimal place
   const roundedCVPercent = Math.round(cvPercentRaw * 10) / 10;
   const roundedCV = roundedCVPercent / 100;
 
-  // 9. Estimate annual dividend from the average of the selected payments
-  //    Determine frequency from payment spacing within the same 365-day window
-  let estimatedAnnualDividend: number | null = null;
-  if (recentSeries.length >= 2) {
-    let totalDays = 0;
-    let dayCount = 0;
+  // 10. Estimate annual dividend from the average of the normalized annual amounts
+  //     Since amounts are already normalized to annual, the average IS the annual dividend
+  const estimatedAnnualDividend = average;
 
-    for (let i = 0; i < recentSeries.length - 1; i++) {
-      const days =
-        (recentSeries[i + 1].date.getTime() - recentSeries[i].date.getTime()) /
-        (1000 * 60 * 60 * 24);
-      if (days > 0 && days < 400) {
-        totalDays += days;
-        dayCount++;
-      }
-    }
-
-    if (dayCount > 0) {
-      const avgDaysBetween = totalDays / dayCount;
-      let paymentsPerYear: number;
-      if (avgDaysBetween <= 10) paymentsPerYear = 52; // Weekly
-      else if (avgDaysBetween <= 35) paymentsPerYear = 12; // Monthly
-      else if (avgDaysBetween <= 95) paymentsPerYear = 4; // Quarterly
-      else if (avgDaysBetween <= 185) paymentsPerYear = 2; // Semi-annual
-      else paymentsPerYear = 1; // Annual
-
-      estimatedAnnualDividend = average * paymentsPerYear;
-    }
-  }
-
-  // 10. Generate volatility index label from the rounded CV%
+  // 11. Generate volatility index label from the rounded CV%
   let volatilityIndex: string | null = null;
   if (roundedCVPercent !== null) {
     if (roundedCVPercent < 5) volatilityIndex = 'Very Low';
@@ -262,7 +291,7 @@ function calculateDividendVolatility(
     dividendCV: roundedCV,
     dividendCVPercent: roundedCVPercent,
     volatilityIndex,
-    dataPoints: finalAmounts.length,
+    dataPoints: finalNormalizedAmounts.length,
   };
 }
 

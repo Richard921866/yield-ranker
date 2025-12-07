@@ -502,7 +502,7 @@ const Index = () => {
                     />
                     <button
                       onClick={() => setReturnView("total")}
-                      className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 ${returnView === "total"
+                      className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 whitespace-nowrap ${returnView === "total"
                         ? "text-white"
                         : "text-slate-600 hover:text-slate-900"
                         }`}
@@ -511,7 +511,7 @@ const Index = () => {
                     </button>
                     <button
                       onClick={() => setReturnView("price")}
-                      className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 ${returnView === "price"
+                      className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 md:whitespace-nowrap ${returnView === "price"
                         ? "text-white"
                         : "text-slate-600 hover:text-slate-900"
                         }`}
