@@ -109,20 +109,28 @@ function isWeeklyPayerTicker(ticker: string): boolean {
 /**
  * Calculate dividend volatility with frequency normalization:
  *
- * 1. Look back a maximum of 365 days from today.
- * 2. Collect all ACTUAL ex-date dividend payments (using adjusted amounts) within that 365-day window.
- * 3. If there are 12 or more payments in the last year → use exactly the most recent 12.
- * 4. If there are fewer than 12 payments in the last year → use ALL available payments in that year.
- * 5. Normalize each payment to annual equivalent based on its detected frequency:
+ * KEY PRINCIPLE: Annualize each payment FIRST, then calculate SD on annualized amounts (NOT raw payments)
+ *
+ * Process:
+ * 1. Look back periodInMonths (default: 12 months = 365 days) from today.
+ * 2. Collect all ACTUAL ex-date dividend payments (using adjusted amounts) within that window.
+ * 3. For each payment, detect its frequency and annualize it:
  *    - Weekly: multiply by 52
  *    - Monthly: multiply by 12
  *    - Quarterly: multiply by 4
  *    - Semi-annual: multiply by 2
  *    - Annual: multiply by 1
- * 6. Calculate volatility on normalized annual amounts: (population standard deviation ÷ average) × 100
+ * 4. If there are 12 or more annualized payments → use exactly the most recent 12.
+ * 5. If there are fewer than 12 annualized payments → use ALL available annualized payments.
+ * 6. Calculate SD on the ANNUALIZED amounts (not raw): (population standard deviation ÷ average) × 100
  * 7. Round to 1 decimal place.
  *
  * This ensures frequency changes (e.g., monthly to weekly) don't artificially inflate volatility.
+ * Example: $0.3 quarterly = $1.2 annual, $0.10 monthly = $1.20 annual
+ * SD on raw [0.3, 0.10] = ~0.14 (wrong - inflated by frequency change)
+ * SD on annualized [1.2, 1.20] = ~0 (correct - shows true stability)
+ *
+ * Note: periodInMonths can be changed for different asset types (e.g., closed-end funds may use 6 months)
  */
 function calculateDividendVolatility(
   dividends: DividendRecord[],
@@ -166,18 +174,19 @@ function calculateDividendVolatility(
     (a, b) => new Date(a.ex_date).getTime() - new Date(b.ex_date).getTime()
   );
 
-  // 3. Restrict to dividends within the last 365 days
-  const oneYearAgo = new Date();
-  oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+  // 3. Restrict to dividends within the specified period (default: 12 months = 365 days)
+  const periodDays = periodInMonths === 6 ? 180 : 365; // 6 months = 180 days, 12 months = 365 days
+  const periodStartDate = new Date();
+  periodStartDate.setDate(periodStartDate.getDate() - periodDays);
 
   const recentSeries = sortedAsc
     .map(d => ({
       date: new Date(d.ex_date),
       amount: d.adj_amount ?? d.div_cash ?? 0, // Use adjusted amounts
     }))
-    .filter(d => d.amount > 0 && d.date >= oneYearAgo);
+    .filter(d => d.amount > 0 && d.date >= periodStartDate);
 
-  // If no dividends in the last year, we can't calculate volatility
+  // If no dividends in the period, we can't calculate volatility
   if (recentSeries.length < 2) return nullResult;
 
   // 4. Normalize each payment to annual equivalent based on detected frequency
@@ -228,7 +237,8 @@ function calculateDividendVolatility(
     normalizedAnnualAmounts.push(normalizedAnnual);
   }
 
-  // 5. Apply the 12-or-all rule within the last 365 days (on normalized annual amounts)
+  // 5. Apply the 12-or-all rule within the period (on normalized annual amounts)
+  // Use most recent 12 annualized payments if available, otherwise use all
   const n = normalizedAnnualAmounts.length;
   const finalNormalizedAmounts =
     n >= 12 ? normalizedAnnualAmounts.slice(-12) : normalizedAnnualAmounts;
