@@ -218,11 +218,13 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
 
   if (isLoading) {
     return (
-      <Card className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </Card>
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="p-6">
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        </Card>
+      </div>
     );
   }
 
@@ -238,33 +240,8 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
 
   return (
     <Card className="p-3 sm:p-4 md:p-6">
-      <div className="flex flex-col gap-4 mb-4 sm:mb-6">
-        <div>
-          <h2 className="text-lg sm:text-xl font-semibold mb-1">Dividend History</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            {dividendData.paymentsPerYear} payments per year •
-            Last dividend: ${dividendData.lastDividend?.toFixed(4) || 'N/A'}
-          </p>
-        </div>
-
-        <div className="flex gap-3 sm:gap-4 flex-wrap">
-          <div className="text-center min-w-[100px]">
-            <p className="text-xs text-muted-foreground">Annual Dividend</p>
-            <p className="text-base sm:text-lg font-bold text-green-600">
-              ${(dividendData.annualizedDividend ?? annualDividend)?.toFixed(2) || 'N/A'}
-            </p>
-          </div>
-          {yoyGrowth !== null && (
-            <div className="text-center min-w-[100px]">
-              <p className="text-xs text-muted-foreground">YoY Growth</p>
-              <p className={`text-base sm:text-lg font-bold flex items-center justify-center ${yoyGrowth >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                {yoyGrowth >= 0 ? <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> : <TrendingDown className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />}
-                {yoyGrowth >= 0 ? '+' : ''}{yoyGrowth.toFixed(1)}%
-              </p>
-            </div>
-          )}
-        </div>
+      <div className="mb-4 sm:mb-6">
+        <h2 className="text-lg sm:text-xl font-semibold mb-1">Dividend History</h2>
       </div>
 
       <div className="flex gap-1 mb-4 flex-wrap">
@@ -406,10 +383,10 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
           <div className="mb-4 sm:mb-6">
             <h3 className="text-xs sm:text-sm font-medium mb-3 sm:mb-4">
               {frequencyChanged
-                ? `${ticker} Dividend History: Individual Payments vs. Equivalent Weekly Rate`
+                ? `Dividend History: Individual Adjusted Dividends vs. Equivalent Weekly Rate`
                 : `Dividend Payments by Ex-Date`}
             </h3>
-            <ResponsiveContainer width="100%" height={450} className="sm:h-[450px]">
+            <ResponsiveContainer width="100%" height={450} className="sm:h-[450px] landscape:h-[350px] landscape:sm:h-[400px]">
               {frequencyChanged ? (
                 <ComposedChart
                   data={chartData}
@@ -545,7 +522,7 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
       {chartData.length > 0 && (
         <div className="mb-6 sm:mb-8">
           <h3 className="text-xs sm:text-sm font-medium mb-3 sm:mb-4">Annual Dividend Totals</h3>
-          <ResponsiveContainer width="100%" height={200} className="sm:h-[250px]">
+          <ResponsiveContainer width="100%" height={200} className="sm:h-[250px] landscape:h-[180px] landscape:sm:h-[220px]">
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
               <XAxis
