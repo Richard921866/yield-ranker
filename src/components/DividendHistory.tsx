@@ -94,14 +94,21 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
       // Use adjusted amounts (adjAmount) for accurate totals that account for stock splits
       // Filter out any dividends with zero or invalid amounts
       const validDivs = divs.filter(d => {
-        const amount = d.adjAmount ?? d.amount ?? 0;
-        return amount > 0 && isFinite(amount);
+        // Prefer adjAmount (split-adjusted), fallback to amount
+        const adjAmt = typeof d.adjAmount === 'number' && !isNaN(d.adjAmount) && isFinite(d.adjAmount) && d.adjAmount > 0 ? d.adjAmount : 0;
+        const rawAmt = typeof d.amount === 'number' && !isNaN(d.amount) && isFinite(d.amount) && d.amount > 0 ? d.amount : 0;
+        return adjAmt > 0 || rawAmt > 0;
       });
 
       // Only include years with at least one valid dividend
       if (validDivs.length === 0) return;
 
-      const total = validDivs.reduce((sum, d) => sum + (d.adjAmount ?? d.amount ?? 0), 0);
+      // Use adjAmount as primary for totals (accounts for splits)
+      const total = validDivs.reduce((sum, d) => {
+        const adjAmt = typeof d.adjAmount === 'number' && !isNaN(d.adjAmount) && isFinite(d.adjAmount) && d.adjAmount > 0 ? d.adjAmount : 0;
+        const rawAmt = typeof d.amount === 'number' && !isNaN(d.amount) && isFinite(d.amount) && d.amount > 0 ? d.amount : 0;
+        return sum + (adjAmt > 0 ? adjAmt : rawAmt);
+      }, 0);
       result.push({
         year,
         total,
@@ -338,11 +345,11 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
         const chartData = dividends.map((div, index, array) => {
           let equivalentWeeklyRate: number | null = null;
 
-          // Ensure amount is a valid number - use adjAmount as fallback if amount is 0/null
-          const amount = (typeof div.amount === 'number' && !isNaN(div.amount) && isFinite(div.amount) && div.amount > 0)
-            ? div.amount
-            : ((typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
-              ? div.adjAmount
+          // Use adjAmount as primary (accounts for splits), fallback to amount if adjAmount is not available
+          const amount = (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
+            ? div.adjAmount
+            : ((typeof div.amount === 'number' && !isNaN(div.amount) && isFinite(div.amount) && div.amount > 0)
+              ? div.amount
               : 0);
 
           if (frequencyChanged && amount > 0) {
