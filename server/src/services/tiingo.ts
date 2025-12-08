@@ -298,29 +298,59 @@ export async function fetchDividendHistory(
             (attempt, error) => logger.warn('Tiingo', `Retry ${attempt} for dividends ${ticker}: ${error.message}`)
         );
 
+        // Find split information from price data
+        // Look for dates where splitFactor is not 1.0 (indicates a split occurred)
+        // Note: splitFactor appears on the date the split takes effect
+        const splitEvents = (priceData || [])
+            .filter(p => p.splitFactor && p.splitFactor !== 1.0)
+            .map(p => ({
+                date: new Date(p.date),
+                splitFactor: p.splitFactor,
+                inverseFactor: 1 / p.splitFactor, // Adjustment factor for pre-split dividends
+            }))
+            .sort((a, b) => a.date.getTime() - b.date.getTime()); // Sort chronologically (oldest first)
+
         // Filter to dates where divCash > 0 (ex-dividend dates)
         const dividends = (priceData || [])
             .filter(p => p.divCash && p.divCash > 0)
             .map(p => {
-                const adjClose = p.adjClose || 0;
-                const close = p.close || 0;
                 const divCash = p.divCash || 0;
+                const exDate = new Date(p.date);
+                
+                // Apply split adjustment per Gemini's method:
+                // - Dividends BEFORE split date: multiply by inverse split factor
+                // - Dividends ON or AFTER split date: use raw (already adjusted)
+                let adjDividend = divCash; // Default: no adjustment (post-split or no split)
+                
+                if (splitEvents.length > 0) {
+                    // Find splits that occurred AFTER this dividend date
+                    // If split date > dividend date, dividend needs adjustment
+                    const applicableSplits = splitEvents.filter(split => split.date > exDate);
+                    
+                    if (applicableSplits.length > 0) {
+                        // Use the most recent split (closest to dividend date)
+                        // For multiple splits, multiply all inverse factors
+                        const adjustmentFactor = applicableSplits.reduce(
+                            (factor, split) => factor * split.inverseFactor,
+                            1
+                        );
+                        adjDividend = divCash * adjustmentFactor;
+                    }
+                    // If no applicable split found, dividend is post-split (already adjusted)
+                }
 
                 // Calculate scaled dividend: divCash × (adjClose / close)
                 // This scales dividends to match the adjusted price series scale
-                // This is the CORRECT method for both forward and reverse splits
+                const adjClose = p.adjClose || 0;
+                const close = p.close || 0;
                 const scaledDividend = close > 0 && adjClose > 0
                     ? divCash * (adjClose / close)
-                    : divCash / (p.splitFactor || 1); // Fallback to split-adjusted if prices unavailable
-
-                // adj_amount should use the same calculation as scaled_amount
-                // Both should use divCash × (adjClose/close) for accurate split adjustment
-                const adjDividend = scaledDividend; // Use same calculation for consistency
+                    : adjDividend; // Fallback to split-adjusted if prices unavailable
 
                 return {
                     date: p.date.split('T')[0],
                     dividend: divCash,
-                    adjDividend: adjDividend, // Now uses divCash × (adjClose/close) - correct for reverse splits
+                    adjDividend: adjDividend, // Uses split factor method (matches Seeking Alpha)
                     scaledDividend: scaledDividend, // Scaled by adjClose/close ratio
                     recordDate: null, // Tiingo EOD doesn't include record date
                     paymentDate: null, // Tiingo EOD doesn't include payment date
