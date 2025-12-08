@@ -111,24 +111,23 @@ function isWeeklyPayerTicker(ticker: string): boolean {
  *
  * KEY PRINCIPLE: Annualize each payment FIRST, then calculate SD on annualized amounts (NOT raw payments)
  *
- * Process:
- * 1. Look back periodInMonths (default: 12 months = 365 days) from today.
- * 2. Collect all ACTUAL ex-date dividend payments (using adjusted amounts) within that window.
- * 3. For each payment, detect its frequency and annualize it:
- *    - Weekly: multiply by 52
- *    - Monthly: multiply by 12
- *    - Quarterly: multiply by 4
- *    - Semi-annual: multiply by 2
- *    - Annual: multiply by 1
- * 4. If there are 12 or more annualized payments → use exactly the most recent 12.
- * 5. If there are fewer than 12 annualized payments → use ALL available annualized payments.
- * 6. Calculate SD on the ANNUALIZED amounts (not raw): (population standard deviation ÷ average) × 100
- * 7. Round to 1 decimal place.
+ * Process (per user specification):
+ * 1. Define the dividend period: periodInMonths (default: 12 months = 365 days) from today.
+ * 2. List all adjusted dividends (adj_amount) in the period.
+ * 3. Determine frequency of each dividend: weekly=52, monthly=12, quarterly=4, etc.
+ * 4. Multiply frequency × adjusted dividend = annualized dividend (for each payment).
+ * 5. If there are 12 or more annualized payments → use exactly the most recent 12.
+ * 6. If there are fewer than 12 annualized payments → use ALL available annualized payments.
+ * 7. Calculate SD for all annualized dividends in the period (population SD).
+ * 8. Calculate MEDIAN for all annualized dividends in the period.
+ * 9. CV = SD / MEDIAN (NOT SD / Mean!)
+ * 10. Round to 1 decimal place.
  *
  * This ensures frequency changes (e.g., monthly to weekly) don't artificially inflate volatility.
  * Example: $0.3 quarterly = $1.2 annual, $0.10 monthly = $1.20 annual
  * SD on raw [0.3, 0.10] = ~0.14 (wrong - inflated by frequency change)
  * SD on annualized [1.2, 1.20] = ~0 (correct - shows true stability)
+ * CV = SD / MEDIAN (median is more robust to outliers than mean)
  *
  * Note: periodInMonths can be changed for different asset types (e.g., closed-end funds may use 6 months)
  */
@@ -246,17 +245,23 @@ function calculateDividendVolatility(
   // Need at least 2 data points to compute standard deviation
   if (finalNormalizedAmounts.length < 2) return nullResult;
 
-  // 6. Calculate the average of the normalized annual amounts
-  const average = calculateMean(finalNormalizedAmounts);
+  // 6. Calculate MEDIAN of the normalized annual amounts (not mean!)
+  //    Sort the annualized amounts to find median
+  const sortedAmounts = [...finalNormalizedAmounts].sort((a, b) => a - b);
+  const median = sortedAmounts.length % 2 === 0
+    ? (sortedAmounts[sortedAmounts.length / 2 - 1] + sortedAmounts[sortedAmounts.length / 2]) / 2
+    : sortedAmounts[Math.floor(sortedAmounts.length / 2)];
 
   // 7. Calculate the POPULATION standard deviation on the ANNUALIZED amounts
   //    This is the key: SD is calculated on annualized values, not raw payments
   //    Example: [1.2, 1.20] annualized → SD ≈ 0 (correct, shows stability)
   //    vs [0.3, 0.10] raw → SD ≈ 0.14 (wrong, inflated by frequency change)
   //    Formula: variance = Σ(x - mean)² / n (population SD, not sample)
+  //    Note: We use mean for SD calculation, but median for CV calculation
+  const mean = calculateMean(finalNormalizedAmounts);
   let varianceSum = 0;
   for (const val of finalNormalizedAmounts) {
-    const diff = val - average;
+    const diff = val - mean;
     varianceSum += diff * diff;
   }
   const variance = varianceSum / finalNormalizedAmounts.length;
@@ -264,26 +269,27 @@ function calculateDividendVolatility(
 
   // Guard against invalid values
   if (
-    average <= 0.0001 ||
+    median <= 0.0001 ||
     standardDeviation < 0 ||
-    !isFinite(average) ||
+    !isFinite(median) ||
     !isFinite(standardDeviation) ||
-    isNaN(average) ||
+    isNaN(median) ||
     isNaN(standardDeviation)
   ) {
     return nullResult;
   }
 
-  // 8. Dividend Volatility (%) = (standard deviation ÷ average) × 100
-  const cvPercentRaw = (standardDeviation / average) * 100;
+  // 8. Dividend Volatility (%) = (standard deviation ÷ MEDIAN) × 100
+  //    KEY: Use MEDIAN, not mean, for CV calculation per user specification
+  const cvPercentRaw = (standardDeviation / median) * 100;
 
   // 9. Round to 1 decimal place
   const roundedCVPercent = Math.round(cvPercentRaw * 10) / 10;
   const roundedCV = roundedCVPercent / 100;
 
-  // 10. Estimate annual dividend from the average of the normalized annual amounts
-  //     Since amounts are already normalized to annual, the average IS the annual dividend
-  const estimatedAnnualDividend = average;
+  // 10. Estimate annual dividend from the median of the normalized annual amounts
+  //     Since amounts are already normalized to annual, we use median as the annual dividend estimate
+  const estimatedAnnualDividend = median;
 
   // 11. Generate volatility index label from the rounded CV%
   let volatilityIndex: string | null = null;

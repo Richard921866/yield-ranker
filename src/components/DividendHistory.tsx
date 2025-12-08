@@ -91,13 +91,23 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
     });
     
     dividendsByYear.forEach((divs, year) => {
-      const total = divs.reduce((sum, d) => sum + d.amount, 0);
+      // Use adjusted amounts (adjAmount) for accurate totals that account for stock splits
+      // Filter out any dividends with zero or invalid amounts
+      const validDivs = divs.filter(d => {
+        const amount = d.adjAmount ?? d.amount ?? 0;
+        return amount > 0 && isFinite(amount);
+      });
+      
+      // Only include years with at least one valid dividend
+      if (validDivs.length === 0) return;
+      
+      const total = validDivs.reduce((sum, d) => sum + (d.adjAmount ?? d.amount ?? 0), 0);
       result.push({
         year,
         total,
-        count: divs.length,
-        avgAmount: total / divs.length,
-        dividends: divs,
+        count: validDivs.length,
+        avgAmount: total / validDivs.length,
+        dividends: validDivs,
       });
     });
     
