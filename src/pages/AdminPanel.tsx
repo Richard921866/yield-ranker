@@ -1097,14 +1097,14 @@ const AdminPanel = () => {
               <Card className="border-2 border-slate-200">
                 <div className="p-6 space-y-6">
                   <div>
-                    <h2 className="text-lg font-bold text-foreground mb-2">
-                      Upload DTR Spreadsheet
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      Upload the DTR Excel file (e.g., DTR 11-16-25.xlsx) to
-                      update all ETF data in the system. The file should have a
-                      Sheet1 with the standard DTR format.
-                    </p>
+                      <h2 className="text-lg font-bold text-foreground mb-2">
+                        Upload DTR Spreadsheet
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        Upload the DTR Excel file (e.g., DTR 11-16-25.xlsx) to
+                        update all ETF data in the system. The file should have a
+                        Sheet1 with the standard DTR format. Optional: Include a "Div" column to update latest dividend amounts (keeps all Tiingo dates and data intact).
+                      </p>
                   </div>
 
                   <div className="space-y-4">

@@ -146,9 +146,11 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
     const payDayCol = findColumn(headerMap, 'pay day', 'pay_day', 'pay_day_text', 'payment frequency');
     const pmtsCol = findColumn(headerMap, '# pmts', 'payments_per_year', '# payments');
     const ipoPriceCol = findColumn(headerMap, 'ipo price', 'ipo_price');
+    const divCol = findColumn(headerMap, 'div', 'dividend', 'div_cash', 'dividend amount');
 
     // Build records - using Partial since we only upload core identity fields
     const records: Partial<ETFStaticRecord>[] = [];
+    const dividendUpdates: Array<{ ticker: string; divAmount: number }> = [];
     const now = new Date().toISOString();
     let skippedRows = 0;
 
@@ -175,6 +177,14 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
         default_rank_weights: null,
         updated_at: now,
       });
+
+      // If div column exists, collect dividend updates
+      if (divCol && row[divCol]) {
+        const divAmount = parseNumeric(row[divCol]);
+        if (divAmount && divAmount > 0) {
+          dividendUpdates.push({ ticker, divAmount });
+        }
+      }
     }
 
     if (records.length === 0) {
@@ -215,14 +225,82 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
 
     await supabase.from('etfs').upsert(legacyRecords, { onConflict: 'symbol' });
 
+    // If div column was provided, update only the most recent dividend amount for each ticker
+    // This keeps all Tiingo data (dates, split adjustments, etc.) intact
+    let dividendsUpdated = 0;
+    const tickersToRecalc = new Set<string>();
+
+    if (dividendUpdates.length > 0) {
+      logger.info('Upload', `Updating dividend amounts for ${dividendUpdates.length} ticker(s)`);
+      
+      for (const { ticker, divAmount } of dividendUpdates) {
+        // Get the most recent dividend for this ticker (from Tiingo)
+        const { data: recentDividends } = await supabase
+          .from('dividends_detail')
+          .select('*')
+          .eq('ticker', ticker)
+          .order('ex_date', { ascending: false })
+          .limit(1);
+
+        if (recentDividends && recentDividends.length > 0) {
+          const latestDiv = recentDividends[0];
+          // Update only div_cash and adj_amount, keep all other Tiingo data
+          const { error: updateError } = await supabase
+            .from('dividends_detail')
+            .update({
+              div_cash: divAmount,
+              adj_amount: divAmount, // Use same amount as adj_amount for manual updates
+            })
+            .eq('ticker', ticker)
+            .eq('ex_date', latestDiv.ex_date);
+
+          if (!updateError) {
+            dividendsUpdated++;
+            tickersToRecalc.add(ticker);
+            logger.info('Upload', `Updated dividend amount for ${ticker}: $${divAmount} (kept Tiingo dates)`);
+          }
+        } else {
+          // No existing dividend found, skip (Tiingo will add it later)
+          logger.warn('Upload', `No existing dividend found for ${ticker}, skipping div update`);
+        }
+      }
+    }
+
     cleanupFile(filePath);
+
+    // Recalculate metrics for tickers with dividend updates
+    if (tickersToRecalc.size > 0) {
+      logger.info('Upload', `Recalculating metrics for ${tickersToRecalc.size} ticker(s)`);
+      for (const ticker of tickersToRecalc) {
+        try {
+          const metrics = await calculateMetrics(ticker);
+          await supabase
+            .from('etf_static')
+            .update({
+              last_dividend: metrics.lastDividend,
+              annual_dividend: metrics.annualizedDividend,
+              forward_yield: metrics.forwardYield,
+              dividend_sd: metrics.dividendSD,
+              dividend_cv: metrics.dividendCV,
+              dividend_cv_percent: metrics.dividendCVPercent,
+              dividend_volatility_index: metrics.dividendVolatilityIndex,
+            })
+            .eq('ticker', ticker);
+        } catch (error) {
+          logger.warn('Upload', `Failed to recalculate metrics for ${ticker}: ${(error as Error).message}`);
+        }
+      }
+    }
 
     res.json({
       success: true,
       count: records.length,
       skipped: skippedRows,
-      message: `Successfully updated ${records.length} tickers`,
-      note: 'Run "npm run seed:history" to fetch price/dividend data from Tiingo',
+      dividendsUpdated,
+      message: `Successfully updated ${records.length} ticker(s)${dividendsUpdated > 0 ? ` and ${dividendsUpdated} dividend amount(s)` : ''}`,
+      note: dividendUpdates.length > 0 
+        ? 'Dividend amounts updated while preserving all Tiingo data (dates, split adjustments, etc.)'
+        : 'Run "npm run seed:history" to fetch price/dividend data from Tiingo',
     });
   } catch (error) {
     logger.error('Upload', `Error processing file: ${(error as Error).message}`);
