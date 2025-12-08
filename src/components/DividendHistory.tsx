@@ -256,11 +256,11 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
         <h2 className="text-lg sm:text-xl font-semibold mb-1">Dividend History</h2>
         <Button
           variant="outline"
-          size="sm"
+          size="default"
           onClick={handleViewTotalReturnChart}
-          className="h-8 text-xs gap-1.5"
+          className="h-10 px-4 text-sm gap-2 font-medium"
         >
-          <BarChart3 className="h-3.5 w-3.5" />
+          <BarChart3 className="h-4 w-4" />
           View Total Return Chart
         </Button>
       </div>
@@ -617,7 +617,21 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
             </TableHeader>
             <TableBody>
               {recordsByYear.map(({ year, records }, yearIndex) => {
-                const yearTotal = records.reduce((sum, r) => sum + (r.adjAmount ?? r.amount), 0);
+                // Calculate separate totals for raw and adjusted amounts
+                const yearTotalRaw = records.reduce((sum, r) => {
+                  const rawAmt = typeof r.amount === 'number' && !isNaN(r.amount) && isFinite(r.amount) && r.amount > 0
+                    ? r.amount
+                    : 0;
+                  return sum + rawAmt;
+                }, 0);
+                const yearTotalAdj = records.reduce((sum, r) => {
+                  const adjAmt = typeof r.adjAmount === 'number' && !isNaN(r.adjAmount) && isFinite(r.adjAmount) && r.adjAmount > 0
+                    ? r.adjAmount
+                    : (typeof r.amount === 'number' && !isNaN(r.amount) && isFinite(r.amount) && r.amount > 0
+                      ? r.amount
+                      : 0);
+                  return sum + adjAmt;
+                }, 0);
                 const sortedRecords = [...records].sort((a, b) =>
                   new Date(b.exDate).getTime() - new Date(a.exDate).getTime()
                 );
@@ -713,10 +727,10 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
                                   {`Subtotal ${year}`}
                                 </TableCell>
                                 <TableCell className="font-semibold font-mono text-green-600 text-xs sm:text-sm px-2 sm:px-4 py-3">
-                                  ${yearTotal.toFixed(4)}
+                                  ${yearTotalRaw.toFixed(4)}
                                 </TableCell>
                                 <TableCell className="font-semibold font-mono text-green-600 text-xs sm:text-sm px-2 sm:px-4 py-3">
-                                  ${yearTotal.toFixed(4)}
+                                  ${yearTotalAdj.toFixed(4)}
                                 </TableCell>
                                 <TableCell colSpan={5} className="px-2 sm:px-4 py-3"></TableCell>
                               </TableRow>
