@@ -193,12 +193,11 @@ export function calculateDividendVolatility(
 
   const recentSeries = sortedAsc
     .map(d => {
-      // Use scaled_amount (divCash × adjClose/close) for accurate split adjustment
-      // Falls back to adj_amount, then div_cash if scaled_amount not available
-      const amount = d.scaled_amount ?? d.adj_amount ?? d.div_cash ?? 0;
+      // CEO wants adj_amount first, then scaled_amount (normalized), then div_cash
+      const amount = d.adj_amount ?? d.scaled_amount ?? d.div_cash ?? 0;
       return {
         date: new Date(d.ex_date),
-        amount, // Use scaled_amount (most accurate for reverse splits)
+        amount, // Use adj_amount first (per CEO), then scaled_amount, then div_cash
         frequency: d.frequency, // Include frequency field from database
         originalDiv: d, // Keep reference to original dividend record
       };
