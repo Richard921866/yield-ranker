@@ -294,7 +294,7 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
             if (normalized.includes('annual') || normalized === 'annual' || normalized === 'yearly') return 'annual';
             return null;
           })
-          .filter((f): f is string => f !== null);
+          .filter((f): f is 'weekly' | 'monthly' | 'quarterly' | 'semi-annual' | 'annual' => f !== null);
 
         // Check if frequency changed based on API frequency field
         const uniqueFrequencies = new Set(frequencies);
@@ -664,8 +664,8 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
                             </TableCell>
                             <TableCell className="px-2 sm:px-4 py-2">
                               <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs ${typeLabel === 'Special'
-                                  ? 'bg-amber-100 text-amber-700'
-                                  : 'bg-slate-100 text-slate-700'
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-slate-100 text-slate-700'
                                 }`}>
                                 {typeLabel}
                               </span>
