@@ -542,7 +542,7 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
 
       {chartData.length > 0 && (
         <div className="mb-6 sm:mb-8">
-          <h3 className="text-xs sm:text-sm font-medium mb-3 sm:mb-4">Annual Dividend Totals</h3>
+          <h3 className="text-xs sm:text-sm font-medium mb-3 sm:mb-4">Annual Dividend Totals (Adjusted Dividends)</h3>
           <ResponsiveContainer width="100%" height={200} className="sm:h-[250px] landscape:h-[180px] landscape:sm:h-[220px]">
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />

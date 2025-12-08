@@ -229,14 +229,14 @@ const ETFDetail = () => {
                 </div>
               )}
             </div>
-            {/* View Full Dividend History Button - Moved to top right */}
+            {/* View Dividend History Button - Moved to top right */}
             <div className="flex items-center">
               <Button
                 variant="outline"
                 onClick={() => navigate(`/etf/${etf.symbol}/dividends`)}
-                className="gap-2"
+                className="gap-2 font-bold text-base"
               >
-                View Full Dividend History
+                View Dividend History
               </Button>
             </div>
           </div>
