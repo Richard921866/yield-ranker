@@ -537,6 +537,9 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
                 </BarChart>
               )}
             </ResponsiveContainer>
+            <div className="text-center text-xs text-muted-foreground mt-1">
+              Adjusted Dividends Bar Chart
+            </div>
           </div>
         );
       })()}
