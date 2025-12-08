@@ -544,13 +544,13 @@ const Index = () => {
 
             <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-lg">
               {isLoading ? (
-                <div className="flex flex-col items-center justify-center py-20 px-4">
+                <div className="min-h-[60vh] flex flex-col items-center justify-center py-20 px-4">
                   <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
                   <h3 className="text-xl font-bold text-foreground mb-2">
                     Loading ETF Data
                   </h3>
                   <p className="text-sm text-muted-foreground text-center max-w-md">
-                    Fetching latest prices and data from Tiingo...
+                    Fetching the latest data. Please wait.
                   </p>
                 </div>
               ) : etfData.length === 0 ? (
