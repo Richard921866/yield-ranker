@@ -542,48 +542,53 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
 
       {chartData.length > 0 && (
         <div className="mb-6 sm:mb-8">
-          <h3 className="text-xs sm:text-sm font-medium mb-3 sm:mb-4">Annual Dividend Totals (Adjusted Dividends)</h3>
-          <ResponsiveContainer width="100%" height={200} className="sm:h-[250px] landscape:h-[180px] landscape:sm:h-[220px]">
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis
-                dataKey="year"
-                stroke="#94a3b8"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                stroke="#94a3b8"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => `$${value.toFixed(2)}`}
-                domain={[0, 'dataMax']}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "rgba(255, 255, 255, 0.98)",
-                  border: "none",
-                  borderRadius: "8px",
-                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-                }}
-                formatter={(value: number, name: string) => [
-                  `$${value.toFixed(4)}`,
-                  'Total Dividends'
-                ]}
-                labelFormatter={(label) => `Year ${label}`}
-              />
-              <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-                {chartData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={index === chartData.length - 1 ? '#3b82f6' : '#93c5fd'}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <h3 className="text-xs sm:text-sm font-medium mb-3 sm:mb-4">Annual Dividend Totals</h3>
+          <div className="relative">
+            <ResponsiveContainer width="100%" height={200} className="sm:h-[250px] landscape:h-[180px] landscape:sm:h-[220px]">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis
+                  dataKey="year"
+                  stroke="#94a3b8"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `$${value.toFixed(2)}`}
+                  domain={[0, 'dataMax']}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "rgba(255, 255, 255, 0.98)",
+                    border: "none",
+                    borderRadius: "8px",
+                    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                  }}
+                  formatter={(value: number, name: string) => [
+                    `$${value.toFixed(4)}`,
+                    'Total Dividends'
+                  ]}
+                  labelFormatter={(label) => `Year ${label}`}
+                />
+                <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                  {chartData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={index === chartData.length - 1 ? '#3b82f6' : '#93c5fd'}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="absolute bottom-0 left-0 text-xs text-muted-foreground mt-1">
+              Adjusted Dividends Bar Chart
+            </div>
+          </div>
         </div>
       )}
 
