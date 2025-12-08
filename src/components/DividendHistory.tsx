@@ -260,7 +260,7 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
           onClick={handleViewTotalReturnChart}
           className="h-8 text-xs gap-1.5"
         >
-          <LineChart className="h-3.5 w-3.5" />
+          <BarChart3 className="h-3.5 w-3.5" />
           View Total Return Chart
         </Button>
       </div>
