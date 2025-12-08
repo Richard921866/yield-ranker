@@ -407,7 +407,8 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
                 ? `Dividend History: Individual Adjusted Dividends vs. Equivalent Weekly Rate`
                 : `Dividend Payments by Ex-Date`}
             </h3>
-            <ResponsiveContainer width="100%" height={450} className="sm:h-[450px] landscape:h-[350px] landscape:sm:h-[400px]">
+            <div className="relative">
+              <ResponsiveContainer width="100%" height={450} className="sm:h-[450px] landscape:h-[350px] landscape:sm:h-[400px]">
               {frequencyChanged ? (
                 <ComposedChart
                   data={chartData}
@@ -543,8 +544,7 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
       {chartData.length > 0 && (
         <div className="mb-6 sm:mb-8">
           <h3 className="text-xs sm:text-sm font-medium mb-3 sm:mb-4">Annual Dividend Totals</h3>
-          <div className="relative">
-            <ResponsiveContainer width="100%" height={200} className="sm:h-[250px] landscape:h-[180px] landscape:sm:h-[220px]">
+          <ResponsiveContainer width="100%" height={200} className="sm:h-[250px] landscape:h-[180px] landscape:sm:h-[220px]">
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis
