@@ -21,12 +21,19 @@ Filter dividends to include only:
 ### Step 3: Annualize Each Payment
 For each dividend payment `i`:
 
-1. **Detect Frequency** based on days between consecutive payments:
-   - If `daysBetween ≤ 10` → Frequency = 52 (Weekly)
-   - If `10 < daysBetween ≤ 35` → Frequency = 12 (Monthly)
-   - If `35 < daysBetween ≤ 95` → Frequency = 4 (Quarterly)
-   - If `95 < daysBetween ≤ 185` → Frequency = 2 (Semi-annual)
-   - If `daysBetween > 185` → Frequency = 1 (Annual)
+1. **Detect Frequency** (Priority order):
+   - **PRIORITY 1**: Use `frequency` field from database/website dividend record
+     - "Week" or "Weekly" → Frequency = 52
+     - "Month" or "Monthly" or "Mo" → Frequency = 12
+     - "Quarter" or "Quarterly" or "Qtr" → Frequency = 4
+     - "Semi" or "Semi-annual" → Frequency = 2
+     - "Annual" or "Yearly" → Frequency = 1
+   - **PRIORITY 2**: If frequency field not available, detect from days between consecutive payments:
+     - If `daysBetween ≤ 10` → Frequency = 52 (Weekly)
+     - If `10 < daysBetween ≤ 35` → Frequency = 12 (Monthly)
+     - If `35 < daysBetween ≤ 95` → Frequency = 4 (Quarterly)
+     - If `95 < daysBetween ≤ 185` → Frequency = 2 (Semi-annual)
+     - If `daysBetween > 185` → Frequency = 1 (Annual)
 
 2. **Calculate Annualized Amount**:
    ```
@@ -39,7 +46,7 @@ For each dividend payment `i`:
 - Minimum requirement: At least 2 payments
 
 ### Step 5: Calculate Standard Deviation (SD)
-Using **Population Standard Deviation** (not sample):
+Using **Sample Standard Deviation** (not population, per CEO/Gemini recommendation):
 
 1. Calculate **Mean** of annualized amounts:
    ```
@@ -48,8 +55,9 @@ Using **Population Standard Deviation** (not sample):
 
 2. Calculate **Variance**:
    ```
-   σ² = Σ(Annualized_i - μ)² / n
+   σ² = Σ(Annualized_i - μ)² / (n-1)
    ```
+   Note: Divide by (n-1) for Sample SD, not n
 
 3. Calculate **Standard Deviation**:
    ```

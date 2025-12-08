@@ -57,12 +57,24 @@ function formatSpreadsheetOutput(ticker: string, volMetrics: any) {
   
   // Summary statistics (matching spreadsheet format)
   console.log(`\nSUMMARY STATISTICS (calculated on ANNUALIZED amounts):`);
-  console.log(`  SD (Population): ${standardDeviation.toFixed(4)}  [Formula: √(Σ(Annualized_i - μ)² / n)]`);
+  console.log(`  SD (Sample):     ${standardDeviation.toFixed(4)}  [Formula: √(Σ(Annualized_i - μ)² / (n-1))]`);
   console.log(`  MEDIAN:          ${median.toFixed(4)}`);
   console.log(`  CV:              ${cv?.toFixed(2) ?? 'N/A'}%  [Formula: (SD / MEDIAN) × 100]`);
   console.log(`\n  Mean (for SD calc): ${mean.toFixed(4)}`);
   console.log(`  Variance:          ${variance.toFixed(4)}`);
+  console.log(`  n (sample size):   ${rawPayments.length}`);
   console.log(`\nFINAL DVI: ${cv?.toFixed(2) ?? 'N/A'}%`);
+  
+  // Show frequency source breakdown
+  const freqSourceCounts = rawPayments.reduce((acc, p) => {
+    const source = (p as any).frequencySource || 'unknown';
+    acc[source] = (acc[source] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  if (Object.keys(freqSourceCounts).length > 0) {
+    console.log(`\nFrequency Source: ${JSON.stringify(freqSourceCounts)}`);
+  }
   console.log(`${'='.repeat(80)}\n`);
 }
 

@@ -124,10 +124,12 @@ function isWeeklyPayerTicker(ticker: string): boolean {
  * Process (per CEO specification):
  * 1. Define the dividend period: 365 days from today (fixed period, not rolling).
  * 2. List ALL adjusted dividends (adj_amount) in the period.
- * 3. Determine frequency of each dividend: weekly=52, monthly=12, quarterly=4, etc.
+ * 3. Determine frequency of each dividend (PRIORITY: use frequency field from database/website, 
+ *    fallback to interval-based detection): weekly=52, monthly=12, quarterly=4, etc.
  * 4. Multiply frequency × adjusted dividend = annualized dividend (for each payment).
  * 5. Use ALL annualized payments within the 365-day period (no "12-or-all" rule).
- * 6. Calculate SD for all annualized dividends in the period (Population SD, not Sample).
+ * 6. Calculate SD for all annualized dividends in the period (SAMPLE SD, not Population).
+ *    Formula: variance = Σ(x - mean)² / (n-1) [Sample SD, per CEO/Gemini recommendation]
  * 7. Calculate MEDIAN for all annualized dividends in the period.
  * 8. CV = SD / MEDIAN (NOT SD / Mean!)
  * 9. Round to 1 decimal place.
@@ -193,56 +195,67 @@ export function calculateDividendVolatility(
     .map(d => ({
       date: new Date(d.ex_date),
       amount: d.adj_amount ?? d.div_cash ?? 0, // Use adjusted amounts
+      frequency: d.frequency, // Include frequency field from database
+      originalDiv: d, // Keep reference to original dividend record
     }))
     .filter(d => d.amount > 0 && d.date >= periodStartDate && d.date <= periodEndDate);
 
   // If no dividends in the period, we can't calculate volatility
   if (recentSeries.length < 2) return nullResult;
 
-  // 4. Normalize each payment to annual equivalent based on detected frequency
-  // IMPORTANT: Annualize each payment FIRST, then calculate SD on annualized amounts
-  // Example: $0.3 quarterly = $1.2 annual, $0.10 monthly = $1.20 annual
-  // SD on raw payments [0.3, 0.10] = ~0.14 (wrong - inflated by frequency change)
-  // SD on annualized [1.2, 1.20] = ~0 (correct - shows true stability)
+  // 4. Normalize each payment to annual equivalent based on frequency from database/website
+  // IMPORTANT: Use frequency field from dividend history (as CEO bases on website)
+  // If frequency field not available, fall back to interval-based detection
+  // Annualize each payment FIRST, then calculate SD on annualized amounts
   const normalizedAnnualAmounts: number[] = [];
   
-  for (let i = 0; i < recentSeries.length; i++) {
-    const current = recentSeries[i];
-    let daysBetween: number | null = null;
+  // Helper function to get annualization factor from frequency field or interval
+  function getAnnualizationFactor(current: typeof recentSeries[0], index: number): number {
+    // PRIORITY 1: Use frequency field from database/website (as CEO specified)
+    if (current.frequency) {
+      const freq = current.frequency.toLowerCase();
+      if (freq.includes('week') || freq === 'weekly') {
+        return 52;
+      } else if (freq.includes('month') || freq === 'monthly' || freq === 'mo') {
+        return 12;
+      } else if (freq.includes('quarter') || freq === 'quarterly' || freq.includes('qtr')) {
+        return 4;
+      } else if (freq.includes('semi') || freq.includes('semi-annual')) {
+        return 2;
+      } else if (freq.includes('annual') || freq === 'annual' || freq === 'yearly') {
+        return 1;
+      }
+    }
     
-    // Detect frequency: prefer interval TO this payment (from previous)
-    // This correctly handles frequency changes
-    if (i > 0) {
-      // Use interval from previous payment to current (most accurate for current payment)
-      const prev = recentSeries[i - 1];
+    // PRIORITY 2: Fallback to interval-based detection if no frequency field
+    let daysBetween: number | null = null;
+    if (index > 0) {
+      // Use interval from previous payment to current
+      const prev = recentSeries[index - 1];
       daysBetween = (current.date.getTime() - prev.date.getTime()) / (1000 * 60 * 60 * 24);
-    } else if (i < recentSeries.length - 1) {
-      // For first payment, use interval to next payment as fallback
-      const next = recentSeries[i + 1];
+    } else if (index < recentSeries.length - 1) {
+      // For first payment, use interval to next payment
+      const next = recentSeries[index + 1];
       daysBetween = (next.date.getTime() - current.date.getTime()) / (1000 * 60 * 60 * 24);
     }
     
-    // Determine annualization factor based on detected frequency
-    let annualizationFactor: number;
     if (daysBetween !== null && daysBetween > 0 && daysBetween < 400) {
-      if (daysBetween <= 10) {
-        annualizationFactor = 52; // Weekly: multiply by 52
-      } else if (daysBetween <= 35) {
-        annualizationFactor = 12; // Monthly: multiply by 12
-      } else if (daysBetween <= 95) {
-        annualizationFactor = 4; // Quarterly: multiply by 4
-      } else if (daysBetween <= 185) {
-        annualizationFactor = 2; // Semi-annual: multiply by 2
-      } else {
-        annualizationFactor = 1; // Annual: multiply by 1
-      }
-    } else {
-      // Fallback: assume monthly if we can't determine frequency
-      annualizationFactor = 12;
+      if (daysBetween <= 10) return 52; // Weekly
+      else if (daysBetween <= 35) return 12; // Monthly
+      else if (daysBetween <= 95) return 4; // Quarterly
+      else if (daysBetween <= 185) return 2; // Semi-annual
+      else return 1; // Annual
     }
     
+    // Final fallback: assume monthly
+    return 12;
+  }
+  
+  for (let i = 0; i < recentSeries.length; i++) {
+    const current = recentSeries[i];
+    const annualizationFactor = getAnnualizationFactor(current, i);
+    
     // Annualize this payment: raw_amount × annualization_factor
-    // This converts each payment to its annual equivalent
     const normalizedAnnual = current.amount * annualizationFactor;
     normalizedAnnualAmounts.push(normalizedAnnual);
   }
@@ -254,29 +267,15 @@ export function calculateDividendVolatility(
   
   // Store raw payment details for detailed output
   const rawPaymentDetails = recentSeries.map((d, i) => {
-    let daysBetween: number | null = null;
-    if (i > 0) {
-      const prev = recentSeries[i - 1];
-      daysBetween = (d.date.getTime() - prev.date.getTime()) / (1000 * 60 * 60 * 24);
-    } else if (i < recentSeries.length - 1) {
-      const next = recentSeries[i + 1];
-      daysBetween = (next.date.getTime() - d.date.getTime()) / (1000 * 60 * 60 * 24);
-    }
-    
-    let frequency = 12; // default
-    if (daysBetween !== null && daysBetween > 0 && daysBetween < 400) {
-      if (daysBetween <= 10) frequency = 52;
-      else if (daysBetween <= 35) frequency = 12;
-      else if (daysBetween <= 95) frequency = 4;
-      else if (daysBetween <= 185) frequency = 2;
-      else frequency = 1;
-    }
+    // Use frequency from database/website first, fallback to interval detection
+    const frequency = getAnnualizationFactor(d, i);
     
     return {
       date: d.date.toISOString().split('T')[0],
       amount: d.amount,
       frequency,
       annualized: d.amount * frequency,
+      frequencySource: d.frequency ? 'database' : 'interval-detected',
     };
   });
 
@@ -290,11 +289,11 @@ export function calculateDividendVolatility(
     ? (sortedAmounts[sortedAmounts.length / 2 - 1] + sortedAmounts[sortedAmounts.length / 2]) / 2
     : sortedAmounts[Math.floor(sortedAmounts.length / 2)];
 
-  // 7. Calculate the POPULATION standard deviation on the ANNUALIZED amounts
+  // 7. Calculate the SAMPLE standard deviation on the ANNUALIZED amounts
   //    This is the key: SD is calculated on annualized values, not raw payments
   //    Example: [1.2, 1.20] annualized → SD ≈ 0 (correct, shows stability)
   //    vs [0.3, 0.10] raw → SD ≈ 0.14 (wrong, inflated by frequency change)
-  //    Formula: variance = Σ(x - mean)² / n (population SD, not sample)
+  //    Formula: variance = Σ(x - mean)² / (n-1) (SAMPLE SD, per CEO/Gemini recommendation)
   //    Note: We use mean for SD calculation, but median for CV calculation
   const mean = calculateMean(finalNormalizedAmounts);
   let varianceSum = 0;
@@ -302,7 +301,9 @@ export function calculateDividendVolatility(
     const diff = val - mean;
     varianceSum += diff * diff;
   }
-  const variance = varianceSum / finalNormalizedAmounts.length;
+  // Use SAMPLE standard deviation (divide by n-1, not n)
+  const n = finalNormalizedAmounts.length;
+  const variance = n > 1 ? varianceSum / (n - 1) : 0;
   const standardDeviation = Math.sqrt(variance);
 
   // Guard against invalid values
