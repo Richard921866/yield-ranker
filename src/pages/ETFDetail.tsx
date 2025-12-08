@@ -220,16 +220,24 @@ const ETFDetail = () => {
                   {currentReturn != null ? `${currentReturn >= 0 ? '+' : ''}${currentReturn.toFixed(2)}%` : 'N/A'}
                 </span>
               </div>
-            </div>
-            {/* Last Updated + Source */}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {/* Last Updated + Source - Moved under price */}
               {lastUpdated && (
-                <>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                   <Clock className="h-3 w-3" />
                   <span>Last updated: {lastUpdated}</span>
                   <span className="text-primary font-medium">Source: Tiingo</span>
-                </>
+                </div>
               )}
+            </div>
+            {/* View Full Dividend History Button - Moved to top right */}
+            <div className="flex items-center">
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/etf/${etf.symbol}/dividends`)}
+                className="gap-2"
+              >
+                View Full Dividend History
+              </Button>
             </div>
           </div>
         </div>
@@ -961,17 +969,6 @@ const ETFDetail = () => {
                   {etf.dividendCVPercent != null && etf.dividendCVPercent > 0 ? `${etf.dividendCVPercent.toFixed(1)}%` : (etf.dividendVolatilityIndex || 'N/A')}
                 </p>
               </div>
-            </div>
-            
-            {/* Link to Dividend History */}
-            <div className="mt-4 pt-4 border-t text-center">
-              <Button
-                variant="outline"
-                onClick={() => navigate(`/etf/${etf.symbol}/dividends`)}
-                className="gap-2"
-              >
-                View Full Dividend History
-              </Button>
             </div>
           </Card>
         </div>
