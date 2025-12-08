@@ -332,12 +332,12 @@ const ETFDetail = () => {
         </div>
 
         {/* Chart Section - No tabs, direct display */}
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 delay-200 relative z-0">
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 delay-200 relative z-0" data-chart-section>
           <Card className="p-6 mb-8 relative z-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 relative z-0">
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                  <label className="text-sm font-bold text-muted-foreground whitespace-nowrap">
                     Metric:
                   </label>
                   <Select
@@ -373,6 +373,14 @@ const ETFDetail = () => {
                   <Plus className="h-3 w-3" />
                   Compare ({comparisonETFs.length}/5)
                 </button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/etf/${etf.symbol}/dividends`)}
+                  className="h-9 px-3 text-xs"
+                >
+                  Dividend History
+                </Button>
               </div>
             </div>
 
@@ -951,14 +959,29 @@ const ETFDetail = () => {
               </div>
             </div>
             
-            {/* Link to Dividend History */}
-            <div className="mt-4 pt-4 border-t text-center">
+            {/* Links to Dividend History and Total Return Chart */}
+            <div className="mt-4 pt-4 border-t flex flex-col sm:flex-row gap-3 justify-center items-center">
               <Button
                 variant="outline"
                 onClick={() => navigate(`/etf/${etf.symbol}/dividends`)}
                 className="gap-2"
               >
                 View Full Dividend History
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  setTimeout(() => {
+                    const chartSection = document.querySelector('[data-chart-section]');
+                    if (chartSection) {
+                      chartSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }, 100);
+                }}
+                className="gap-2"
+              >
+                View Total Return Chart
               </Button>
             </div>
           </Card>

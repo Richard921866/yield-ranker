@@ -163,7 +163,7 @@ export const ETFTable = ({
                 <th colSpan={14} className="h-7 px-1.5 text-center align-middle font-bold text-foreground bg-slate-100 text-sm border-r-2 border-slate-300">
                   ETF DETAILS
                 </th>
-                <th colSpan={returnColumns.length} className="h-7 px-1.5 text-center align-middle font-bold bg-primary/10 text-primary text-sm">
+                <th colSpan={returnColumns.length} className="h-8 px-1.5 text-center align-middle font-bold bg-primary/10 text-primary text-sm">
                   TOTAL RETURNS (DRIP)
                 </th>
               </tr>
@@ -230,9 +230,22 @@ export const ETFTable = ({
                   <SortButton field="forwardYield">Yield</SortButton>
                 </th>
                 <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                  <SortButton field="dividendCVPercent">
-                    <div className="whitespace-normal leading-tight">Dividend<br />Volatility</div>
-                  </SortButton>
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <SortButton field="dividendCVPercent">
+                          DVI
+                        </SortButton>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="top"
+                      sideOffset={8}
+                      className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg max-w-[300px]"
+                    >
+                      <p>Dividend Volatility Index is computed using the Coefficient of Variation (CV) with Adjusted Dividends that have been annualized to normalize for frequency changes</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </th>
                 <th className="h-7 px-1.5 text-center bg-slate-50 text-xs border-r-2 border-slate-300">
                   {isGuest ? (
