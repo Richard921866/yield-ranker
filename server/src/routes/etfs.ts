@@ -240,6 +240,296 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
 router.post('/upload-dtr', upload.single('file'), handleStaticUpload);
 
 /**
+ * POST /upload-dividends - Upload latest dividends from Excel
+ * 
+ * Expected Excel format:
+ * - Column: "Symbol" or "Ticker" (required)
+ * - Column: "Div" or "Dividend" (required) - dividend amount
+ * - Column: "Ex Date" or "Ex-Date" (optional) - if missing, uses declaration date + typical payment schedule
+ * - Column: "Declare Date" or "Declaration Date" (optional) - defaults to today
+ * - Column: "Pay Date" or "Payment Date" (optional)
+ * 
+ * When Tiingo syncs later, it will match by:
+ * 1. Same ex_date (if provided)
+ * 2. OR same amount within ±7 days
+ */
+router.post('/upload-dividends', upload.single('file'), async (req: Request, res: Response) => {
+  let filePath: string | null = null;
+
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+
+    filePath = req.file.path;
+    logger.info('Upload', `Processing dividend upload file: ${req.file.originalname}`);
+
+    const workbook = XLSX.readFile(filePath as string);
+
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      cleanupFile(filePath);
+      res.status(400).json({ error: 'Excel file has no sheets' });
+      return;
+    }
+
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
+
+    let headerRowIndex = 0;
+    for (let i = 0; i < Math.min(allRows.length, 20); i++) {
+      const row = allRows[i];
+      if (!Array.isArray(row)) continue;
+      const rowStr = row.map(c => String(c).toLowerCase().trim());
+      if (rowStr.includes('symbol') || rowStr.includes('ticker')) {
+        headerRowIndex = i;
+        break;
+      }
+    }
+
+    const rawData = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex, defval: null }) as Record<string, unknown>[];
+
+    if (!rawData || rawData.length === 0) {
+      cleanupFile(filePath);
+      res.status(400).json({ error: 'Excel file is empty' });
+      return;
+    }
+
+    const headers = Object.keys(rawData[0] ?? {});
+    const headerMap: Record<string, string> = {};
+    headers.forEach(h => {
+      if (h) headerMap[String(h).trim().toLowerCase()] = h;
+    });
+
+    const symbolCol = findColumn(headerMap, 'symbol', 'symbols', 'ticker');
+    if (!symbolCol) {
+      cleanupFile(filePath);
+      res.status(400).json({
+        error: 'SYMBOL/TICKER column not found',
+        details: `Available columns: ${headers.join(', ')}`,
+      });
+      return;
+    }
+
+    const divCol = findColumn(headerMap, 'div', 'dividend', 'div_cash', 'dividend amount');
+    if (!divCol) {
+      cleanupFile(filePath);
+      res.status(400).json({
+        error: 'DIV/DIVIDEND column not found',
+        details: `Available columns: ${headers.join(', ')}`,
+      });
+      return;
+    }
+
+    const exDateCol = findColumn(headerMap, 'ex date', 'ex-date', 'ex_date', 'ex dividend date');
+    const declareDateCol = findColumn(headerMap, 'declare date', 'declaration date', 'declare_date', 'declaration_date');
+    const payDateCol = findColumn(headerMap, 'pay date', 'payment date', 'pay_date', 'payment_date');
+
+    const supabase = getSupabase();
+    const records: any[] = [];
+    const now = new Date();
+    let skippedRows = 0;
+    let errors: string[] = [];
+
+    for (const row of rawData) {
+      const symbolValue = symbolCol ? row[symbolCol] : null;
+      const divValue = divCol ? row[divCol] : null;
+
+      if (!symbolValue || !divValue) {
+        skippedRows++;
+        continue;
+      }
+
+      const ticker = String(symbolValue).trim().toUpperCase();
+      const divAmount = parseNumeric(divValue);
+
+      if (!ticker || !divAmount || divAmount <= 0) {
+        skippedRows++;
+        errors.push(`Row ${rawData.indexOf(row) + 1}: Invalid ticker or dividend amount`);
+        continue;
+      }
+
+      let exDate: string | null = null;
+      let declareDate: string | null = null;
+      let payDate: string | null = null;
+
+      if (exDateCol && row[exDateCol]) {
+        const exDateValue = row[exDateCol];
+        if (exDateValue instanceof Date) {
+          exDate = exDateValue.toISOString().split('T')[0];
+        } else {
+          const parsed = new Date(String(exDateValue));
+          if (!isNaN(parsed.getTime())) {
+            exDate = parsed.toISOString().split('T')[0];
+          }
+        }
+      }
+
+      if (declareDateCol && row[declareDateCol]) {
+        const declareDateValue = row[declareDateCol];
+        if (declareDateValue instanceof Date) {
+          declareDate = declareDateValue.toISOString().split('T')[0];
+        } else {
+          const parsed = new Date(String(declareDateValue));
+          if (!isNaN(parsed.getTime())) {
+            declareDate = parsed.toISOString().split('T')[0];
+          }
+        }
+      }
+
+      if (payDateCol && row[payDateCol]) {
+        const payDateValue = row[payDateCol];
+        if (payDateValue instanceof Date) {
+          payDate = payDateValue.toISOString().split('T')[0];
+        } else {
+          const parsed = new Date(String(payDateValue));
+          if (!isNaN(parsed.getTime())) {
+            payDate = parsed.toISOString().split('T')[0];
+          }
+        }
+      }
+
+      if (!exDate) {
+        if (declareDate) {
+          declareDate = declareDate;
+        } else {
+          declareDate = now.toISOString().split('T')[0];
+        }
+
+        const staticData = await supabase
+          .from('etf_static')
+          .select('payments_per_year')
+          .eq('ticker', ticker)
+          .single();
+
+        const paymentsPerYear = staticData.data?.payments_per_year ?? 12;
+        const daysUntilExDate = Math.ceil(365 / paymentsPerYear);
+
+        const declareDateObj = new Date(declareDate);
+        declareDateObj.setDate(declareDateObj.getDate() + daysUntilExDate);
+        exDate = declareDateObj.toISOString().split('T')[0];
+      } else if (!declareDate) {
+        declareDate = now.toISOString().split('T')[0];
+      }
+
+      records.push({
+        ticker,
+        ex_date: exDate,
+        pay_date: payDate,
+        record_date: null,
+        declare_date: declareDate,
+        div_cash: divAmount,
+        adj_amount: divAmount,
+        scaled_amount: null,
+        split_factor: 1,
+        div_type: 'Cash',
+        frequency: null,
+        description: 'Manual upload - Early announcement',
+        currency: 'USD',
+      });
+    }
+
+    if (records.length === 0) {
+      cleanupFile(filePath);
+      res.status(400).json({
+        error: 'No valid dividend data found',
+        errors,
+      });
+      return;
+    }
+
+    logger.info('Upload', `Upserting ${records.length} manual dividend records`);
+
+    const { error: upsertError } = await supabase
+      .from('dividends_detail')
+      .upsert(records, {
+        onConflict: 'ticker,ex_date',
+        ignoreDuplicates: false,
+      });
+
+    if (upsertError) {
+      cleanupFile(filePath);
+      res.status(500).json({
+        error: 'Failed to save dividends',
+        details: upsertError.message,
+      });
+      return;
+    }
+
+    const tickersToRecalc = [...new Set(records.map(r => r.ticker))];
+    logger.info('Upload', `Recalculating metrics for ${tickersToRecalc.length} ticker(s)`);
+
+    const recalcResults: Array<{ ticker: string; success: boolean; error?: string }> = [];
+
+    for (const ticker of tickersToRecalc) {
+      try {
+        const metrics = await calculateMetrics(ticker);
+        const { error: updateError } = await supabase
+          .from('etf_static')
+          .update({
+            price: metrics.currentPrice,
+            price_change: metrics.priceChange,
+            price_change_pct: metrics.priceChangePercent,
+            last_dividend: metrics.lastDividend,
+            annual_dividend: metrics.annualizedDividend,
+            forward_yield: metrics.forwardYield,
+            dividend_sd: metrics.dividendSD,
+            dividend_cv: metrics.dividendCV,
+            dividend_cv_percent: metrics.dividendCVPercent,
+            dividend_volatility_index: metrics.dividendVolatilityIndex,
+            week_52_high: metrics.week52High,
+            week_52_low: metrics.week52Low,
+            tr_drip_3y: metrics.totalReturnDrip?.['3Y'],
+            tr_drip_12m: metrics.totalReturnDrip?.['1Y'],
+            tr_drip_6m: metrics.totalReturnDrip?.['6M'],
+            tr_drip_3m: metrics.totalReturnDrip?.['3M'],
+            tr_drip_1m: metrics.totalReturnDrip?.['1M'],
+            tr_drip_1w: metrics.totalReturnDrip?.['1W'],
+            price_return_3y: metrics.priceReturn?.['3Y'],
+            price_return_12m: metrics.priceReturn?.['1Y'],
+            price_return_6m: metrics.priceReturn?.['6M'],
+            price_return_3m: metrics.priceReturn?.['3M'],
+            price_return_1m: metrics.priceReturn?.['1M'],
+            price_return_1w: metrics.priceReturn?.['1W'],
+          })
+          .eq('ticker', ticker);
+
+        if (updateError) {
+          recalcResults.push({ ticker, success: false, error: updateError.message });
+        } else {
+          recalcResults.push({ ticker, success: true });
+        }
+      } catch (error) {
+        recalcResults.push({ ticker, success: false, error: (error as Error).message });
+      }
+    }
+
+    cleanupFile(filePath);
+
+    const successCount = recalcResults.filter(r => r.success).length;
+    const failCount = recalcResults.filter(r => !r.success).length;
+
+    res.json({
+      success: true,
+      dividendsAdded: records.length,
+      skippedRows,
+      metricsRecalculated: successCount,
+      metricsFailed: failCount,
+      recalcResults,
+      message: `Successfully uploaded ${records.length} dividend(s) and recalculated metrics for ${successCount} ticker(s)`,
+      note: 'When Tiingo syncs, it will automatically match and update these dividends with official data',
+    });
+  } catch (error) {
+    logger.error('Upload', `Error processing dividend file: ${(error as Error).message}`);
+    cleanupFile(filePath);
+    res.status(500).json({
+      error: 'Failed to process Excel file',
+      message: (error as Error).message,
+    });
+  }
+});
+
+/**
  * POST /upload-static - Backward compatibility alias
  */
 router.post('/upload-static', upload.single('file'), handleStaticUpload);

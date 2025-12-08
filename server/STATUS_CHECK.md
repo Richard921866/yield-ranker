@@ -32,3 +32,4 @@ After running SQL, scaled dividends will be fully working!
 - ✅ Dividends: Saving successfully  
 - ⚠️ Scaled: Need to add database column (see SQL above)
 
+

@@ -179,24 +179,41 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
       if (tiingoDividends.length > 0) {
         isLiveData = true;
 
-        // Create records from Tiingo data
-        const tiingoRecords = tiingoDividends.map((d: { date: string; dividend: number; adjDividend: number; scaledDividend: number; recordDate: string | null; paymentDate: string | null; declarationDate: string | null }) => ({
-          ticker: ticker.toUpperCase(),
-          ex_date: d.date.split('T')[0],
-          pay_date: d.paymentDate?.split('T')[0] || null,
-          record_date: d.recordDate?.split('T')[0] || null,
-          declare_date: d.declarationDate?.split('T')[0] || null,
-          div_cash: d.dividend,
-          adj_amount: d.adjDividend,
-          scaled_amount: d.scaledDividend > 0 ? d.scaledDividend : null,
-          div_type: null,
-          frequency: null,
-          description: null,
-          currency: 'USD',
-          split_factor: d.adjDividend > 0 ? d.dividend / d.adjDividend : 1,
-        })).sort((a: DividendRecord, b: DividendRecord) => new Date(b.ex_date).getTime() - new Date(a.ex_date).getTime());
+        const existingDividends = await getDividendHistory(ticker, startDate);
+        const manualDividends = existingDividends.filter(d => 
+          d.description?.includes('Manual upload') || d.description?.includes('Early announcement')
+        );
 
-        // Persist to DB for future requests
+        const tiingoRecords = tiingoDividends.map((d: { date: string; dividend: number; adjDividend: number; scaledDividend: number; recordDate: string | null; paymentDate: string | null; declarationDate: string | null }) => {
+          const exDate = d.date.split('T')[0];
+          const divAmount = d.adjDividend > 0 ? d.adjDividend : d.dividend;
+
+          const matchedManual = manualDividends.find(manual => {
+            const manualExDate = new Date(manual.ex_date);
+            const tiingoExDate = new Date(exDate);
+            const daysDiff = Math.abs((tiingoExDate.getTime() - manualExDate.getTime()) / (1000 * 60 * 60 * 24));
+            const amountMatch = Math.abs((manual.adj_amount ?? manual.div_cash) - divAmount) < 0.01;
+
+            return (manual.ex_date === exDate) || (daysDiff <= 7 && amountMatch);
+          });
+
+          return {
+            ticker: ticker.toUpperCase(),
+            ex_date: exDate,
+            pay_date: d.paymentDate?.split('T')[0] || null,
+            record_date: d.recordDate?.split('T')[0] || null,
+            declare_date: d.declarationDate?.split('T')[0] || null,
+            div_cash: d.dividend,
+            adj_amount: d.adjDividend,
+            scaled_amount: d.scaledDividend > 0 ? d.scaledDividend : null,
+            div_type: null,
+            frequency: null,
+            description: matchedManual ? null : null,
+            currency: 'USD',
+            split_factor: d.adjDividend > 0 ? d.dividend / d.adjDividend : 1,
+          };
+        }).sort((a: DividendRecord, b: DividendRecord) => new Date(b.ex_date).getTime() - new Date(a.ex_date).getTime());
+
         upsertDividends(tiingoRecords).catch(err =>
           logger.warn('Routes', `Failed to persist dividends for ${ticker}: ${err.message}`)
         );

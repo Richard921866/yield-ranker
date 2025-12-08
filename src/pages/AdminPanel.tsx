@@ -407,6 +407,18 @@ const AdminPanel = () => {
     }
   };
 
+  const [dividendUploadFile, setDividendUploadFile] = useState<File | null>(null);
+  const [dividendUploading, setDividendUploading] = useState(false);
+  const [dividendUploadStatus, setDividendUploadStatus] = useState("");
+
+  const handleDividendFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setDividendUploadFile(file);
+      setDividendUploadStatus("");
+    }
+  };
+
   const handleUploadDTR = async () => {
     if (!uploadFile) {
       setUploadStatus("Please select a file first");
@@ -452,6 +464,56 @@ const AdminPanel = () => {
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleUploadDividends = async () => {
+    if (!dividendUploadFile) {
+      setDividendUploadStatus("Please select a file first");
+      return;
+    }
+
+    setDividendUploading(true);
+    setDividendUploadStatus("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", dividendUploadFile);
+
+      const apiUrl = import.meta.env.VITE_API_URL || "";
+      const response = await fetch(`${apiUrl}/api/etfs/upload-dividends`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Upload failed");
+      }
+
+      setDividendUploadStatus(
+        `Success! Uploaded ${result.dividendsAdded} dividend(s). Metrics recalculated for ${result.metricsRecalculated} ticker(s).`
+      );
+      toast({
+        title: "Dividend upload successful",
+        description: result.message,
+      });
+      setDividendUploadFile(null);
+      const fileInput = document.getElementById(
+        "dividend-file-input"
+      ) as HTMLInputElement;
+      if (fileInput) fileInput.value = "";
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Upload failed";
+      setDividendUploadStatus(`Error: ${message}`);
+      toast({
+        variant: "destructive",
+        title: "Dividend upload failed",
+        description: message,
+      });
+    } finally {
+      setDividendUploading(false);
     }
   };
 
@@ -954,6 +1016,77 @@ const AdminPanel = () => {
                           )}
                         </tbody>
                       </table>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="border-2 border-slate-200 mt-6">
+                  <div className="p-6 space-y-6">
+                    <div>
+                      <h2 className="text-lg font-bold text-foreground mb-2">
+                        Upload Latest Dividends
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        Upload Excel file with latest dividend announcements. Required columns: Symbol/Ticker, Div/Dividend. Optional: Ex Date, Declare Date, Pay Date. If Ex Date is missing, it will be estimated based on payment frequency.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                        <div className="flex-1">
+                          <label
+                            htmlFor="dividend-file-input"
+                            className="block text-sm font-medium text-foreground mb-2"
+                          >
+                            Select Excel File
+                          </label>
+                          <Input
+                            id="dividend-file-input"
+                            type="file"
+                            accept=".xlsx,.xls"
+                            onChange={handleDividendFileChange}
+                            className="border-2"
+                          />
+                          {dividendUploadFile && (
+                            <p className="text-sm text-muted-foreground mt-2">
+                              Selected: {dividendUploadFile.name}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          onClick={handleUploadDividends}
+                          disabled={!dividendUploadFile || dividendUploading}
+                          className="sm:w-auto"
+                        >
+                          {dividendUploading ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2" />
+                              Upload Dividends
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      {dividendUploadStatus && (
+                        <div
+                          className={`p-3 rounded-lg text-sm ${
+                            dividendUploadStatus.startsWith("Error")
+                              ? "bg-red-50 text-red-900 border border-red-200"
+                              : "bg-green-50 text-green-900 border border-green-200"
+                          }`}
+                        >
+                          {dividendUploadStatus}
+                        </div>
+                      )}
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p className="text-sm text-blue-900">
+                          <strong>Note:</strong> When Tiingo syncs (usually within 2-3 days), it will automatically match and update these dividends with official data. Metrics (DVI, annual dividend, returns) are automatically recalculated after upload.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </Card>
