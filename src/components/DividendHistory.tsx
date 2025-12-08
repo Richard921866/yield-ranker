@@ -92,30 +92,22 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
 
     dividendsByYear.forEach((divs, year) => {
       // Use adjusted amounts (adjAmount) for accurate totals that account for stock splits
-      // Filter out any dividends with zero or invalid amounts
-      const validDivs = divs.filter(d => {
-        // Prefer adjAmount (split-adjusted), fallback to amount
-        const adjAmt = typeof d.adjAmount === 'number' && !isNaN(d.adjAmount) && isFinite(d.adjAmount) && d.adjAmount > 0 ? d.adjAmount : 0;
-        const rawAmt = typeof d.amount === 'number' && !isNaN(d.amount) && isFinite(d.amount) && d.amount > 0 ? d.amount : 0;
-        return adjAmt > 0 || rawAmt > 0;
-      });
-
-      // Only include years with at least one valid dividend
-      if (validDivs.length === 0) return;
-
-      // Use adjAmount as primary for totals (accounts for splits)
-      const total = validDivs.reduce((sum, d) => {
-        const adjAmt = typeof d.adjAmount === 'number' && !isNaN(d.adjAmount) && isFinite(d.adjAmount) && d.adjAmount > 0 ? d.adjAmount : 0;
-        const rawAmt = typeof d.amount === 'number' && !isNaN(d.amount) && isFinite(d.amount) && d.amount > 0 ? d.amount : 0;
-        return sum + (adjAmt > 0 ? adjAmt : rawAmt);
+      // Match the table calculation: use adjAmount ?? amount (same logic as table yearTotal)
+      const total = divs.reduce((sum, d) => {
+        // Use adjAmount if available, otherwise fallback to amount (matches table calculation)
+        const amount = (d.adjAmount ?? d.amount) || 0;
+        return sum + amount;
       }, 0);
-      result.push({
-        year,
-        total,
-        count: validDivs.length,
-        avgAmount: total / validDivs.length,
-        dividends: validDivs,
-      });
+      // Only include years with valid totals
+      if (total > 0) {
+        result.push({
+          year,
+          total,
+          count: divs.length,
+          avgAmount: total / divs.length,
+          dividends: divs,
+        });
+      }
     });
 
     return result.sort((a, b) => b.year - a.year);
