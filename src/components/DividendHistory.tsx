@@ -238,10 +238,31 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
     );
   }
 
+  const handleViewTotalReturnChart = () => {
+    // Check if we're on the ETFDetail page
+    const chartSection = document.querySelector('[data-chart-section]');
+    if (chartSection) {
+      // Scroll to chart on same page
+      chartSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      // Navigate to ETFDetail page - the chart will be visible
+      window.location.href = `/etf/${ticker}`;
+    }
+  };
+
   return (
     <Card className="p-3 sm:p-4 md:p-6">
-      <div className="mb-4 sm:mb-6">
+      <div className="mb-4 sm:mb-6 flex items-center justify-between">
         <h2 className="text-lg sm:text-xl font-semibold mb-1">Dividend History</h2>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleViewTotalReturnChart}
+          className="h-8 text-xs gap-1.5"
+        >
+          <LineChart className="h-3.5 w-3.5" />
+          View Total Return Chart
+        </Button>
       </div>
 
       <div className="flex gap-1 mb-4 flex-wrap">

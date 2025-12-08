@@ -348,8 +348,12 @@ const ETFDetail = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="totalReturn">Total Return (DRIP)</SelectItem>
-                      <SelectItem value="priceReturn">Price Return</SelectItem>
+                      <SelectItem value="totalReturn">
+                        <span className="font-bold">Total Return (DRIP)</span>
+                      </SelectItem>
+                      <SelectItem value="priceReturn">
+                        <span className="font-bold">Price Return</span>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
