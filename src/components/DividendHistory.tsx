@@ -409,136 +409,137 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
             </h3>
             <div className="relative">
               <ResponsiveContainer width="100%" height={450} className="sm:h-[450px] landscape:h-[350px] landscape:sm:h-[400px]">
-              {frequencyChanged ? (
-                <ComposedChart
-                  data={chartData}
-                  margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis
-                    dataKey="exDate"
-                    stroke="#94a3b8"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => {
-                      if (!value) return '';
-                      try {
-                        return new Date(value).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                      } catch {
-                        return '';
-                      }
-                    }}
-                  />
-                  <YAxis
-                    stroke="#94a3b8"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => {
-                      if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
-                        return `$${value.toFixed(2)}`;
-                      }
-                      return '';
-                    }}
-                    width={50}
-                    domain={[0, 'dataMax']}
-                    allowDataOverflow={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "rgba(255, 255, 255, 0.98)",
-                      border: "none",
-                      borderRadius: "8px",
-                      boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-                    }}
-                    formatter={(value: number | string, name: string) => {
-                      const numValue = typeof value === 'number' ? value : parseFloat(String(value));
-                      if (typeof numValue === 'number' && !isNaN(numValue) && isFinite(numValue)) {
-                        if (name === 'amount') {
-                          return [`$${numValue.toFixed(4)}`, 'Individual Payment Amount (Monthly/Weekly)'];
-                        } else if (name === 'equivalentWeeklyRate') {
-                          return [`$${numValue.toFixed(4)}`, 'Equivalent Weekly Rate (Rate Normalized to Weekly Payout)'];
+                {frequencyChanged ? (
+                  <ComposedChart
+                    data={chartData}
+                    margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis
+                      dataKey="exDate"
+                      stroke="#94a3b8"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => {
+                        if (!value) return '';
+                        try {
+                          return new Date(value).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                        } catch {
+                          return '';
                         }
-                        return [`$${numValue.toFixed(4)}`, name];
-                      }
-                      return ['N/A', name];
-                    }}
-                    labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                  />
-                  <Bar dataKey="amount" fill="#93c5fd" radius={[2, 2, 0, 0]} name="Individual Payment Amount (Monthly/Weekly)" minPointSize={3} />
-                  <Line
-                    type="monotone"
-                    dataKey="equivalentWeeklyRate"
-                    stroke="#ef4444"
-                    strokeWidth={2}
-                    dot={{ fill: '#ef4444', r: 3 }}
-                    name="Equivalent Weekly Rate (Rate Normalized to Weekly Payout)"
-                  />
-                </ComposedChart>
-              ) : (
-                <BarChart
-                  data={chartData}
-                  margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis
-                    dataKey="exDate"
-                    stroke="#94a3b8"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => {
-                      if (!value) return '';
-                      try {
-                        return new Date(value).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                      } catch {
+                      }}
+                    />
+                    <YAxis
+                      stroke="#94a3b8"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => {
+                        if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
+                          return `$${value.toFixed(2)}`;
+                        }
                         return '';
-                      }
-                    }}
-                  />
-                  <YAxis
-                    stroke="#94a3b8"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => {
-                      if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
-                        return `$${value.toFixed(2)}`;
-                      }
-                      return '';
-                    }}
-                    width={50}
-                    domain={[0, 'dataMax']}
-                    allowDataOverflow={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "rgba(255, 255, 255, 0.98)",
-                      border: "none",
-                      borderRadius: "8px",
-                      boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-                    }}
-                    formatter={(value: number | string) => {
-                      const numValue = typeof value === 'number' ? value : parseFloat(String(value));
-                      if (typeof numValue === 'number' && !isNaN(numValue) && isFinite(numValue)) {
-                        return [`$${numValue.toFixed(4)}`, 'Dividend'];
-                      }
-                      return ['N/A', 'Dividend'];
-                    }}
-                    labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                  />
-                  <Bar
-                    dataKey="amount"
-                    fill="#3b82f6"
-                    radius={[2, 2, 0, 0]}
-                    minPointSize={3}
-                  />
-                </BarChart>
-              )}
-            </ResponsiveContainer>
-            <div className="text-center text-xs text-muted-foreground mt-1">
-              Adjusted Dividends Bar Chart
+                      }}
+                      width={50}
+                      domain={[0, 'dataMax']}
+                      allowDataOverflow={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "rgba(255, 255, 255, 0.98)",
+                        border: "none",
+                        borderRadius: "8px",
+                        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                      }}
+                      formatter={(value: number | string, name: string) => {
+                        const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+                        if (typeof numValue === 'number' && !isNaN(numValue) && isFinite(numValue)) {
+                          if (name === 'amount') {
+                            return [`$${numValue.toFixed(4)}`, 'Individual Payment Amount (Monthly/Weekly)'];
+                          } else if (name === 'equivalentWeeklyRate') {
+                            return [`$${numValue.toFixed(4)}`, 'Equivalent Weekly Rate (Rate Normalized to Weekly Payout)'];
+                          }
+                          return [`$${numValue.toFixed(4)}`, name];
+                        }
+                        return ['N/A', name];
+                      }}
+                      labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    />
+                    <Bar dataKey="amount" fill="#93c5fd" radius={[2, 2, 0, 0]} name="Individual Payment Amount (Monthly/Weekly)" minPointSize={3} />
+                    <Line
+                      type="monotone"
+                      dataKey="equivalentWeeklyRate"
+                      stroke="#ef4444"
+                      strokeWidth={2}
+                      dot={{ fill: '#ef4444', r: 3 }}
+                      name="Equivalent Weekly Rate (Rate Normalized to Weekly Payout)"
+                    />
+                  </ComposedChart>
+                ) : (
+                  <BarChart
+                    data={chartData}
+                    margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis
+                      dataKey="exDate"
+                      stroke="#94a3b8"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => {
+                        if (!value) return '';
+                        try {
+                          return new Date(value).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                        } catch {
+                          return '';
+                        }
+                      }}
+                    />
+                    <YAxis
+                      stroke="#94a3b8"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => {
+                        if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
+                          return `$${value.toFixed(2)}`;
+                        }
+                        return '';
+                      }}
+                      width={50}
+                      domain={[0, 'dataMax']}
+                      allowDataOverflow={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "rgba(255, 255, 255, 0.98)",
+                        border: "none",
+                        borderRadius: "8px",
+                        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                      }}
+                      formatter={(value: number | string) => {
+                        const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+                        if (typeof numValue === 'number' && !isNaN(numValue) && isFinite(numValue)) {
+                          return [`$${numValue.toFixed(4)}`, 'Dividend'];
+                        }
+                        return ['N/A', 'Dividend'];
+                      }}
+                      labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    />
+                    <Bar
+                      dataKey="amount"
+                      fill="#3b82f6"
+                      radius={[2, 2, 0, 0]}
+                      minPointSize={3}
+                    />
+                  </BarChart>
+                )}
+              </ResponsiveContainer>
+              <div className="text-center text-xs text-muted-foreground mt-1">
+                Adjusted Dividends Bar Chart
+              </div>
             </div>
           </div>
         );
@@ -548,46 +549,46 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
         <div className="mb-6 sm:mb-8">
           <h3 className="text-xs sm:text-sm font-medium mb-3 sm:mb-4">Annual Dividend Totals</h3>
           <ResponsiveContainer width="100%" height={200} className="sm:h-[250px] landscape:h-[180px] landscape:sm:h-[220px]">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis
-                  dataKey="year"
-                  stroke="#94a3b8"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  stroke="#94a3b8"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => `$${value.toFixed(2)}`}
-                  domain={[0, 'dataMax']}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "rgba(255, 255, 255, 0.98)",
-                    border: "none",
-                    borderRadius: "8px",
-                    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-                  }}
-                  formatter={(value: number, name: string) => [
-                    `$${value.toFixed(4)}`,
-                    'Total Dividends'
-                  ]}
-                  labelFormatter={(label) => `Year ${label}`}
-                />
-                <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-                  {chartData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={index === chartData.length - 1 ? '#3b82f6' : '#93c5fd'}
-                    />
-                  ))}
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis
+                dataKey="year"
+                stroke="#94a3b8"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                stroke="#94a3b8"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value) => `$${value.toFixed(2)}`}
+                domain={[0, 'dataMax']}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "rgba(255, 255, 255, 0.98)",
+                  border: "none",
+                  borderRadius: "8px",
+                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                }}
+                formatter={(value: number, name: string) => [
+                  `$${value.toFixed(4)}`,
+                  'Total Dividends'
+                ]}
+                labelFormatter={(label) => `Year ${label}`}
+              />
+              <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                {chartData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={index === chartData.length - 1 ? '#3b82f6' : '#93c5fd'}
+                  />
+                ))}
               </Bar>
             </BarChart>
-            </ResponsiveContainer>
+          </ResponsiveContainer>
         </div>
       )}
 
