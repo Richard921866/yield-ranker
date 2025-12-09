@@ -589,19 +589,6 @@ export function DividendHistory({ ticker, annualDividend }: DividendHistoryProps
       )}
 
       <div>
-        <div className="mb-3 sm:mb-4 flex items-center justify-between flex-wrap gap-2">
-          <h3 className="text-xs sm:text-sm font-medium">Dividend Payout Schedule</h3>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              window.location.href = `/etf/${ticker.toUpperCase()}`;
-            }}
-            className="h-8 px-3 text-xs"
-          >
-            View Total Return Chart
-          </Button>
-        </div>
         <div className="border rounded-lg overflow-hidden overflow-x-auto -mx-3 sm:mx-0">
           <Table>
             <TableHeader>
