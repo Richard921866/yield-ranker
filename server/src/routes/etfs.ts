@@ -197,8 +197,38 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
 
     logger.info('Upload', `Upserting ${records.length} tickers to etf_static`);
 
-    // Upsert to etf_static
     const supabase = getSupabase();
+    const uploadedTickers = new Set(records.map(r => r.ticker));
+
+    const { data: existingETFs } = await supabase
+      .from('etf_static')
+      .select('ticker');
+
+    const existingTickers = new Set((existingETFs || []).map((e: any) => e.ticker));
+    const tickersToDelete = Array.from(existingTickers).filter(t => !uploadedTickers.has(t));
+
+    if (tickersToDelete.length > 0) {
+      logger.info('Upload', `Removing ${tickersToDelete.length} ticker(s) not in upload: ${tickersToDelete.join(', ')}`);
+      
+      const { error: deleteStaticError } = await supabase
+        .from('etf_static')
+        .delete()
+        .in('ticker', tickersToDelete);
+
+      if (deleteStaticError) {
+        logger.warn('Upload', `Failed to delete from etf_static: ${deleteStaticError.message}`);
+      }
+
+      const { error: deleteLegacyError } = await supabase
+        .from('etfs')
+        .delete()
+        .in('symbol', tickersToDelete);
+
+      if (deleteLegacyError) {
+        logger.warn('Upload', `Failed to delete from etfs: ${deleteLegacyError.message}`);
+      }
+    }
+
     const { error: upsertError } = await supabase
       .from('etf_static')
       .upsert(records, { onConflict: 'ticker' });
@@ -212,7 +242,6 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Also update legacy etfs table for backward compatibility
     const legacyRecords = records.map(r => ({
       symbol: r.ticker,
       issuer: r.issuer,
@@ -292,13 +321,20 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
       }
     }
 
+    const deletedCount = tickersToDelete.length;
     res.json({
       success: true,
       count: records.length,
+      deleted: deletedCount,
       skipped: skippedRows,
       dividendsUpdated,
+<<<<<<< Updated upstream
       message: `Successfully updated ${records.length} ticker(s)${dividendsUpdated > 0 ? ` and ${dividendsUpdated} dividend amount(s)` : ''}`,
       note: dividendUpdates.length > 0
+=======
+      message: `Successfully updated ${records.length} ticker(s)${deletedCount > 0 ? `, removed ${deletedCount} ticker(s)` : ''}${dividendsUpdated > 0 ? ` and updated ${dividendsUpdated} dividend amount(s)` : ''}`,
+      note: dividendUpdates.length > 0 
+>>>>>>> Stashed changes
         ? 'Dividend amounts updated while preserving all Tiingo data (dates, split adjustments, etc.)'
         : 'Run "npm run seed:history" to fetch price/dividend data from Tiingo',
     });

@@ -32,6 +32,7 @@
     "test:dvi": "tsx scripts/test_dvi_calculation.ts",
     "breakdown:dvi": "tsx scripts/dvi_breakdown.ts",
     "analyze:dvi": "tsx scripts/dvi_analysis.ts",
+    "export:dvi": "tsx scripts/dvi_simple_export.ts",
     "tiingo:test": "tsx -e \"import { healthCheck } from './src/services/tiingo.js'; healthCheck().then(console.log)\""
   },
   "dependencies": {

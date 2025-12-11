@@ -479,6 +479,7 @@ export function DividendHistory({ ticker, annualDividend, dvi }: DividendHistory
                       if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
                         return `$${value.toFixed(2)}`;
                       }
+<<<<<<< Updated upstream
                       return '';
                     }}
                     width={50}
@@ -580,6 +581,106 @@ export function DividendHistory({ ticker, annualDividend, dvi }: DividendHistory
             <div className="text-center text-xs text-muted-foreground mt-1">
               Adjusted Dividends Bar Chart
             </div>
+=======
+                      return [`$${numValue.toFixed(4)}`, name];
+                    }
+                    return ['N/A', name];
+                  }}
+                  labelFormatter={(label, payload) => {
+                    if (payload && payload[0] && payload[0].payload && payload[0].payload.exDate) {
+                      const exDate = new Date(payload[0].payload.exDate);
+                      return `Ex-Date: ${exDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+                    }
+                    if (label) {
+                      return `Ex-Date: ${new Date(label).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+                    }
+                    return 'Ex-Date: N/A';
+                  }}
+                />
+                <Bar dataKey="amount" fill="#93c5fd" radius={[2, 2, 0, 0]} name="Individual Payment Amount (Monthly/Weekly)" minPointSize={3} />
+                <Line
+                  type="monotone"
+                  dataKey="equivalentWeeklyRate"
+                  stroke="#ef4444"
+                  strokeWidth={2}
+                  dot={{ fill: '#ef4444', r: 3 }}
+                  name="Equivalent Weekly Rate (Rate Normalized to Weekly Payout)"
+                />
+              </ComposedChart>
+            ) : (
+              <BarChart
+                data={individualChartData.chartData}
+                margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis
+                  dataKey="exDate"
+                  stroke="#94a3b8"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => {
+                    if (!value) return '';
+                    try {
+                      return new Date(value).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                    } catch {
+                      return '';
+                    }
+                  }}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => {
+                    if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
+                      return `$${value.toFixed(2)}`;
+                    }
+                    return '';
+                  }}
+                  width={50}
+                  domain={[0, 'dataMax']}
+                  allowDataOverflow={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "rgba(255, 255, 255, 0.98)",
+                    border: "none",
+                    borderRadius: "8px",
+                    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                  }}
+                  formatter={(value: number | string, name: string, props: any) => {
+                    const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+                    if (typeof numValue === 'number' && !isNaN(numValue) && isFinite(numValue)) {
+                      return [`$${numValue.toFixed(4)}`, 'Dividend'];
+                    }
+                    return ['N/A', 'Dividend'];
+                  }}
+                  labelFormatter={(label, payload) => {
+                    if (payload && payload[0] && payload[0].payload && payload[0].payload.exDate) {
+                      const exDate = new Date(payload[0].payload.exDate);
+                      return `Ex-Date: ${exDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+                    }
+                    if (label) {
+                      return `Ex-Date: ${new Date(label).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+                    }
+                    return 'Ex-Date: N/A';
+                  }}
+                />
+                <Bar
+                  dataKey="amount"
+                  fill="#3b82f6"
+                  radius={[2, 2, 0, 0]}
+                  minPointSize={3}
+                />
+              </BarChart>
+            )}
+          </ResponsiveContainer>
+          <div className="text-center text-xs text-muted-foreground mt-1">
+            Adjusted Dividends Bar Chart
+          </div>
+>>>>>>> Stashed changes
           </div>
         </div>
       ) : null}
