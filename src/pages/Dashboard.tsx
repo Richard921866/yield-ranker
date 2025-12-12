@@ -146,9 +146,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     const loadETFData = async () => {
+      console.log("[Dashboard] Starting to load ETF data...");
       setIsLoadingData(true);
       try {
         const result = await fetchETFDataWithMetadata();
+        console.log("[Dashboard] Fetched ETF data:", result.etfs?.length || 0, "ETFs");
         const seen = new Set<string>();
         const deduplicated = result.etfs.filter((etf) => {
           if (seen.has(etf.symbol)) {
@@ -157,6 +159,7 @@ export default function Dashboard() {
           seen.add(etf.symbol);
           return true;
         });
+        console.log("[Dashboard] Deduplicated ETFs:", deduplicated.length);
         setEtfData(deduplicated);
 
         // Clean up favorites to remove symbols that no longer exist
@@ -1725,7 +1728,7 @@ export default function Dashboard() {
                       return d[dataKey];
                     }
                     return d.price;
-                  }).filter(v => typeof v === 'number' && !isNaN(v));
+                  }).filter((v): v is number => typeof v === 'number' && !isNaN(v));
                   const minValue = chartValues.length > 0 ? Math.min(...chartValues, 0) : -10;
                   const maxValue = chartValues.length > 0 ? Math.max(...chartValues, 0) : 10;
 
