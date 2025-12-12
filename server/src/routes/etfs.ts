@@ -261,7 +261,7 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
 
     if (dividendUpdates.length > 0) {
       logger.info('Upload', `Updating dividend amounts for ${dividendUpdates.length} ticker(s)`);
-
+      
       for (const { ticker, divAmount } of dividendUpdates) {
         // Get the most recent dividend for this ticker (from Tiingo)
         const { data: recentDividends } = await supabase
@@ -328,13 +328,8 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
       deleted: deletedCount,
       skipped: skippedRows,
       dividendsUpdated,
-<<<<<<< Updated upstream
-      message: `Successfully updated ${records.length} ticker(s)${dividendsUpdated > 0 ? ` and ${dividendsUpdated} dividend amount(s)` : ''}`,
-      note: dividendUpdates.length > 0
-=======
       message: `Successfully updated ${records.length} ticker(s)${deletedCount > 0 ? `, removed ${deletedCount} ticker(s)` : ''}${dividendsUpdated > 0 ? ` and updated ${dividendsUpdated} dividend amount(s)` : ''}`,
       note: dividendUpdates.length > 0 
->>>>>>> Stashed changes
         ? 'Dividend amounts updated while preserving all Tiingo data (dates, split adjustments, etc.)'
         : 'Run "npm run seed:history" to fetch price/dividend data from Tiingo',
     });
@@ -401,7 +396,7 @@ router.post('/upload-dividends', upload.single('file'), async (req: Request, res
       }
     }
 
-    const rawData = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex, defval: null }) as Record<string, unknown>[];
+    const rawData = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex, defval: null, raw: false }) as Record<string, unknown>[];
 
     if (!rawData || rawData.length === 0) {
       cleanupFile(filePath);
@@ -455,13 +450,28 @@ router.post('/upload-dividends', upload.single('file'), async (req: Request, res
       }
 
       const ticker = String(symbolValue).trim().toUpperCase();
-      const divAmount = parseNumeric(divValue);
+      
+      let divAmount: number | null = null;
+      if (typeof divValue === 'number') {
+        divAmount = divValue;
+      } else {
+        const str = String(divValue).trim();
+        if (str && str !== 'n/a' && str !== 'N/A' && str !== '' && str !== '-') {
+          const cleaned = str.replace(/[^0-9.-]/g, '');
+          const parsed = parseFloat(cleaned);
+          if (!isNaN(parsed) && isFinite(parsed)) {
+            divAmount = parsed;
+          }
+        }
+      }
 
       if (!ticker || !divAmount || divAmount <= 0) {
         skippedRows++;
         errors.push(`Row ${rawData.indexOf(row) + 1}: Invalid ticker or dividend amount`);
         continue;
       }
+
+      logger.info('Upload', `Processing ${ticker}: dividend=${divAmount} (exact value: ${divValue}, type: ${typeof divValue})`);
 
       let exDate: string | null = null;
       let declareDate: string | null = null;
@@ -571,22 +581,49 @@ router.post('/upload-dividends', upload.single('file'), async (req: Request, res
     }
 
     const tickersToRecalc = [...new Set(records.map(r => r.ticker))];
+    const uploadedDividends = new Map<string, { amount: number; exDate: string }>();
+    records.forEach(r => {
+      const existing = uploadedDividends.get(r.ticker);
+      if (!existing || new Date(r.ex_date) > new Date(existing.exDate)) {
+        uploadedDividends.set(r.ticker, { amount: r.div_cash, exDate: r.ex_date });
+      }
+    });
+
     logger.info('Upload', `Recalculating metrics for ${tickersToRecalc.length} ticker(s)`);
 
     const recalcResults: Array<{ ticker: string; success: boolean; error?: string }> = [];
 
     for (const ticker of tickersToRecalc) {
       try {
+        const uploadedDivData = uploadedDividends.get(ticker);
+        const uploadedDiv = uploadedDivData?.amount ?? null;
         const metrics = await calculateMetrics(ticker);
+        const staticData = await supabase
+          .from('etf_static')
+          .select('payments_per_year, price')
+          .eq('ticker', ticker)
+          .single();
+
+        const paymentsPerYear = staticData.data?.payments_per_year ?? 12;
+        const currentPrice = metrics.currentPrice ?? staticData.data?.price ?? null;
+        
+        const lastDividend = uploadedDiv ?? metrics.lastDividend;
+        const annualDividend = lastDividend ? lastDividend * paymentsPerYear : metrics.annualizedDividend;
+        const forwardYield = currentPrice && annualDividend ? (annualDividend / currentPrice) * 100 : metrics.forwardYield;
+
+        if (uploadedDiv !== null) {
+          logger.info('Upload', `Using exact uploaded dividend for ${ticker}: ${uploadedDiv} (not recalculated from DB)`);
+        }
+
         const { error: updateError } = await supabase
           .from('etf_static')
           .update({
             price: metrics.currentPrice,
             price_change: metrics.priceChange,
             price_change_pct: metrics.priceChangePercent,
-            last_dividend: metrics.lastDividend,
-            annual_dividend: metrics.annualizedDividend,
-            forward_yield: metrics.forwardYield,
+            last_dividend: lastDividend,
+            annual_dividend: annualDividend,
+            forward_yield: forwardYield,
             dividend_sd: metrics.dividendSD,
             dividend_cv: metrics.dividendCV,
             dividend_cv_percent: metrics.dividendCVPercent,
