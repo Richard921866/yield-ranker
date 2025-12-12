@@ -2234,8 +2234,8 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-h-screen">
-        <main className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-hidden">
+        <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 flex items-center flex-shrink-0">
             <div className="flex items-center justify-between w-full gap-4">
               <div className="flex items-center gap-3">
