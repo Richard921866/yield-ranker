@@ -83,6 +83,9 @@ const AdminPanel = () => {
   const [deleteTicker, setDeleteTicker] = useState("");
   const [deletingETF, setDeletingETF] = useState(false);
   const [deleteETFStatus, setDeleteETFStatus] = useState("");
+  const [availableTickers, setAvailableTickers] = useState<string[]>([]);
+  const [deleteTickerSearch, setDeleteTickerSearch] = useState("");
+  const [loadingTickers, setLoadingTickers] = useState(false);
 
   const userMetadata =
     (user?.user_metadata as {
@@ -105,8 +108,29 @@ const AdminPanel = () => {
   useEffect(() => {
     if (!isAdmin) {
       navigate("/dashboard", { replace: true });
+    } else {
+      loadAvailableTickers();
     }
   }, [isAdmin, navigate]);
+
+  const loadAvailableTickers = async () => {
+    setLoadingTickers(true);
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || "";
+      const response = await fetch(`${apiUrl}/api/etfs`);
+      if (response.ok) {
+        const data = await response.json();
+        const tickers = Array.isArray(data) 
+          ? data.map((etf: any) => etf.ticker || etf.symbol).filter(Boolean).sort()
+          : (data.data || []).map((etf: any) => etf.ticker || etf.symbol).filter(Boolean).sort();
+        setAvailableTickers([...new Set(tickers)]);
+      }
+    } catch (error) {
+      console.error("Failed to load tickers:", error);
+    } finally {
+      setLoadingTickers(false);
+    }
+  };
 
   useEffect(() => {
     const path = location.pathname;
@@ -489,6 +513,8 @@ const AdminPanel = () => {
         description: result.message,
       });
       setDeleteTicker("");
+      setDeleteTickerSearch("");
+      loadAvailableTickers();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Delete failed";
       setDeleteETFStatus(`Error: ${message}`);
@@ -1039,31 +1065,33 @@ const AdminPanel = () => {
                           onChange={handleFileChange}
                           className="border-2"
                         />
-                        {uploadFile && (
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Selected: {uploadFile.name}
-                          </p>
-                        )}
                       </div>
                       <div className="flex items-end">
-                        <Button
-                          onClick={handleUploadDTR}
-                          disabled={!uploadFile || uploading}
-                          className="w-full sm:w-auto"
-                        >
-                        {uploading ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                            Uploading...
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="w-4 h-4 mr-2" />
-                            Upload & Process
-                          </>
-                        )}
-                      </Button>
-                    </div>
+                        <div className="flex flex-col gap-2">
+                          {uploadFile && (
+                            <p className="text-sm text-muted-foreground">
+                              Selected: {uploadFile.name}
+                            </p>
+                          )}
+                          <Button
+                            onClick={handleUploadDTR}
+                            disabled={!uploadFile || uploading}
+                            className="w-full sm:w-auto"
+                          >
+                            {uploading ? (
+                              <>
+                                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-4 h-4 mr-2" />
+                                Upload & Process
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
 
                     {uploadStatus && (
                       <Card
@@ -1095,17 +1123,58 @@ const AdminPanel = () => {
                     </p>
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
                       <div className="flex-1">
-                        <Input
-                          id="delete-ticker-input"
-                          placeholder="Enter ticker symbol (e.g., QYLD)"
-                          value={deleteTicker}
-                          onChange={(e) => setDeleteTicker(e.target.value.toUpperCase())}
-                          className="border-2"
-                        />
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="delete-ticker-input"
+                            placeholder="Search and select ticker symbol..."
+                            value={deleteTickerSearch}
+                            onChange={(e) => {
+                              const search = e.target.value.toUpperCase();
+                              setDeleteTickerSearch(search);
+                              const matched = availableTickers.find(t => t === search);
+                              if (matched) {
+                                setDeleteTicker(matched);
+                              } else {
+                                setDeleteTicker(search);
+                              }
+                            }}
+                            className="border-2 pl-10"
+                            list="ticker-options"
+                          />
+                          <datalist id="ticker-options">
+                            {availableTickers
+                              .filter(t => !deleteTickerSearch || t.includes(deleteTickerSearch))
+                              .slice(0, 20)
+                              .map(ticker => (
+                                <option key={ticker} value={ticker} />
+                              ))}
+                          </datalist>
+                        </div>
+                        {deleteTickerSearch && availableTickers.filter(t => t.includes(deleteTickerSearch)).length > 0 && (
+                          <div className="mt-2 max-h-40 overflow-y-auto border border-slate-200 rounded-md bg-white">
+                            {availableTickers
+                              .filter(t => t.includes(deleteTickerSearch))
+                              .slice(0, 10)
+                              .map(ticker => (
+                                <button
+                                  key={ticker}
+                                  type="button"
+                                  onClick={() => {
+                                    setDeleteTicker(ticker);
+                                    setDeleteTickerSearch(ticker);
+                                  }}
+                                  className="w-full text-left px-3 py-2 hover:bg-slate-100 text-sm"
+                                >
+                                  {ticker}
+                                </button>
+                              ))}
+                          </div>
+                        )}
                       </div>
                       <Button
                         onClick={handleDeleteETF}
-                        disabled={!deleteTicker || deletingETF}
+                        disabled={!deleteTicker || deletingETF || !availableTickers.includes(deleteTicker)}
                         variant="destructive"
                         className="w-full sm:w-auto"
                       >
