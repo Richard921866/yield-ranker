@@ -62,7 +62,7 @@ const formatDate = (value: string) =>
   }).format(new Date(value));
 
 const AdminPanel = () => {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -186,6 +186,7 @@ const AdminPanel = () => {
       fetchProfiles();
       fetchSiteSettings();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
   const fetchSiteSettings = async () => {
@@ -500,12 +501,13 @@ const AdminPanel = () => {
       return;
     }
 
+    const tickerToDelete = deleteTicker.trim().toUpperCase();
     setDeletingETF(true);
     setDeleteETFStatus("");
 
     try {
       const apiUrl = import.meta.env.VITE_API_URL || "";
-      const response = await fetch(`${apiUrl}/api/etfs/${deleteTicker.trim().toUpperCase()}`, {
+      const response = await fetch(`${apiUrl}/api/etfs/${tickerToDelete}`, {
         method: "DELETE",
       });
 
@@ -516,14 +518,15 @@ const AdminPanel = () => {
       }
 
       clearETFCache();
-      setDeleteETFStatus(`Successfully deleted ${deleteTicker.trim().toUpperCase()}`);
+      setDeleteETFStatus(`Successfully deleted ${tickerToDelete}`);
       toast({
         title: "ETF deleted",
         description: result.message,
       });
       setDeleteTicker("");
       await loadAvailableTickers();
-      window.dispatchEvent(new CustomEvent('etfDeleted', { detail: { ticker: deleteTicker.trim().toUpperCase() } }));
+      // Dispatch event with the ticker that was actually deleted
+      window.dispatchEvent(new CustomEvent('etfDeleted', { detail: { ticker: tickerToDelete } }));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Delete failed";
       setDeleteETFStatus(`Error: ${message}`);
@@ -577,6 +580,18 @@ const AdminPanel = () => {
       setExporting(false);
     }
   };
+
+  // Show loading state while checking admin status
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary mb-4" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAdmin) {
     return null;

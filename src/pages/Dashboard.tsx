@@ -225,8 +225,14 @@ export default function Dashboard() {
       if (selectedETF?.symbol === deletedTicker) {
         setSelectedETF(null);
         setChartData([]);
+      } else {
+        // If deleted ETF was in comparison, remove it and rebuild chart
+        setComparisonETFs((prev) => {
+          const filtered = prev.filter((s) => s !== deletedTicker);
+          // If the comparison ETFs changed, the chart will rebuild via useEffect
+          return filtered;
+        });
       }
-      setComparisonETFs((prev) => prev.filter((s) => s !== deletedTicker));
       clearETFCache();
       const reloadData = async () => {
         const result = await fetchETFDataWithMetadata();

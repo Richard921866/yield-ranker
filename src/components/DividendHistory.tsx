@@ -489,27 +489,46 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield }: D
                     allowDataOverflow={false}
                   />
                   <RechartsTooltip
-                    contentStyle={{
-                      backgroundColor: "rgba(255, 255, 255, 0.98)",
-                      border: "none",
-                      borderRadius: "8px",
-                      boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-                    }}
-                    formatter={(value: number | string, name: string, props: any) => {
-                      const numValue = typeof value === 'number' ? value : parseFloat(String(value));
-                      if (typeof numValue === 'number' && !isNaN(numValue) && isFinite(numValue)) {
-                        if (name === 'amount') {
-                          return [`$${numValue.toFixed(4)}`, 'Payment'];
-                        } else if (name === 'equivalentWeeklyRate') {
-                          return [`$${numValue.toFixed(4)}`, 'Weekly Rate'];
-                        }
-                        return [`$${numValue.toFixed(4)}`, name];
-                      }
-                      return ['N/A', name];
-                    }}
-                    labelFormatter={(label) => {
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload || !payload.length) return null;
+                      
+                      const data = payload[0]?.payload;
+                      if (!data) return null;
+                      
                       const date = new Date(label);
-                      return `Ex-Date: ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                      const exDateStr = `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })},${date.getFullYear()}`;
+                      
+                      const amount = payload.find(p => p.dataKey === 'amount')?.value;
+                      const weeklyRate = payload.find(p => p.dataKey === 'equivalentWeeklyRate')?.value;
+                      
+                      const amountValue = typeof amount === 'number' ? amount : parseFloat(String(amount || 0));
+                      const weeklyValue = typeof weeklyRate === 'number' ? weeklyRate : parseFloat(String(weeklyRate || 0));
+                      
+                      return (
+                        <div
+                          style={{
+                            backgroundColor: "rgba(255, 255, 255, 0.98)",
+                            border: "none",
+                            borderRadius: "8px",
+                            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                            padding: "8px 12px",
+                          }}
+                        >
+                          <div style={{ fontWeight: 500, marginBottom: '4px' }}>
+                            Ex-Date: {exDateStr}
+                          </div>
+                          {!isNaN(amountValue) && isFinite(amountValue) && (
+                            <div style={{ fontSize: '12px', marginBottom: '2px' }}>
+                              BAR: Actual Div {amountValue.toFixed(4)}
+                            </div>
+                          )}
+                          {!isNaN(weeklyValue) && isFinite(weeklyValue) && (
+                            <div style={{ fontSize: '12px' }}>
+                              LINE: Normalized Div {weeklyValue.toFixed(4)}
+                            </div>
+                          )}
+                        </div>
+                      );
                     }}
                   />
                   <Bar dataKey="amount" fill="#93c5fd" radius={[2, 2, 0, 0]} name="Individual Payment Amount (Monthly/Weekly)" minPointSize={3} />

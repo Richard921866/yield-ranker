@@ -209,9 +209,9 @@ const ETFDetail = () => {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl sm:text-2xl font-bold">TOTAL RETURN CHART</h2>
             <Button
-              variant="outline"
+              variant="default"
               onClick={() => navigate(`/etf/${etf.symbol}/dividends`)}
-              className="gap-2 font-bold text-base"
+              className="gap-2 font-bold text-base bg-accent text-white hover:bg-accent/90"
             >
               View Dividend History
             </Button>
