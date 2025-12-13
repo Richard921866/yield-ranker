@@ -16,6 +16,9 @@ import { logger, parseNumeric } from '../utils/index.js';
 import type { ETFStaticRecord } from '../types/index.js';
 import { calculateMetrics } from '../services/metrics.js';
 import { fetchDividendDates, getLatestDividendDates } from '../services/alphaVantage.js';
+import { fetchPriceHistory, fetchDividendHistory } from '../services/tiingo.js';
+import { getDateDaysAgo } from '../utils/index.js';
+import type { TiingoPriceData } from '../types/index.js';
 
 const router: Router = Router();
 
@@ -347,10 +350,12 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
       updated: updatedTickers.length,
       skipped: skippedRows,
       dividendsUpdated,
-      message: `Successfully processed ${records.length} ticker(s): ${newTickers.length} added, ${updatedTickers.length} updated${dividendsUpdated > 0 ? `, ${dividendsUpdated} dividend amount(s) updated` : ''}`,
+      message: `Successfully processed ${records.length} ticker(s): ${newTickers.length} added, ${updatedTickers.length} updated${dividendsUpdated > 0 ? `, ${dividendsUpdated} dividend amount(s) updated` : ''}${newTickers.length > 0 ? `. Automatically fetched price/dividend data and calculated metrics for new tickers.` : ''}`,
       note: dividendUpdates.length > 0
         ? 'Dividend amounts updated while preserving all Tiingo data (dates, split adjustments, etc.)'
-        : 'Run "npm run seed:history" to fetch price/dividend data from Tiingo',
+        : newTickers.length > 0 
+          ? 'Price/dividend data automatically fetched from Tiingo and metrics calculated'
+          : 'All data up to date',
     });
   } catch (error) {
     logger.error('Upload', `Error processing file: ${(error as Error).message}`);
