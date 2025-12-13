@@ -1239,6 +1239,33 @@ router.delete('/:ticker', async (req: Request, res: Response): Promise<void> => 
     const upperTicker = ticker.toUpperCase();
     const supabase = getSupabase();
 
+    const { error: deleteDividendsError } = await supabase
+      .from('dividends_detail')
+      .delete()
+      .eq('ticker', upperTicker);
+
+    if (deleteDividendsError) {
+      logger.warn('Routes', `Failed to delete from dividends_detail: ${deleteDividendsError.message}`);
+    }
+
+    const { error: deletePricesError } = await supabase
+      .from('prices_daily')
+      .delete()
+      .eq('ticker', upperTicker);
+
+    if (deletePricesError) {
+      logger.warn('Routes', `Failed to delete from prices_daily: ${deletePricesError.message}`);
+    }
+
+    const { error: deleteSyncLogError } = await supabase
+      .from('data_sync_log')
+      .delete()
+      .eq('ticker', upperTicker);
+
+    if (deleteSyncLogError) {
+      logger.warn('Routes', `Failed to delete from data_sync_log: ${deleteSyncLogError.message}`);
+    }
+
     const { error: deleteStaticError } = await supabase
       .from('etf_static')
       .delete()

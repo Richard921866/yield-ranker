@@ -7,6 +7,13 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -515,8 +522,7 @@ const AdminPanel = () => {
         description: result.message,
       });
       setDeleteTicker("");
-      setDeleteTickerSearch("");
-      loadAvailableTickers();
+      await loadAvailableTickers();
       window.dispatchEvent(new CustomEvent('etfDeleted', { detail: { ticker: deleteTicker.trim().toUpperCase() } }));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Delete failed";
@@ -1104,58 +1110,34 @@ const AdminPanel = () => {
                       Delete ETF
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Remove an ETF from the system by entering its ticker symbol.
+                      Remove an ETF from the system by selecting its ticker symbol.
                     </p>
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
                       <div className="flex-1">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                          <Input
-                            id="delete-ticker-input"
-                            placeholder="Search and select ticker symbol..."
-                            value={deleteTickerSearch}
-                            onChange={(e) => {
-                              const search = e.target.value.toUpperCase();
-                              setDeleteTickerSearch(search);
-                              const matched = availableTickers.find(t => t === search);
-                              if (matched) {
-                                setDeleteTicker(matched);
-                              } else {
-                                setDeleteTicker(search);
-                              }
-                            }}
-                            className="border-2 pl-10"
-                            list="ticker-options"
-                          />
-                          <datalist id="ticker-options">
-                            {availableTickers
-                              .filter(t => !deleteTickerSearch || t.includes(deleteTickerSearch))
-                              .slice(0, 20)
-                              .map(ticker => (
-                                <option key={ticker} value={ticker} />
-                              ))}
-                          </datalist>
-                        </div>
-                        {deleteTickerSearch && availableTickers.filter(t => t.includes(deleteTickerSearch)).length > 0 && (
-                          <div className="mt-2 max-h-40 overflow-y-auto border border-slate-200 rounded-md bg-white">
-                            {availableTickers
-                              .filter(t => t.includes(deleteTickerSearch))
-                              .slice(0, 10)
-                              .map(ticker => (
-                                <button
-                                  key={ticker}
-                                  type="button"
-                                  onClick={() => {
-                                    setDeleteTicker(ticker);
-                                    setDeleteTickerSearch(ticker);
-                                  }}
-                                  className="w-full text-left px-3 py-2 hover:bg-slate-100 text-sm"
-                                >
+                        <Select
+                          value={deleteTicker || undefined}
+                          onValueChange={(value) => {
+                            setDeleteTicker(value);
+                          }}
+                          disabled={loadingTickers || deletingETF}
+                        >
+                          <SelectTrigger className="w-full border-2">
+                            <SelectValue placeholder={loadingTickers ? "Loading tickers..." : "Select ticker symbol to delete"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableTickers.length > 0 ? (
+                              availableTickers.map((ticker) => (
+                                <SelectItem key={ticker} value={ticker}>
                                   {ticker}
-                                </button>
-                              ))}
-                          </div>
-                        )}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="" disabled>
+                                No ETFs available
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <Button
                         onClick={handleDeleteETF}
