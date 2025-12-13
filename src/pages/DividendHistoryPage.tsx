@@ -148,6 +148,7 @@ const DividendHistoryPage = () => {
               ticker={symbol} 
               annualDividend={etf?.annualDividend ?? null}
               dvi={etf?.dividendCVPercent ?? null}
+              forwardYield={etf?.forwardYield ?? null}
             />
           )}
         </div>

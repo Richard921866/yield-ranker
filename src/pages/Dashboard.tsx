@@ -3406,6 +3406,8 @@ export default function Dashboard() {
               <DividendHistory
                 ticker={dividendModalSymbol}
                 annualDividend={etfData.find(e => e.symbol === dividendModalSymbol)?.annualDividend ?? null}
+                dvi={etfData.find(e => e.symbol === dividendModalSymbol)?.dividendCVPercent ?? null}
+                forwardYield={etfData.find(e => e.symbol === dividendModalSymbol)?.forwardYield ?? null}
               />
             )}
           </DialogContent>
