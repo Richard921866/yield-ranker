@@ -249,11 +249,38 @@ export default function Dashboard() {
       reloadData();
     };
 
+    const handleETFDataUpdated = () => {
+      clearETFCache();
+      const reloadData = async () => {
+        setIsLoadingData(true);
+        try {
+          const result = await fetchETFDataWithMetadata();
+          const seen = new Set<string>();
+          const deduplicated = result.etfs.filter((etf) => {
+            if (seen.has(etf.symbol)) {
+              return false;
+            }
+            seen.add(etf.symbol);
+            return true;
+          });
+          setEtfData(deduplicated);
+          cleanupFavorites(deduplicated.map(etf => etf.symbol));
+        } catch (error) {
+          console.error("[Dashboard] Failed to reload ETF data:", error);
+        } finally {
+          setIsLoadingData(false);
+        }
+      };
+      reloadData();
+    };
+
     window.addEventListener('etfDeleted', handleETFDeleted as EventListener);
+    window.addEventListener('etfDataUpdated', handleETFDataUpdated);
     return () => {
       window.removeEventListener('etfDeleted', handleETFDeleted as EventListener);
+      window.removeEventListener('etfDataUpdated', handleETFDataUpdated);
     };
-  }, [selectedETF]);
+  }, [selectedETF, cleanupFavorites]);
 
 
   const fetchAdminProfiles = useCallback(async () => {

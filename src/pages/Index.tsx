@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Header } from "@/components/Header";
 import { ETFTable } from "@/components/ETFTable";
-import { fetchETFData, fetchETFDataWithMetadata } from "@/services/etfData";
+import { fetchETFData, fetchETFDataWithMetadata, clearETFCache } from "@/services/etfData";
 import { rankETFs } from "@/utils/ranking";
 import { ETF } from "@/types/etf";
 import { Loader2 } from "lucide-react";
@@ -121,6 +121,17 @@ const Index = () => {
     loadSiteSettings();
     // Removed auto-refresh interval: once data is loaded from our database,
     // keep it stable for a clean, non-jittery experience.
+
+    // Listen for ETF data updates (e.g., after upload)
+    const handleETFDataUpdated = () => {
+      clearETFCache();
+      loadData();
+    };
+
+    window.addEventListener('etfDataUpdated', handleETFDataUpdated);
+    return () => {
+      window.removeEventListener('etfDataUpdated', handleETFDataUpdated);
+    };
   }, []);
 
   // Function to load weights from profile

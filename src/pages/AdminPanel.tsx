@@ -482,6 +482,13 @@ const AdminPanel = () => {
         "dtr-file-input"
       ) as HTMLInputElement;
       if (fileInput) fileInput.value = "";
+      
+      // Clear cache and reload data
+      clearETFCache();
+      await loadAvailableTickers();
+      
+      // Dispatch event to refresh data on other pages
+      window.dispatchEvent(new CustomEvent('etfDataUpdated'));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Upload failed";
       setUploadStatus(`Error: ${message}`);
