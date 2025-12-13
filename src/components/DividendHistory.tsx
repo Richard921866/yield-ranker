@@ -492,19 +492,22 @@ export function DividendHistory({ ticker, annualDividend, dvi }: DividendHistory
                       borderRadius: "8px",
                       boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
                     }}
-                    formatter={(value: number | string, name: string) => {
+                    formatter={(value: number | string, name: string, props: any) => {
                       const numValue = typeof value === 'number' ? value : parseFloat(String(value));
                       if (typeof numValue === 'number' && !isNaN(numValue) && isFinite(numValue)) {
                         if (name === 'amount') {
-                          return [`$${numValue.toFixed(4)}`, 'Individual Payment Amount (Monthly/Weekly)'];
+                          return [`$${numValue.toFixed(4)}`, 'Payment'];
                         } else if (name === 'equivalentWeeklyRate') {
-                          return [`$${numValue.toFixed(4)}`, 'Equivalent Weekly Rate (Rate Normalized to Weekly Payout)'];
+                          return [`$${numValue.toFixed(4)}`, 'Weekly Rate'];
                         }
                         return [`$${numValue.toFixed(4)}`, name];
                       }
                       return ['N/A', name];
                     }}
-                    labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    labelFormatter={(label) => {
+                      const date = new Date(label);
+                      return `Ex-Date: ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                    }}
                   />
                   <Bar dataKey="amount" fill="#93c5fd" radius={[2, 2, 0, 0]} name="Individual Payment Amount (Monthly/Weekly)" minPointSize={3} />
                   <Line
@@ -566,7 +569,10 @@ export function DividendHistory({ ticker, annualDividend, dvi }: DividendHistory
                       }
                       return ['N/A', 'Dividend'];
                     }}
-                    labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    labelFormatter={(label) => {
+                      const date = new Date(label);
+                      return `Ex-Date: ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                    }}
                   />
                   <Bar
                     dataKey="amount"

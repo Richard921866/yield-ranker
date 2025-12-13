@@ -258,15 +258,6 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
       }
     }
 
-    if (upsertError) {
-      cleanupFile(filePath);
-      res.status(500).json({
-        error: 'Failed to save static data',
-        details: upsertError.message,
-      });
-      return;
-    }
-
     const allProcessedRecords = [...newTickers, ...updatedTickers];
     const legacyRecords = allProcessedRecords.map(r => ({
       symbol: r.ticker,

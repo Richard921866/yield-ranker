@@ -6,6 +6,7 @@ import {
   fetchETFDataWithMetadata,
   fetchComparisonData,
   generateChartData,
+  clearETFCache,
   ChartType,
   ComparisonTimeframe,
 } from "@/services/etfData";
@@ -199,7 +200,37 @@ export default function Dashboard() {
 
     loadETFData();
     loadSiteSettings();
-  }, []);
+
+    const handleETFDeleted = (event: CustomEvent<{ ticker: string }>) => {
+      const deletedTicker = event.detail.ticker;
+      setEtfData((prev) => prev.filter((etf) => etf.symbol !== deletedTicker));
+      if (selectedETF?.symbol === deletedTicker) {
+        setSelectedETF(null);
+        setChartData([]);
+      }
+      setComparisonETFs((prev) => prev.filter((s) => s !== deletedTicker));
+      clearETFCache();
+      const reloadData = async () => {
+        const result = await fetchETFDataWithMetadata();
+        const seen = new Set<string>();
+        const deduplicated = result.etfs.filter((etf) => {
+          if (seen.has(etf.symbol)) {
+            return false;
+          }
+          seen.add(etf.symbol);
+          return true;
+        });
+        setEtfData(deduplicated);
+        cleanupFavorites(deduplicated.map(etf => etf.symbol));
+      };
+      reloadData();
+    };
+
+    window.addEventListener('etfDeleted', handleETFDeleted as EventListener);
+    return () => {
+      window.removeEventListener('etfDeleted', handleETFDeleted as EventListener);
+    };
+  }, [selectedETF, cleanupFavorites]);
 
 
   const fetchAdminProfiles = useCallback(async () => {

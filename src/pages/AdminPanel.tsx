@@ -24,6 +24,7 @@ import {
   updateSiteSetting,
   SiteSetting,
 } from "@/services/admin";
+import { clearETFCache } from "@/services/etfData";
 import {
   ArrowUpDown,
   BarChart3,
@@ -507,6 +508,7 @@ const AdminPanel = () => {
         throw new Error(result.error || result.details || "Delete failed");
       }
 
+      clearETFCache();
       setDeleteETFStatus(`Successfully deleted ${deleteTicker.trim().toUpperCase()}`);
       toast({
         title: "ETF deleted",
@@ -515,6 +517,7 @@ const AdminPanel = () => {
       setDeleteTicker("");
       setDeleteTickerSearch("");
       loadAvailableTickers();
+      window.dispatchEvent(new CustomEvent('etfDeleted', { detail: { ticker: deleteTicker.trim().toUpperCase() } }));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Delete failed";
       setDeleteETFStatus(`Error: ${message}`);
