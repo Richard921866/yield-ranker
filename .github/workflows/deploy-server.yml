@@ -6,9 +6,9 @@ on:
       - main
       - master
     paths:
-      - 'server/**'
-      - '.github/workflows/deploy-server.yml'
-  workflow_dispatch:  # Allow manual trigger
+      - "server/**"
+      - ".github/workflows/deploy-server.yml"
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -20,21 +20,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: npm i -g pnpm
+
+      # ✅ This step forces TypeScript errors to print in GitHub Actions
+      - name: TypeScript build (prints errors)
+        run: |
+          set -euxo pipefail
+          cd server
+          pnpm install --frozen-lockfile
+          pnpm exec tsc -p tsconfig.json --pretty false
+
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
-      - name: Deploy to Railway
+      - name: Deploy to Railway (verbose)
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
+          set -euxo pipefail
           cd server
-          railway up --service ${{ secrets.RAILWAY_SERVICE_ID }}
-
-      - name: Report status
-        if: always()
-        run: |
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "✅ Deployed to Railway successfully"
-          else
-            echo "❌ Railway deployment failed"
-          fi
+          railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --verbose
