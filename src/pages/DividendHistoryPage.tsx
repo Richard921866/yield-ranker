@@ -103,50 +103,114 @@ const DividendHistoryPage = () => {
         )}
 
         {!isLoading && etf && (
-          <div className="mb-4 sm:mb-6 animate-in fade-in slide-in-from-bottom-4 duration-400 delay-100">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xl sm:text-2xl font-bold">DIVIDEND HISTORY CHART</h2>
-              <Button
-                variant="default"
-                onClick={() => navigate(`/etf/${etf.symbol}`)}
-                className="gap-2 font-bold text-base bg-accent text-white hover:bg-accent/90"
-              >
-                <BarChart3 className="h-4 w-4" />
-                View Total Return Chart
-              </Button>
-            </div>
-            {etf.symbol && (
-              <div className="mb-2">
-                <div className="flex items-baseline justify-between gap-4 flex-wrap">
-                  <div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl sm:text-3xl font-bold">{etf.symbol}</span>
-                      <span className="text-base sm:text-lg text-muted-foreground">{etf.name}</span>
-                    </div>
-                    {etf.price != null && (
-                      <div className="text-xl sm:text-2xl font-bold mt-1">${etf.price.toFixed(2)}</div>
-                    )}
+          <>
+            <div className="mb-4 sm:mb-6 animate-in fade-in slide-in-from-bottom-4 duration-400 delay-100">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xl sm:text-2xl font-bold">DIVIDEND HISTORY CHART</h2>
+                <Button
+                  variant="default"
+                  onClick={() => navigate(`/etf/${etf.symbol}`)}
+                  className="gap-2 font-bold text-base bg-accent text-white hover:bg-accent/90"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  View Total Return Chart
+                </Button>
+              </div>
+              {etf.symbol && (
+                <div className="mb-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl sm:text-3xl font-bold">{etf.symbol}</span>
+                    <span className="text-base sm:text-lg text-muted-foreground">{etf.name}</span>
                   </div>
-                  {etf.forwardYield != null && typeof etf.forwardYield === 'number' && !isNaN(etf.forwardYield) && (
-                    <div className="text-right">
-                      <div className="text-xs sm:text-sm text-muted-foreground mb-1">Yield</div>
-                      <div className="text-2xl sm:text-3xl font-bold text-primary">{etf.forwardYield.toFixed(2)}%</div>
-                      {etf.annualDividend != null && typeof etf.annualDividend === 'number' && !isNaN(etf.annualDividend) && (
-                        <div className="text-xs text-muted-foreground mt-1">Forward Yield</div>
-                      )}
+                  {etf.price != null && (
+                    <div className="text-xl sm:text-2xl font-bold mt-1">${etf.price.toFixed(2)}</div>
+                  )}
+                  {lastUpdated && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                      <Clock className="h-3 w-3" />
+                      <span>Last updated {lastUpdated}</span>
+                      <span className="text-primary font-medium">Source: Tiingo</span>
                     </div>
                   )}
                 </div>
-                {lastUpdated && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                    <Clock className="h-3 w-3" />
-                    <span>Last updated {lastUpdated}</span>
-                    <span className="text-primary font-medium">Source: Tiingo</span>
+              )}
+            </div>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 delay-150 mb-4">
+              <Card className="p-4">
+                <div className="flex flex-wrap gap-4 items-center justify-between">
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <span className="font-semibold text-foreground">Total Return:</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground">3 Yr:</span>
+                      <span className={`font-semibold ${
+                        (etf.trDrip3Yr ?? etf.totalReturn3Yr) != null && (etf.trDrip3Yr ?? etf.totalReturn3Yr)! >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {(etf.trDrip3Yr ?? etf.totalReturn3Yr) != null ? `${(etf.trDrip3Yr ?? etf.totalReturn3Yr)! >= 0 ? '+' : ''}${(etf.trDrip3Yr ?? etf.totalReturn3Yr)!.toFixed(1)}%` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground">12 Mo:</span>
+                      <span className={`font-semibold ${
+                        (etf.trDrip12Mo ?? etf.totalReturn12Mo) != null && (etf.trDrip12Mo ?? etf.totalReturn12Mo)! >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {(etf.trDrip12Mo ?? etf.totalReturn12Mo) != null ? `${(etf.trDrip12Mo ?? etf.totalReturn12Mo)! >= 0 ? '+' : ''}${(etf.trDrip12Mo ?? etf.totalReturn12Mo)!.toFixed(1)}%` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground">6 Mo:</span>
+                      <span className={`font-semibold ${
+                        (etf.trDrip6Mo ?? etf.totalReturn6Mo) != null && (etf.trDrip6Mo ?? etf.totalReturn6Mo)! >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {(etf.trDrip6Mo ?? etf.totalReturn6Mo) != null ? `${(etf.trDrip6Mo ?? etf.totalReturn6Mo)! >= 0 ? '+' : ''}${(etf.trDrip6Mo ?? etf.totalReturn6Mo)!.toFixed(1)}%` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground">3 Mo:</span>
+                      <span className={`font-semibold ${
+                        (etf.trDrip3Mo ?? etf.totalReturn3Mo) != null && (etf.trDrip3Mo ?? etf.totalReturn3Mo)! >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {(etf.trDrip3Mo ?? etf.totalReturn3Mo) != null ? `${(etf.trDrip3Mo ?? etf.totalReturn3Mo)! >= 0 ? '+' : ''}${(etf.trDrip3Mo ?? etf.totalReturn3Mo)!.toFixed(1)}%` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground">1 Mo:</span>
+                      <span className={`font-semibold ${
+                        (etf.trDrip1Mo ?? etf.totalReturn1Mo) != null && (etf.trDrip1Mo ?? etf.totalReturn1Mo)! >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {(etf.trDrip1Mo ?? etf.totalReturn1Mo) != null ? `${(etf.trDrip1Mo ?? etf.totalReturn1Mo)! >= 0 ? '+' : ''}${(etf.trDrip1Mo ?? etf.totalReturn1Mo)!.toFixed(1)}%` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground">1 Wk:</span>
+                      <span className={`font-semibold ${
+                        (etf.trDrip1Wk ?? etf.totalReturn1Wk) != null && (etf.trDrip1Wk ?? etf.totalReturn1Wk)! >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {(etf.trDrip1Wk ?? etf.totalReturn1Wk) != null ? `${(etf.trDrip1Wk ?? etf.totalReturn1Wk)! >= 0 ? '+' : ''}${(etf.trDrip1Wk ?? etf.totalReturn1Wk)!.toFixed(1)}%` : 'N/A'}
+                      </span>
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
-          </div>
+                  <div className="flex items-center gap-4 text-sm flex-wrap">
+                    <div>
+                      <span className="text-muted-foreground">Annual Div: </span>
+                      <span className="font-bold text-green-600">${etf.annualDividend?.toFixed(2) ?? 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Fwd Yield: </span>
+                      <span className="font-bold text-primary">{etf.forwardYield?.toFixed(2) ?? 'N/A'}%</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Div Volatility: </span>
+                      <span className="font-semibold">
+                        {etf.dividendCVPercent != null && etf.dividendCVPercent > 0 
+                          ? `${etf.dividendCVPercent.toFixed(1)}%` 
+                          : (etf.dividendVolatilityIndex || 'N/A')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </>
         )}
 
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 delay-200">

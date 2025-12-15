@@ -333,7 +333,7 @@ async function upsertDividends(
     return 0;
   }
 
-  return records.length;
+  return recordsToUpsert.length;
 }
 
 /**
