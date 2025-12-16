@@ -663,6 +663,17 @@ async function main(): Promise<void> {
       .forEach(r => console.log(`  - ${r.ticker}: ${r.message}`));
   }
 
+  // Clear API cache after update completes so frontend sees new timestamp
+  if (!options.dryRun && (successful > 0 || skipped > 0)) {
+    try {
+      const { deleteCached, CACHE_KEYS } = await import('../src/services/redis.js');
+      await deleteCached(CACHE_KEYS.ETF_LIST);
+      console.log('[Cache] ✅ Cleared ETF list cache');
+    } catch (error) {
+      console.warn('[Cache] ⚠️  Failed to clear cache:', (error as Error).message);
+    }
+  }
+
   // Exit with error code if any failures
   if (errors > 0) {
     process.exit(1);

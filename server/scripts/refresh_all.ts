@@ -354,6 +354,17 @@ async function main() {
   console.log(`Total: ${tickers.length}`);
   console.log('='.repeat(60));
 
+  // Clear API cache after refresh completes so frontend sees new timestamp
+  if (!options.dryRun && results.success > 0) {
+    try {
+      const { deleteCached, CACHE_KEYS } = await import('../src/services/redis.js');
+      await deleteCached(CACHE_KEYS.ETF_LIST);
+      console.log('\n[Cache] ✅ Cleared ETF list cache');
+    } catch (error) {
+      console.warn('\n[Cache] ⚠️  Failed to clear cache:', (error as Error).message);
+    }
+  }
+
   if (results.failed > 0) {
     process.exit(1);
   }
