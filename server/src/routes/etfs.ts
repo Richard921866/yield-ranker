@@ -296,15 +296,17 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
             
             const { data: existingDividends } = await supabase
               .from('dividends_detail')
-              .select('ex_date, description, div_cash')
+              .select('ex_date, description, div_cash, adj_amount')
               .eq('ticker', ticker.toUpperCase())
               .in('ex_date', exDatesToUpdate);
 
-            const manualUploadsMap = new Map<string, number>();
+            const manualUploadsMap = new Map<string, { divCash: number; adjAmount: number | null }>();
             (existingDividends || []).forEach(d => {
               if (d.description?.includes('Manual upload') || d.description?.includes('Early announcement')) {
                 const exDate = d.ex_date.split('T')[0];
-                manualUploadsMap.set(exDate, parseFloat(d.div_cash));
+                const divCash = parseFloat(d.div_cash);
+                const adjAmount = d.adj_amount ? parseFloat(d.adj_amount) : null;
+                manualUploadsMap.set(exDate, { divCash, adjAmount });
               }
             });
 
@@ -314,12 +316,19 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
             const dividendRecords = dividends
               .filter(d => {
                 const exDate = d.date.split('T')[0];
-                const manualDivCash = manualUploadsMap.get(exDate);
+                const manualDiv = manualUploadsMap.get(exDate);
                 
-                if (manualDivCash !== undefined) {
+                if (manualDiv !== undefined) {
                   const tiingoDivCash = d.dividend;
+                  const tiingoAdjAmount = d.adjDividend > 0 ? d.adjDividend : null;
                   const tolerance = 0.001;
-                  const isAligned = Math.abs(manualDivCash - tiingoDivCash) < tolerance;
+                  
+                  let isAligned = false;
+                  if (tiingoAdjAmount && manualDiv.adjAmount !== null) {
+                    isAligned = Math.abs(manualDiv.adjAmount - tiingoAdjAmount) < tolerance;
+                  } else {
+                    isAligned = Math.abs(manualDiv.divCash - tiingoDivCash) < tolerance;
+                  }
                   
                   if (isAligned) {
                     alignedCount++;
