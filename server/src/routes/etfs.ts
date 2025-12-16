@@ -999,7 +999,7 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     const syncLogTime = syncLogs?.updated_at ? new Date(syncLogs.updated_at).getTime() : 0;
     const etfUpdateTime = mostRecentETFUpdate ? new Date(mostRecentETFUpdate).getTime() : 0;
     
-    if (syncLogTime > etfUpdateTime && syncLogs?.updated_at) {
+    if (syncLogs?.updated_at && syncLogTime > etfUpdateTime) {
       lastUpdatedTimestamp = syncLogs.updated_at;
     } else if (mostRecentETFUpdate) {
       lastUpdatedTimestamp = mostRecentETFUpdate;
