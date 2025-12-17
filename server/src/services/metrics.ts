@@ -793,10 +793,15 @@ export async function calculateMetrics(ticker: string): Promise<ETFMetrics> {
     return dtype.includes('regular') || dtype === 'cash' || dtype === '' || !dtype.includes('special');
   });
 
-  // Sort by date descending to get most recent
-  const sortedRegular = [...regularDivs].sort(
-    (a, b) => new Date(b.ex_date).getTime() - new Date(a.ex_date).getTime()
-  );
+  // Sort by manual flag first (manual dividends take priority), then by date descending
+  const sortedRegular = [...regularDivs].sort((a, b) => {
+    const aManual = a.is_manual === true ? 1 : 0;
+    const bManual = b.is_manual === true ? 1 : 0;
+    if (aManual !== bManual) {
+      return bManual - aManual;
+    }
+    return new Date(b.ex_date).getTime() - new Date(a.ex_date).getTime();
+  });
 
   let lastDividend: number | null = null;
   if (sortedRegular.length > 0) {

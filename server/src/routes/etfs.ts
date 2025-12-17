@@ -960,6 +960,7 @@ router.post('/upload-dividends', upload.single('file'), async (req: Request, res
       metricsRecalculated: successCount,
       metricsFailed: failCount,
       recalcResults,
+      updatedTickers: tickersToRecalc,
       message: `Successfully uploaded ${records.length} dividend(s) and recalculated metrics for ${successCount} ticker(s)`,
       note: 'When Tiingo syncs, it will automatically match and update these dividends with official data',
     });

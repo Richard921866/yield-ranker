@@ -312,8 +312,7 @@ export async function getDividendHistory(
       let query = db
         .from('dividends_detail')
         .select('*')
-        .eq('ticker', ticker.toUpperCase())
-        .order('ex_date', { ascending: false });
+        .eq('ticker', ticker.toUpperCase());
 
       if (startDate) {
         query = query.gte('ex_date', startDate);
@@ -325,7 +324,16 @@ export async function getDividendHistory(
         throw new Error(error.message);
       }
 
-      return (data ?? []) as DividendRecord[];
+      const dividends = (data ?? []) as DividendRecord[];
+      
+      return dividends.sort((a, b) => {
+        const aManual = a.is_manual === true ? 1 : 0;
+        const bManual = b.is_manual === true ? 1 : 0;
+        if (aManual !== bManual) {
+          return bManual - aManual;
+        }
+        return new Date(b.ex_date).getTime() - new Date(a.ex_date).getTime();
+      });
     });
   } catch (error) {
     logger.error('Database', `Error fetching dividends for ${ticker}: ${(error as Error).message}`);

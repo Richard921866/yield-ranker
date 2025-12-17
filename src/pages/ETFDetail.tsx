@@ -98,7 +98,19 @@ const ETFDetail = () => {
     };
 
     loadData();
-  }, [symbol]);
+
+    const handleETFDataUpdated = () => {
+      loadData();
+      if (etf) {
+        buildChartData();
+      }
+    };
+
+    window.addEventListener('etfDataUpdated', handleETFDataUpdated);
+    return () => {
+      window.removeEventListener('etfDataUpdated', handleETFDataUpdated);
+    };
+  }, [symbol, etf, buildChartData]);
 
   const buildChartData = useCallback(async () => {
     if (!etf) return;
