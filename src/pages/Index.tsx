@@ -439,7 +439,6 @@ const Index = () => {
                   <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">
                     Covered Call Option ETFs
                   </h3>
-                  <CategorySelector />
                 </div>
                 <div className="text-xs text-muted-foreground leading-tight">
                   {lastDataUpdate ? (

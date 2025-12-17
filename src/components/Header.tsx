@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { NavLink } from "./NavLink";
 import { Logo } from "./Logo";
 import { Button } from "./ui/button";
@@ -13,6 +13,10 @@ import {
   ChevronDown,
   Star,
   BarChart3,
+  LayoutGrid,
+  FileText,
+  Mail,
+  CreditCard,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -20,12 +24,14 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
 } from "./ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 
 export const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, profile, signOut, loading } = useAuth();
   const isAuthenticated = !!user;
   const displayName =
@@ -43,6 +49,13 @@ export const Header = () => {
     await signOut();
     navigate("/login");
     setMobileMenuOpen(false);
+  };
+
+  const getCurrentCategory = (): string => {
+    if (location.pathname.startsWith("/cef")) {
+      return "Closed-End Funds";
+    }
+    return "Covered Call Option ETFs";
   };
 
   return (
@@ -63,6 +76,42 @@ export const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-2">
+            {/* Categories Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md flex items-center gap-1"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                  <span>Categories</span>
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold">
+                  Investment Categories
+                </DropdownMenuLabel>
+                <DropdownMenuItem 
+                  className="cursor-pointer"
+                  onClick={() => go("/")}
+                >
+                  <span className={location.pathname === "/" || location.pathname.startsWith("/etf/") ? "font-semibold text-primary" : ""}>
+                    Covered Call Option ETFs
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="cursor-pointer"
+                  onClick={() => go("/cef")}
+                >
+                  <span className={location.pathname.startsWith("/cef") ? "font-semibold text-primary" : ""}>
+                    Closed-End Funds
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* My Focus */}
             <Button
               variant="ghost"
               className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
@@ -70,34 +119,50 @@ export const Header = () => {
             >
               My Focus
             </Button>
-            <Button
-              variant="ghost"
-              className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
-              onClick={() => go("/covered-call-etfs")}
-            >
-              Covered Call Option ETFs
-            </Button>
+
+            {/* Resources Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md flex items-center gap-1"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Resources</span>
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold">
+                  Information & Help
+                </DropdownMenuLabel>
+                <DropdownMenuItem 
+                  className="cursor-pointer"
+                  onClick={() => go("/resources")}
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  <span>Resources</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="cursor-pointer"
+                  onClick={() => go("/contact")}
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  <span>Contact Us</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Plans */}
             <Button
               variant="ghost"
               className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
               onClick={() => go("/plans")}
             >
+              <CreditCard className="w-4 h-4 mr-1.5" />
               Plans
             </Button>
-            <Button
-              variant="ghost"
-              className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
-              onClick={() => go("/resources")}
-            >
-              Resources
-            </Button>
-            <Button
-              variant="ghost"
-              className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
-              onClick={() => go("/contact")}
-            >
-              Contact Us
-            </Button>
+
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -176,26 +241,40 @@ export const Header = () => {
       {mobileMenuOpen && (
         <div className="md:hidden border-t bg-background">
           <nav className="w-full px-6 flex flex-col py-2">
+            <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">
+              Categories
+            </div>
+            <Button
+              variant="ghost"
+              className={`justify-start px-4 py-3 text-base font-semibold hover:bg-slate-100 rounded-md ${
+                location.pathname === "/" || location.pathname.startsWith("/etf/")
+                  ? "text-primary bg-primary/5"
+                  : "text-foreground"
+              }`}
+              onClick={() => go("/")}
+            >
+              Covered Call Option ETFs
+            </Button>
+            <Button
+              variant="ghost"
+              className={`justify-start px-4 py-3 text-base font-semibold hover:bg-slate-100 rounded-md ${
+                location.pathname.startsWith("/cef")
+                  ? "text-primary bg-primary/5"
+                  : "text-foreground"
+              }`}
+              onClick={() => go("/cef")}
+            >
+              Closed-End Funds
+            </Button>
+            
+            <div className="border-t my-2"></div>
+            
             <Button
               variant="ghost"
               className="justify-start px-4 py-3 text-base font-semibold text-foreground hover:bg-slate-100 rounded-md"
               onClick={() => go("/focus")}
             >
               My Focus
-            </Button>
-            <Button
-              variant="ghost"
-              className="justify-start px-4 py-3 text-base font-semibold text-foreground hover:bg-slate-100 rounded-md"
-              onClick={() => go("/covered-call-etfs")}
-            >
-              Covered Call Option ETFs
-            </Button>
-            <Button
-              variant="ghost"
-              className="justify-start px-4 py-3 text-base font-semibold text-foreground hover:bg-slate-100 rounded-md"
-              onClick={() => go("/plans")}
-            >
-              Plans
             </Button>
             <Button
               variant="ghost"
@@ -210,6 +289,14 @@ export const Header = () => {
               onClick={() => go("/contact")}
             >
               Contact Us
+            </Button>
+            <Button
+              variant="ghost"
+              className="justify-start px-4 py-3 text-base font-semibold text-foreground hover:bg-slate-100 rounded-md"
+              onClick={() => go("/plans")}
+            >
+              <CreditCard className="w-4 h-4 mr-2" />
+              Plans
             </Button>
             {isAuthenticated ? (
               <div className="px-4 py-2.5">
