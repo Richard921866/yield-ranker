@@ -1029,11 +1029,13 @@ export default function Dashboard() {
 
     return (
       <Button
+        type="button"
         variant="ghost"
         size="sm"
         className={`h-8 hover:bg-slate-100 hover:text-foreground transition-colors ${align === "left" ? "-ml-3" : "-mr-3"
           } ${isActive ? "text-primary font-semibold" : ""}`}
         onClick={(e) => {
+          console.log('[Dashboard] SortButton clicked for field:', field);
           e.preventDefault();
           e.stopPropagation();
           handleSort(field);
