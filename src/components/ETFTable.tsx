@@ -86,9 +86,14 @@ export const ETFTable = ({
   };
 
   const handleSort = (field: SortField) => {
+    console.log('[ETFTable] handleSort called with field:', field);
+    console.log('[ETFTable] Current state - sortField:', sortField, 'sortDirection:', sortDirection);
     if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      const newDirection = sortDirection === "asc" ? "desc" : "asc";
+      console.log('[ETFTable] Same field, toggling direction to:', newDirection);
+      setSortDirection(newDirection);
     } else {
+      console.log('[ETFTable] Different field, setting to:', field, 'with direction: desc');
       setSortField(field);
       setSortDirection("desc");
     }
@@ -154,12 +159,14 @@ export const ETFTable = ({
 
     return (
       <Button
+        type="button"
         variant="ghost"
         size="sm"
         className={`h-8 hover:bg-slate-100 hover:text-foreground transition-colors ${align === "left" ? "-ml-3" : "-mr-3"} ${isActive ? "text-primary font-semibold" : ""}`}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          console.log('[ETFTable] SortButton clicked, calling handleSort with:', field);
           handleSort(field);
         }}
       >
