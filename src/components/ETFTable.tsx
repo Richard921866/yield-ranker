@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ETF } from "@/types/etf";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
@@ -22,6 +22,46 @@ interface ETFTableProps {
 
 type SortField = keyof ETF | null;
 type SortDirection = "asc" | "desc";
+
+const SortButton = ({
+  field,
+  children,
+  align = "left",
+  sortField,
+  sortDirection,
+  onSort,
+}: {
+  field: SortField;
+  children: React.ReactNode;
+  align?: "left" | "right";
+  sortField: SortField;
+  sortDirection: SortDirection;
+  onSort: (field: SortField) => void;
+}) => {
+  const isActive = sortField === field;
+  const Icon = isActive
+    ? sortDirection === "asc"
+      ? ChevronUp
+      : ChevronDown
+    : ArrowUpDown;
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className={`h-8 hover:bg-slate-100 hover:text-foreground transition-colors ${align === "left" ? "-ml-3" : "-mr-3"} ${isActive ? "text-primary font-semibold" : ""}`}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onSort(field);
+      }}
+    >
+      {children}
+      <Icon className={`ml-2 h-4 w-4 ${isActive ? "text-primary" : ""}`} />
+    </Button>
+  );
+};
 
 export const ETFTable = ({
   etfs,
@@ -85,19 +125,17 @@ export const ETFTable = ({
     }
   };
 
-  const handleSort = (field: SortField) => {
-    console.log('[ETFTable] handleSort called with field:', field);
-    console.log('[ETFTable] Current state - sortField:', sortField, 'sortDirection:', sortDirection);
-    if (sortField === field) {
-      const newDirection = sortDirection === "asc" ? "desc" : "asc";
-      console.log('[ETFTable] Same field, toggling direction to:', newDirection);
-      setSortDirection(newDirection);
-    } else {
-      console.log('[ETFTable] Different field, setting to:', field, 'with direction: desc');
-      setSortField(field);
-      setSortDirection("desc");
-    }
-  };
+  const handleSort = useCallback((field: SortField) => {
+    setSortField((prevField) => {
+      if (prevField === field) {
+        setSortDirection((prevDir) => (prevDir === "asc" ? "desc" : "asc"));
+        return prevField;
+      } else {
+        setSortDirection("desc");
+        return field;
+      }
+    });
+  }, []);
 
   const handleSelectionChange = (symbol: string) => {
     setSelectedSymbol(symbol);
@@ -176,310 +214,275 @@ export const ETFTable = ({
     return sorted;
   }, [etfs, sortField, sortDirection]);
 
-  const INITIAL_DISPLAY_COUNT = sortedETFs.length;
+  const INITIAL_DISPLAY_COUNT = 20;
   const displayedETFs = isExpanded
     ? sortedETFs
     : sortedETFs.slice(0, INITIAL_DISPLAY_COUNT);
-  const hasMore = false;
+  const hasMore = sortedETFs.length > INITIAL_DISPLAY_COUNT;
 
-  const SortButton = ({
-    field,
-    children,
-    align = "left",
-  }: {
-    field: SortField;
-    children: React.ReactNode;
-    align?: "left" | "right";
-  }) => {
-    const isActive = sortField === field;
-    const Icon = isActive
-      ? sortDirection === "asc"
-        ? ChevronUp
-        : ChevronDown
-      : ArrowUpDown;
-
-    return (
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className={`h-8 hover:bg-slate-100 hover:text-foreground transition-colors ${align === "left" ? "-ml-3" : "-mr-3"} ${isActive ? "text-primary font-semibold" : ""}`}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          console.log('[ETFTable] SortButton clicked, calling handleSort with:', field);
-          handleSort(field);
-        }}
-      >
-        {children}
-        <Icon className={`ml-2 h-4 w-4 ${isActive ? "text-primary" : ""}`} />
-      </Button>
-    );
-  };
 
   return (
     <div className="rounded-lg sm:rounded-xl border-2 border-border/50 shadow-card bg-card overflow-hidden">
-      <RadioGroup value={selectedSymbol} onValueChange={handleSelectionChange}>
-        <div className="max-h-[calc(100vh-150px)] sm:max-h-[calc(100vh-200px)] overflow-x-auto overflow-y-auto touch-auto">
-          <table className="w-full caption-bottom text-xs min-w-max">
-            <thead className="sticky top-0 z-50 bg-slate-50 shadow-sm border-b-2 border-slate-200">
-              <tr className="bg-slate-50">
-                <th colSpan={14} className="h-7 px-1.5 text-center align-middle font-bold text-foreground bg-slate-100 text-sm border-r-2 border-slate-300">
-                  ETF DETAILS
-                </th>
-                <th colSpan={returnColumns.length} className="h-8 px-1.5 text-center align-middle font-bold bg-primary/10 text-primary text-sm">
-                  TOTAL RETURNS (DRIP)
-                </th>
-              </tr>
-              <tr className="bg-slate-50">
-                <th className="h-7 px-1.5 text-center sticky left-0 z-30 bg-slate-50 border-r border-slate-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
-                  <Tooltip delayDuration={200}>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="flex items-center justify-center w-full h-full hover:bg-slate-100 rounded transition-colors"
-                        aria-label="Favorites help"
-                      >
-                        <Info className="h-5 w-5 mx-auto text-slate-600 hover:text-primary transition-colors" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      sideOffset={8}
-                      className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg max-w-[200px]"
-                    >
-                      <p className="text-center">Click the star icon in any row to add ETFs to your favorites</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </th>
-                <th className="h-7 px-1.5 sm:px-2 text-left sticky left-[28px] z-30 bg-slate-50 border-r border-slate-200 text-xs shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] min-w-[70px] sm:min-w-[80px]">
-                  <SortButton field="symbol">Symbol</SortButton>
-                </th>
-                <th className="h-7 px-1.5 text-left bg-slate-50 text-xs">
-                  <SortButton field="issuer">Issuer</SortButton>
-                </th>
-                <th className="h-7 px-1.5 text-left bg-slate-50 text-xs">
-                  <SortButton field="description">Description</SortButton>
-                </th>
-                <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                  <SortButton field="payDay">
-                    <div className="whitespace-normal leading-tight">Pay<br />Day</div>
-                  </SortButton>
-                </th>
-                <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                  <SortButton field="ipoPrice">
-                    <div className="whitespace-normal leading-tight">IPO<br />Price</div>
-                  </SortButton>
-                </th>
-                <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                  <SortButton field="price">Price</SortButton>
-                </th>
-                <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                  <SortButton field="priceChange">
-                    <div className="whitespace-normal leading-tight">Price<br />Chg</div>
-                  </SortButton>
-                </th>
-                <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                  <SortButton field="dividend">Div</SortButton>
-                </th>
-                <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                  <SortButton field="numPayments"># Pmt</SortButton>
-                </th>
-                <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                  <SortButton field="annualDividend">
-                    <div className="whitespace-normal leading-tight">Annual<br />Div</div>
-                  </SortButton>
-                </th>
-                <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                  <SortButton field="forwardYield">Yield</SortButton>
-                </th>
-                <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                  <Tooltip delayDuration={200}>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <SortButton field="dividendCVPercent">
-                          DVI
-                        </SortButton>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      sideOffset={8}
-                      className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg max-w-[300px]"
-                    >
-                      <p>Dividend Volatility Index is computed using the Coefficient of Variation (CV) with Adjusted Dividends that have been annualized to normalize for frequency changes</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </th>
-                <th className="h-7 px-1.5 text-center bg-slate-50 text-xs border-r-2 border-slate-300">
-                  {isGuest ? (
+      <div className="max-h-[calc(100vh-150px)] sm:max-h-[calc(100vh-200px)] overflow-x-auto overflow-y-auto touch-auto">
+        <table className="w-full caption-bottom text-xs min-w-max">
+          <thead className="sticky top-0 z-50 bg-slate-50 shadow-sm border-b-2 border-slate-200">
+            <tr className="bg-slate-50">
+              <th colSpan={14} className="h-7 px-1.5 text-center align-middle font-bold text-foreground bg-slate-100 text-sm border-r-2 border-slate-300">
+                ETF DETAILS
+              </th>
+              <th colSpan={returnColumns.length} className="h-8 px-1.5 text-center align-middle font-bold bg-primary/10 text-primary text-sm">
+                TOTAL RETURNS (DRIP)
+              </th>
+            </tr>
+            <tr className="bg-slate-50">
+              <th className="h-7 px-1.5 text-center sticky left-0 z-30 bg-slate-50 border-r border-slate-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
                     <button
-                      onClick={() => setShowUpgradeModal(true)}
-                      className="flex items-center justify-center gap-1.5 w-full hover:bg-slate-100 rounded px-2 py-1 transition-all duration-200 group"
-                      title="Upgrade to Premium to access rankings"
+                      type="button"
+                      className="flex items-center justify-center w-full h-full hover:bg-slate-100 rounded transition-colors"
+                      aria-label="Favorites help"
                     >
-                      <div className="p-0.5 rounded bg-gradient-to-br from-primary/10 to-accent/10 group-hover:from-primary/20 group-hover:to-accent/20 border border-primary/20 transition-all">
-                        <Lock className="h-3 w-3 text-primary group-hover:text-accent transition-colors" />
-                      </div>
-                      <span className="font-semibold text-slate-600 group-hover:text-primary transition-colors">Rank</span>
+                      <Info className="h-5 w-5 mx-auto text-slate-600 hover:text-primary transition-colors" />
                     </button>
-                  ) : (
-                    <SortButton field="weightedRank">
-                      Rank
-                    </SortButton>
-                  )}
-                </th>
-                {returnColumns.map((col, index) => (
-                  <th
-                    key={col.key as string}
-                    className={`h-7 px-1.5 text-center align-middle font-bold text-foreground bg-slate-50 text-xs ${index === returnColumns.length - 1 ? "border-r-2 border-slate-300" : ""
-                      }`}
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    sideOffset={8}
+                    className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg max-w-[200px]"
                   >
-                    <SortButton field={col.key}>
-                      <span className="font-bold">{col.label}</span>
-                    </SortButton>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {displayedETFs.map((etf, index) => (
-                <tr
-                  key={`${etf.symbol}-${index}`}
-                  id={`etf-row-${etf.symbol}`}
-                  data-etf-symbol={etf.symbol}
-                  className="border-b border-slate-200 transition-all hover:bg-slate-100 group"
-                  style={{ animationDelay: `${index * 30}ms` }}
+                    <p className="text-center">Click the star icon in any row to add ETFs to your favorites</p>
+                  </TooltipContent>
+                </Tooltip>
+              </th>
+              <th className="h-7 px-1.5 sm:px-2 text-left sticky left-[28px] z-30 bg-slate-50 border-r border-slate-200 text-xs shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] min-w-[70px] sm:min-w-[80px]">
+                <SortButton field="symbol" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Symbol</SortButton>
+              </th>
+              <th className="h-7 px-1.5 text-left bg-slate-50 text-xs">
+                <SortButton field="issuer" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Issuer</SortButton>
+              </th>
+              <th className="h-7 px-1.5 text-left bg-slate-50 text-xs">
+                <SortButton field="description" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Description</SortButton>
+              </th>
+              <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
+                <SortButton field="payDay" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  <div className="whitespace-normal leading-tight">Pay<br />Day</div>
+                </SortButton>
+              </th>
+              <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
+                <SortButton field="ipoPrice" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  <div className="whitespace-normal leading-tight">IPO<br />Price</div>
+                </SortButton>
+              </th>
+              <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
+                <SortButton field="price" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Price</SortButton>
+              </th>
+              <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
+                <SortButton field="priceChange" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  <div className="whitespace-normal leading-tight">Price<br />Chg</div>
+                </SortButton>
+              </th>
+              <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
+                <SortButton field="dividend" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Div</SortButton>
+              </th>
+              <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
+                <SortButton field="numPayments" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}># Pmt</SortButton>
+              </th>
+              <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
+                <SortButton field="annualDividend" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  <div className="whitespace-normal leading-tight">Annual<br />Div</div>
+                </SortButton>
+              </th>
+              <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
+                <SortButton field="forwardYield" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Yield</SortButton>
+              </th>
+              <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <SortButton field="dividendCVPercent" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                        DVI
+                      </SortButton>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    sideOffset={8}
+                    className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg max-w-[300px]"
+                  >
+                    <p>Dividend Volatility Index is computed using the Coefficient of Variation (CV) with Adjusted Dividends that have been annualized to normalize for frequency changes</p>
+                  </TooltipContent>
+                </Tooltip>
+              </th>
+              <th className="h-7 px-1.5 text-center bg-slate-50 text-xs border-r-2 border-slate-300">
+                {isGuest ? (
+                  <button
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="flex items-center justify-center gap-1.5 w-full hover:bg-slate-100 rounded px-2 py-1 transition-all duration-200 group"
+                    title="Upgrade to Premium to access rankings"
+                  >
+                    <div className="p-0.5 rounded bg-gradient-to-br from-primary/10 to-accent/10 group-hover:from-primary/20 group-hover:to-accent/20 border border-primary/20 transition-all">
+                      <Lock className="h-3 w-3 text-primary group-hover:text-accent transition-colors" />
+                    </div>
+                    <span className="font-semibold text-slate-600 group-hover:text-primary transition-colors">Rank</span>
+                  </button>
+                ) : (
+                  <SortButton field="weightedRank" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                    Rank
+                  </SortButton>
+                )}
+              </th>
+              {returnColumns.map((col, index) => (
+                <th
+                  key={col.key as string}
+                  className={`h-7 px-1.5 text-center align-middle font-bold text-foreground bg-slate-50 text-xs ${index === returnColumns.length - 1 ? "border-r-2 border-slate-300" : ""
+                    }`}
                 >
-                  <td
-                    className="py-1 px-1.5 align-middle text-center sticky left-0 z-10 bg-white border-r border-slate-200 transition-all cursor-pointer shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
+                  <SortButton field={col.key} sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                    <span className="font-bold">{col.label}</span>
+                  </SortButton>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {displayedETFs.map((etf, index) => (
+              <tr
+                key={etf.symbol}
+                id={`etf-row-${etf.symbol}`}
+                data-etf-symbol={etf.symbol}
+                className="border-b border-slate-200 transition-all hover:bg-slate-100 group"
+                style={{ animationDelay: `${index * 30}ms` }}
+              >
+                <td
+                  className="py-1 px-1.5 align-middle text-center sticky left-0 z-10 bg-white border-r border-slate-200 transition-all cursor-pointer shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite(etf.symbol);
+                  }}
+                  title="Click to add to Favorites"
+                >
+                  <Star
+                    className={`h-4 w-4 mx-auto cursor-pointer transition-all ${favorites.has(etf.symbol)
+                      ? "fill-yellow-400 text-yellow-400"
+                      : "text-slate-500 hover:text-yellow-500 hover:scale-110"
+                      }`}
+                  />
+                </td>
+                <td
+                  data-symbol-cell
+                  className="py-1 px-1.5 sm:px-2 align-middle sticky left-[28px] z-10 bg-white border-r border-slate-200 font-bold text-primary text-xs transition-all shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] min-w-[70px] sm:min-w-[80px]"
+                >
+                  <button
+                    onClick={() => navigate(`/etf/${etf.symbol}`)}
+                    className="hover:underline hover:text-primary/80 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1 whitespace-nowrap"
+                    title={`View ${etf.symbol} details and charts`}
+                  >
+                    {etf.symbol}
+                  </button>
+                </td>
+                <td className="py-1 px-1.5 sm:px-2 align-middle text-xs text-muted-foreground uppercase font-medium whitespace-nowrap min-w-[80px] sm:min-w-[100px]">
+                  {etf.issuer}
+                </td>
+                <td className="py-1 px-1.5 sm:px-2 align-middle max-w-[120px] sm:max-w-[150px] truncate text-xs text-muted-foreground min-w-[100px] sm:min-w-[120px]">
+                  {etf.description}
+                </td>
+                <td className="py-1 px-1.5 align-middle text-center text-xs text-muted-foreground">
+                  {etf.payDay || "N/A"}
+                </td>
+                <td className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium ${etf.ipoPrice && etf.price > etf.ipoPrice ? 'bg-green-100 text-green-700' : ''
+                  }`}>
+                  {etf.ipoPrice != null ? `$${etf.ipoPrice.toFixed(2)}` : 'N/A'}
+                </td>
+                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium text-foreground">
+                  ${etf.price.toFixed(2)}
+                </td>
+                <td className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium ${etf.priceChange != null && etf.priceChange >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                  {etf.priceChange != null ? `${etf.priceChange >= 0 ? '+' : ''}${etf.priceChange.toFixed(2)}` : 'N/A'}
+                </td>
+                <td className="py-1 px-1.5 align-middle text-center">
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleFavorite(etf.symbol);
+                      navigate(`/etf/${etf.symbol}/dividends`);
                     }}
-                    title="Click to add to Favorites"
+                    className="tabular-nums text-xs text-primary font-medium hover:underline cursor-pointer transition-colors"
+                    title="Click to view dividend history"
                   >
-                    <Star
-                      className={`h-4 w-4 mx-auto cursor-pointer transition-all ${favorites.has(etf.symbol)
-                        ? "fill-yellow-400 text-yellow-400"
-                        : "text-slate-500 hover:text-yellow-500 hover:scale-110"
-                        }`}
-                    />
-                  </td>
-                  <td
-                    data-symbol-cell
-                    className="py-1 px-1.5 sm:px-2 align-middle sticky left-[28px] z-10 bg-white border-r border-slate-200 font-bold text-primary text-xs transition-all shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] min-w-[70px] sm:min-w-[80px]"
-                  >
-                    <button
-                      onClick={() => navigate(`/etf/${etf.symbol}`)}
-                      className="hover:underline hover:text-primary/80 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1 whitespace-nowrap"
-                      title={`View ${etf.symbol} details and charts`}
-                    >
-                      {etf.symbol}
-                    </button>
-                  </td>
-                  <td className="py-1 px-1.5 sm:px-2 align-middle text-xs text-muted-foreground uppercase font-medium whitespace-nowrap min-w-[80px] sm:min-w-[100px]">
-                    {etf.issuer}
-                  </td>
-                  <td className="py-1 px-1.5 sm:px-2 align-middle max-w-[120px] sm:max-w-[150px] truncate text-xs text-muted-foreground min-w-[100px] sm:min-w-[120px]">
-                    {etf.description}
-                  </td>
-                  <td className="py-1 px-1.5 align-middle text-center text-xs text-muted-foreground">
-                    {etf.payDay || "N/A"}
-                  </td>
-                  <td className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium ${etf.ipoPrice && etf.price > etf.ipoPrice ? 'bg-green-100 text-green-700' : ''
-                    }`}>
-                    {etf.ipoPrice != null ? `$${etf.ipoPrice.toFixed(2)}` : 'N/A'}
-                  </td>
-                  <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium text-foreground">
-                    ${etf.price.toFixed(2)}
-                  </td>
-                  <td className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium ${etf.priceChange != null && etf.priceChange >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                    {etf.priceChange != null ? `${etf.priceChange >= 0 ? '+' : ''}${etf.priceChange.toFixed(2)}` : 'N/A'}
-                  </td>
-                  <td className="py-1 px-1.5 align-middle text-center">
+                    {etf.dividend != null ? etf.dividend.toFixed(4) : 'N/A'}
+                  </button>
+                </td>
+                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs text-muted-foreground">
+                  {etf.numPayments}
+                </td>
+                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs text-muted-foreground">
+                  {(() => {
+                    // Calculate Annual Div = Div × #Pmt to ensure accuracy
+                    const calculatedAnnualDiv = etf.dividend && etf.numPayments
+                      ? etf.dividend * etf.numPayments
+                      : null;
+                    // Use calculated value if available, fallback to database value
+                    const annualDiv = calculatedAnnualDiv ?? etf.annualDividend;
+                    return annualDiv != null && annualDiv > 0
+                      ? `$${annualDiv.toFixed(2)}`
+                      : 'N/A';
+                  })()}
+                </td>
+                <td className="py-1 px-1.5 align-middle text-center font-bold tabular-nums text-primary text-xs">
+                  {etf.forwardYield != null ? `${etf.forwardYield.toFixed(1)}%` : 'N/A'}
+                </td>
+                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs text-muted-foreground">
+                  {etf.dividendCVPercent != null ? `${etf.dividendCVPercent.toFixed(1)}%` : (etf.dividendCV != null ? `${(etf.dividendCV * 100).toFixed(1)}%` : 'N/A')}
+                </td>
+                <td className="py-1 px-1.5 align-middle text-center font-bold text-sm tabular-nums border-r-2 border-slate-300">
+                  {isGuest ? (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/etf/${etf.symbol}/dividends`);
+                        setShowUpgradeModal(true);
                       }}
-                      className="tabular-nums text-xs text-primary font-medium hover:underline cursor-pointer transition-colors"
-                      title="Click to view dividend history"
+                      className="flex items-center justify-center w-full group"
+                      title="Upgrade to Premium to see rankings"
                     >
-                      {etf.dividend != null ? etf.dividend.toFixed(4) : 'N/A'}
+                      <div className="p-0.5 rounded bg-gradient-to-br from-primary/10 to-accent/10 group-hover:from-primary/20 group-hover:to-accent/20 border border-primary/20 group-hover:border-primary/40 transition-all duration-200">
+                        <Lock className="h-3 w-3 text-primary group-hover:text-accent transition-colors" />
+                      </div>
                     </button>
-                  </td>
-                  <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs text-muted-foreground">
-                    {etf.numPayments}
-                  </td>
-                  <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs text-muted-foreground">
-                    {(() => {
-                      // Calculate Annual Div = Div × #Pmt to ensure accuracy
-                      const calculatedAnnualDiv = etf.dividend && etf.numPayments
-                        ? etf.dividend * etf.numPayments
-                        : null;
-                      // Use calculated value if available, fallback to database value
-                      const annualDiv = calculatedAnnualDiv ?? etf.annualDividend;
-                      return annualDiv != null && annualDiv > 0
-                        ? `$${annualDiv.toFixed(2)}`
-                        : 'N/A';
-                    })()}
-                  </td>
-                  <td className="py-1 px-1.5 align-middle text-center font-bold tabular-nums text-primary text-xs">
-                    {etf.forwardYield != null ? `${etf.forwardYield.toFixed(1)}%` : 'N/A'}
-                  </td>
-                  <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs text-muted-foreground">
-                    {etf.dividendCVPercent != null ? `${etf.dividendCVPercent.toFixed(1)}%` : (etf.dividendCV != null ? `${(etf.dividendCV * 100).toFixed(1)}%` : 'N/A')}
-                  </td>
-                  <td className="py-1 px-1.5 align-middle text-center font-bold text-sm tabular-nums border-r-2 border-slate-300">
-                    {isGuest ? (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowUpgradeModal(true);
-                        }}
-                        className="flex items-center justify-center w-full group"
-                        title="Upgrade to Premium to see rankings"
-                      >
-                        <div className="p-0.5 rounded bg-gradient-to-br from-primary/10 to-accent/10 group-hover:from-primary/20 group-hover:to-accent/20 border border-primary/20 group-hover:border-primary/40 transition-all duration-200">
-                          <Lock className="h-3 w-3 text-primary group-hover:text-accent transition-colors" />
-                        </div>
-                      </button>
-                    ) : (
-                      <span className="text-primary">{etf.weightedRank !== null ? etf.weightedRank : '-'}</span>
-                    )}
-                  </td>
-                  {returnColumns.map((col, colIndex) => {
-                    const rawValue = etf[col.key];
-                    const numericValue =
-                      typeof rawValue === "number" ? rawValue : undefined;
-                    const valueClass =
-                      numericValue === undefined
-                        ? "text-muted-foreground"
-                        : numericValue >= 0
-                          ? "text-green-600"
-                          : "text-red-600";
-                    return (
-                      <td
-                        key={`${etf.symbol}-${String(col.key)}`}
-                        className={`py-1.5 px-1.5 sm:px-2 align-middle text-center font-bold tabular-nums text-xs sm:text-sm ${valueClass} whitespace-nowrap min-w-[60px] sm:min-w-[70px] ${colIndex === returnColumns.length - 1
-                          ? "border-r-2 border-slate-300"
-                          : ""
-                          }`}
-                      >
-                        {numericValue !== undefined
-                          ? `${numericValue > 0 ? "+" : ""}${numericValue.toFixed(1)}%`
-                          : "N/A"}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </RadioGroup>
+                  ) : (
+                    <span className="text-primary">{etf.weightedRank !== null ? etf.weightedRank : '-'}</span>
+                  )}
+                </td>
+                {returnColumns.map((col, colIndex) => {
+                  const rawValue = etf[col.key];
+                  const numericValue =
+                    typeof rawValue === "number" ? rawValue : undefined;
+                  const valueClass =
+                    numericValue === undefined
+                      ? "text-muted-foreground"
+                      : numericValue >= 0
+                        ? "text-green-600"
+                        : "text-red-600";
+                  return (
+                    <td
+                      key={`${etf.symbol}-${String(col.key)}`}
+                      className={`py-1.5 px-1.5 sm:px-2 align-middle text-center font-bold tabular-nums text-xs sm:text-sm ${valueClass} whitespace-nowrap min-w-[60px] sm:min-w-[70px] ${colIndex === returnColumns.length - 1
+                        ? "border-r-2 border-slate-300"
+                        : ""
+                        }`}
+                    >
+                      {numericValue !== undefined
+                        ? `${numericValue > 0 ? "+" : ""}${numericValue.toFixed(1)}%`
+                        : "N/A"}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       {hasMore && (
         <div className="flex justify-center py-4 border-t bg-muted/30">
           <Button
