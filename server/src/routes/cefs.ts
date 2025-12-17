@@ -157,14 +157,22 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     }
 
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
+    const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null }) as unknown[][];
 
     let headerRowIndex = -1;
     for (let i = 0; i < Math.min(allRows.length, 20); i++) {
       const row = allRows[i];
-      if (!Array.isArray(row)) continue;
-      const rowStr = row.map(c => String(c || '').toLowerCase().trim().replace(/[^\w\s]/g, ''));
-      if (rowStr.some(c => c === 'symbol' || c === 'ticker' || c === 'ticker symbol')) {
+      if (!Array.isArray(row) || row.length === 0) continue;
+      
+      const firstCell = String(row[0] || '').trim().toLowerCase();
+      if (!firstCell || firstCell === 'null' || firstCell === 'undefined') continue;
+      
+      const rowStr = row.map(c => {
+        const cellValue = String(c || '').trim();
+        return cellValue.toLowerCase().replace(/[^\w\s]/g, '');
+      });
+      
+      if (rowStr.some(c => c === 'symbol' || c === 'ticker' || c === 'tickersymbol')) {
         headerRowIndex = i;
         break;
       }
@@ -181,7 +189,11 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       return;
     }
 
-    const rawData = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex, defval: null }) as Record<string, unknown>[];
+    const rawData = XLSX.utils.sheet_to_json(sheet, { 
+      range: headerRowIndex, 
+      defval: null,
+      raw: false
+    }) as Record<string, unknown>[];
 
     if (!rawData || rawData.length === 0) {
       cleanupFile(filePath);
@@ -190,9 +202,22 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     }
 
     const headers = Object.keys(rawData[0] ?? {});
+    
+    if (headers.length === 0 || headers.every(h => h.startsWith('__EMPTY'))) {
+      cleanupFile(filePath);
+      logger.error('CEF Upload', 'Header row appears to be empty or invalid');
+      logger.error('CEF Upload', `Detected headers: ${JSON.stringify(headers)}`);
+      logger.error('CEF Upload', `First data row: ${JSON.stringify(rawData[0])}`);
+      res.status(400).json({ 
+        error: 'Invalid header row detected',
+        details: 'The header row appears to be empty or contains only empty cells. Please ensure the first row of your spreadsheet contains column names like SYMBOL, NAV, Description, etc.'
+      });
+      return;
+    }
+
     const headerMap: Record<string, string> = {};
     headers.forEach(h => {
-      if (h) {
+      if (h && !h.startsWith('__EMPTY')) {
         const normalized = String(h).trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ');
         headerMap[normalized] = h;
         headerMap[String(h).trim().toLowerCase()] = h;
