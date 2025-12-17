@@ -173,96 +173,109 @@ async function upsertDividends(ticker: string, dividends: any[], dryRun: boolean
     existingDividendsMap.set(exDate, d);
   });
 
-  const recordsToUpsert = dividends
-    .filter(d => {
-      const exDate = d.date.split('T')[0];
-      const manualDiv = manualUploadsMap.get(exDate);
+  const isManualUpload = (record: any): boolean => {
+    const desc = record?.description || '';
+    return desc.includes('Manual upload') || desc.includes('Early announcement');
+  };
+
+  const tiingoRecordsToUpsert: Array<any> = [];
+
+  for (const d of dividends) {
+    const exDate = d.date.split('T')[0];
+    const existing = existingDividendsMap.get(exDate);
+    
+    if (existing && isManualUpload(existing)) {
+      const tiingoDivCash = d.dividend;
+      const tiingoAdjAmount = d.adjDividend > 0 ? d.adjDividend : null;
+      const manualDivCash = parseFloat(existing.div_cash);
+      const manualAdjAmount = existing.adj_amount ? parseFloat(existing.adj_amount) : null;
+      const tolerance = 0.001;
       
-      if (manualDiv !== undefined) {
-        const tiingoDivCash = d.dividend;
-        const tiingoAdjAmount = d.adjDividend > 0 ? d.adjDividend : null;
-        const tolerance = 0.001;
-        
-        let isAligned = false;
-        if (tiingoAdjAmount && manualDiv.adjAmount !== null) {
-          isAligned = Math.abs(manualDiv.adjAmount - tiingoAdjAmount) < tolerance;
-        } else {
-          isAligned = Math.abs(manualDiv.divCash - tiingoDivCash) < tolerance;
-        }
-        
-        if (isAligned) {
-          alignedCount++;
-          return true;
-        } else {
-          preservedCount++;
-          const existing = existingDividendsMap.get(exDate);
-          if (existing) {
-            manualUploadsToPreserve.push({
-              ticker: ticker.toUpperCase(),
-              ex_date: exDate,
-              pay_date: manualDiv.payDate,
-              record_date: manualDiv.recordDate,
-              declare_date: manualDiv.declareDate,
-              div_cash: manualDiv.divCash,
-              adj_amount: manualDiv.adjAmount,
-              scaled_amount: manualDiv.scaledAmount,
-              split_factor: manualDiv.splitFactor,
-              description: existing.description || 'Manual upload - Early announcement',
-              div_type: existing.div_type || 'Cash',
-              frequency: existing.frequency || null,
-              currency: existing.currency || 'USD',
-            });
-          }
-          return false;
-        }
+      let isAligned = false;
+      if (tiingoAdjAmount && manualAdjAmount !== null) {
+        isAligned = Math.abs(manualAdjAmount - tiingoAdjAmount) < tolerance;
+      } else {
+        isAligned = Math.abs(manualDivCash - tiingoDivCash) < tolerance;
       }
       
-      return true;
-    })
-    .map(d => ({
-      ticker: ticker.toUpperCase(),
-      ex_date: d.date.split('T')[0],
-      pay_date: d.paymentDate?.split('T')[0] || null,
-      record_date: d.recordDate?.split('T')[0] || null,
-      declare_date: d.declarationDate?.split('T')[0] || null,
-      div_cash: d.dividend,
-      adj_amount: d.adjDividend,
-      scaled_amount: d.scaledDividend > 0 ? d.scaledDividend : null,
-      div_type: null,
-      frequency: null,
-      description: null,
-      currency: 'USD',
-      split_factor: d.adjDividend > 0 ? d.dividend / d.adjDividend : 1,
-    }));
-
-  for (const [exDate, manualDiv] of manualUploadsMap.entries()) {
-    if (!exDatesToUpdate.includes(exDate)) {
-      const { data: existing } = await supabase
-        .from('dividends_detail')
-        .select('*')
-        .eq('ticker', ticker.toUpperCase())
-        .eq('ex_date', exDate)
-        .single();
-      
-      if (existing) {
-        manualUploadsToPreserve.push({
+      if (isAligned) {
+        alignedCount++;
+        tiingoRecordsToUpsert.push({
           ticker: ticker.toUpperCase(),
           ex_date: exDate,
-          pay_date: manualDiv.payDate,
-          record_date: manualDiv.recordDate,
-          declare_date: manualDiv.declareDate,
-          div_cash: manualDiv.divCash,
-          adj_amount: manualDiv.adjAmount,
-          scaled_amount: manualDiv.scaledAmount,
-          split_factor: manualDiv.splitFactor,
-          description: existing.description || 'Manual upload - Early announcement',
-          div_type: existing.div_type || 'Cash',
-          frequency: existing.frequency || null,
+          pay_date: d.paymentDate?.split('T')[0] || existing.pay_date,
+          record_date: d.recordDate?.split('T')[0] || existing.record_date,
+          declare_date: d.declarationDate?.split('T')[0] || existing.declare_date,
+          div_cash: d.dividend,
+          adj_amount: d.adjDividend,
+          scaled_amount: d.scaledDividend > 0 ? d.scaledDividend : null,
+          split_factor: d.adjDividend > 0 ? d.dividend / d.adjDividend : 1,
+        });
+      } else {
+        preservedCount++;
+        manualUploadsToPreserve.push({
+          ticker: ticker.toUpperCase(),
+          ex_date: existing.ex_date,
+          pay_date: existing.pay_date,
+          record_date: existing.record_date,
+          declare_date: existing.declare_date,
+          div_cash: existing.div_cash,
+          adj_amount: existing.adj_amount,
+          scaled_amount: existing.scaled_amount,
+          split_factor: existing.split_factor,
+          description: existing.description,
+          div_type: existing.div_type,
+          frequency: existing.frequency,
           currency: existing.currency || 'USD',
         });
       }
+    } else {
+      tiingoRecordsToUpsert.push({
+        ticker: ticker.toUpperCase(),
+        ex_date: exDate,
+        pay_date: d.paymentDate?.split('T')[0] || null,
+        record_date: d.recordDate?.split('T')[0] || null,
+        declare_date: d.declarationDate?.split('T')[0] || null,
+        div_cash: d.dividend,
+        adj_amount: d.adjDividend,
+        scaled_amount: d.scaledDividend > 0 ? d.scaledDividend : null,
+        div_type: null,
+        frequency: null,
+        description: null,
+        currency: 'USD',
+        split_factor: d.adjDividend > 0 ? d.dividend / d.adjDividend : 1,
+      });
     }
   }
+
+  const recordsToUpsert = [...tiingoRecordsToUpsert];
+
+  const { data: allManualUploadsNotInTiingo } = await supabase
+    .from('dividends_detail')
+    .select('*')
+    .eq('ticker', ticker.toUpperCase())
+    .or('description.ilike.%Manual upload%,description.ilike.%Early announcement%');
+
+  (allManualUploadsNotInTiingo || []).forEach(existing => {
+    const exDate = existing.ex_date.split('T')[0];
+    if (!exDatesToUpdate.includes(exDate)) {
+      manualUploadsToPreserve.push({
+        ticker: ticker.toUpperCase(),
+        ex_date: existing.ex_date,
+        pay_date: existing.pay_date,
+        record_date: existing.record_date,
+        declare_date: existing.declare_date,
+        div_cash: existing.div_cash,
+        adj_amount: existing.adj_amount,
+        scaled_amount: existing.scaled_amount,
+        split_factor: existing.split_factor,
+        description: existing.description,
+        div_type: existing.div_type,
+        frequency: existing.frequency,
+        currency: existing.currency || 'USD',
+      });
+    }
+  });
 
   if (alignedCount > 0) {
     console.log(`  Updating ${alignedCount} dividend(s) where Tiingo aligns with manual upload`);

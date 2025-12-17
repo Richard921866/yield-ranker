@@ -977,9 +977,7 @@ export default function Dashboard() {
     return self.findIndex((e) => e.symbol === etf.symbol) === index;
   });
 
-  const displayedETFs = showAllETFs
-    ? uniqueSymbolETFs
-    : uniqueSymbolETFs.slice(0, initialETFCount);
+  const displayedETFs = uniqueSymbolETFs;
 
   const handleSort = (field: keyof ETF) => {
     if (sortField === field) {
@@ -3119,35 +3117,6 @@ export default function Dashboard() {
                                 </tbody>
                               </table>
                             </div>
-
-                            {!showAllETFs &&
-                              filteredETFs.length > initialETFCount && (
-                                <div className="mt-3 text-center flex-shrink-0 border-t border-slate-200 pt-3">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setShowAllETFs(true)}
-                                    className="border-2 border-transparent hover:border-slate-200 hover:bg-slate-100 hover:text-foreground transition-colors text-xs h-8"
-                                  >
-                                    Show More (
-                                    {filteredETFs.length - initialETFCount} more
-                                    ETFs)
-                                  </Button>
-                                </div>
-                              )}
-                            {showAllETFs &&
-                              filteredETFs.length > initialETFCount && (
-                                <div className="mt-3 text-center flex-shrink-0 border-t border-slate-200 pt-3">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setShowAllETFs(false)}
-                                    className="border-2 border-transparent hover:border-slate-200 hover:bg-slate-100 hover:text-foreground transition-colors text-xs h-8"
-                                  >
-                                    Show Less (Show first {initialETFCount} ETFs)
-                                  </Button>
-                                </div>
-                              )}
                           </div>
                         </Card>
                       </div>
