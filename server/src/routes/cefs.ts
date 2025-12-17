@@ -5,13 +5,68 @@
  */
 
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import XLSX from 'xlsx';
 import { getSupabase } from '../services/database.js';
 import { getCached, setCached, CACHE_KEYS, CACHE_TTL } from '../services/redis.js';
-import { logger } from '../utils/index.js';
+import { logger, parseNumeric } from '../utils/index.js';
 import { getDividendHistory, getPriceHistory } from '../services/database.js';
 import type { DividendRecord } from '../types/index.js';
 
 const router: Router = Router();
+
+// ============================================================================
+// File Upload Configuration
+// ============================================================================
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const tempDir = path.join(process.cwd(), 'temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    cb(null, tempDir);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `cef-${uniqueSuffix}${path.extname(file.originalname)}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        file.mimetype === 'application/vnd.ms-excel') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel files are allowed'));
+    }
+  },
+});
+
+function cleanupFile(filePath: string | null): void {
+  if (filePath && fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch (e) {
+      logger.warn('Upload', `Failed to cleanup file: ${filePath}`);
+    }
+  }
+}
+
+function findColumn(headerMap: Record<string, string>, ...names: string[]): string | null {
+  for (const name of names) {
+    const key = name.toLowerCase();
+    if (headerMap[key] !== undefined) {
+      return headerMap[key];
+    }
+  }
+  return null;
+}
 
 // ============================================================================
 // Helper: Calculate Dividend History (X+ Y- format)
@@ -22,7 +77,6 @@ function calculateDividendHistory(dividends: DividendRecord[]): string {
     return dividends.length === 1 ? "1 DIV+" : "0+ 0-";
   }
 
-  // Sort by date descending (newest first), then filter to regular dividends only
   const regularDivs = dividends
     .filter(d => {
       if (!d.div_type) return true;
@@ -30,7 +84,6 @@ function calculateDividendHistory(dividends: DividendRecord[]): string {
       return dtype.includes('regular') || dtype === 'cash' || dtype === '' || !dtype.includes('special');
     })
     .sort((a, b) => {
-      // Manual dividends first, then by date descending
       const aManual = a.is_manual === true ? 1 : 0;
       const bManual = b.is_manual === true ? 1 : 0;
       if (aManual !== bManual) {
@@ -43,7 +96,6 @@ function calculateDividendHistory(dividends: DividendRecord[]): string {
     return regularDivs.length === 1 ? "1 DIV+" : "0+ 0-";
   }
 
-  // Reverse to process chronologically (oldest to newest)
   const chronological = [...regularDivs].reverse();
   
   let increases = 0;
@@ -61,11 +113,230 @@ function calculateDividendHistory(dividends: DividendRecord[]): string {
     } else if (currentAmount < previousAmount) {
       decreases++;
     }
-    // If equal, no change counted
   }
 
   return `${increases}+ ${decreases}-`;
 }
+
+// ============================================================================
+// POST /upload - Upload CEF data from Excel
+// ============================================================================
+
+router.post('/upload', upload.single('file'), async (req: Request, res: Response): Promise<void> => {
+  let filePath: string | null = null;
+
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+
+    filePath = req.file.path;
+    logger.info('CEF Upload', `Processing CEF data file: ${req.file.originalname}`);
+
+    const workbook = XLSX.readFile(filePath);
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      cleanupFile(filePath);
+      res.status(400).json({ error: 'Excel file has no sheets' });
+      return;
+    }
+
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
+
+    let headerRowIndex = 0;
+    for (let i = 0; i < Math.min(allRows.length, 20); i++) {
+      const row = allRows[i];
+      if (!Array.isArray(row)) continue;
+      const rowStr = row.map(c => String(c).toLowerCase().trim());
+      if (rowStr.includes('symbol')) {
+        headerRowIndex = i;
+        break;
+      }
+    }
+
+    const rawData = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex, defval: null }) as Record<string, unknown>[];
+
+    if (!rawData || rawData.length === 0) {
+      cleanupFile(filePath);
+      res.status(400).json({ error: 'Excel file is empty' });
+      return;
+    }
+
+    const headers = Object.keys(rawData[0] ?? {});
+    const headerMap: Record<string, string> = {};
+    headers.forEach(h => {
+      if (h) headerMap[String(h).trim().toLowerCase()] = h;
+    });
+
+    const symbolCol = findColumn(headerMap, 'symbol', 'ticker');
+    if (!symbolCol) {
+      cleanupFile(filePath);
+      res.status(400).json({ error: 'SYMBOL column not found' });
+      return;
+    }
+
+    const allowedCEFs = ['DNP', 'FOF', 'GOF', 'UTF', 'UTG', 'CSQ', 'PCN', 'GAB', 'FFA', 'BTO', 'IGR', 'BME'];
+    
+    const supabase = getSupabase();
+    const now = new Date().toISOString();
+    let added = 0;
+    let updated = 0;
+    let skipped = 0;
+
+    for (const row of rawData) {
+      const symbolValue = row[symbolCol];
+      if (!symbolValue) {
+        skipped++;
+        continue;
+      }
+
+      const ticker = String(symbolValue).trim().toUpperCase();
+      if (!allowedCEFs.includes(ticker)) {
+        skipped++;
+        continue;
+      }
+
+      const navSymbolCol = findColumn(headerMap, 'nav');
+      const descCol = findColumn(headerMap, 'description', 'desc');
+      const openDateCol = findColumn(headerMap, 'open', 'open date', 'opening date');
+      const ipoPriceCol = findColumn(headerMap, 'ipo price', 'ipo_price');
+      const mpCol = findColumn(headerMap, 'mp', 'market price', 'price');
+      const navCol = findColumn(headerMap, 'nav');
+      const lastDivCol = findColumn(headerMap, 'last div', 'last_dividend', 'last dividend');
+      const numPayCol = findColumn(headerMap, '#', 'payments', 'payments_per_year', '# payments');
+      const yrlyDivCol = findColumn(headerMap, 'yrly div', 'yearly dividend', 'annual dividend', 'annual_div');
+      const fYieldCol = findColumn(headerMap, 'f yield', 'forward yield', 'forward_yield');
+      const premDiscCol = findColumn(headerMap, 'prem/disc', 'premium/discount', 'premium_discount');
+      const dviCol = findColumn(headerMap, 'dvi');
+      const return10YrCol = findColumn(headerMap, '10 yr', '10yr', '10 yr annizd', '10yr annizd');
+      const return5YrCol = findColumn(headerMap, '5 yr', '5yr', '5 yr annizd', '5yr annizd');
+      const return3YrCol = findColumn(headerMap, '3 yr', '3yr', '3 yr annizd', '3yr annizd');
+      const return12MoCol = findColumn(headerMap, '12 month', '12m', '12 mo', '12mo');
+      const return6MoCol = findColumn(headerMap, '6 month', '6m', '6 mo', '6mo');
+      const return3MoCol = findColumn(headerMap, '3 month', '3m', '3 mo', '3mo');
+      const return1MoCol = findColumn(headerMap, '1 month', '1m', '1 mo', '1mo');
+      const return1WkCol = findColumn(headerMap, '1 week', '1w', '1 wk', '1wk');
+
+      const navSymbol = navSymbolCol && row[navSymbolCol] ? String(row[navSymbolCol]).trim().toUpperCase() : null;
+      const mp = mpCol ? parseNumeric(row[mpCol]) : null;
+      const nav = navCol ? parseNumeric(row[navCol]) : null;
+      
+      let premiumDiscount: number | null = null;
+      if (premDiscCol && row[premDiscCol]) {
+        premiumDiscount = parseNumeric(row[premDiscCol]);
+      } else if (mp && nav) {
+        premiumDiscount = ((mp - nav) / nav) * 100;
+      }
+
+      const updateData: any = {
+        ticker,
+        updated_at: now,
+      };
+
+      if (navSymbolCol && navSymbol) updateData.nav_symbol = navSymbol;
+      if (descCol && row[descCol]) updateData.description = String(row[descCol]).trim();
+      if (openDateCol && row[openDateCol]) {
+        const openDate = String(row[openDateCol]).trim();
+        updateData.open_date = openDate;
+      }
+      if (ipoPriceCol) updateData.ipo_price = parseNumeric(row[ipoPriceCol]);
+      if (mp !== null) updateData.price = mp;
+      if (nav !== null) updateData.nav = nav;
+      if (premiumDiscount !== null) updateData.premium_discount = premiumDiscount;
+      if (lastDivCol) updateData.last_dividend = parseNumeric(row[lastDivCol]);
+      if (numPayCol) updateData.payments_per_year = parseNumeric(row[numPayCol]);
+      if (yrlyDivCol) updateData.annual_dividend = parseNumeric(row[yrlyDivCol]);
+      if (fYieldCol) updateData.forward_yield = parseNumeric(row[fYieldCol]);
+      if (dviCol) {
+        const dvi = parseNumeric(row[dviCol]);
+        if (dvi !== null) {
+          updateData.dividend_cv_percent = dvi * 100;
+        }
+      }
+      if (return10YrCol) updateData.tr_drip_3y = parseNumeric(row[return10YrCol]);
+      if (return5YrCol) updateData.tr_drip_3y = parseNumeric(row[return5YrCol]);
+      if (return3YrCol) updateData.tr_drip_3y = parseNumeric(row[return3YrCol]);
+      if (return12MoCol) updateData.tr_drip_12m = parseNumeric(row[return12MoCol]);
+      if (return6MoCol) updateData.tr_drip_6m = parseNumeric(row[return6MoCol]);
+      if (return3MoCol) updateData.tr_drip_3m = parseNumeric(row[return3MoCol]);
+      if (return1MoCol) updateData.tr_drip_1m = parseNumeric(row[return1MoCol]);
+      if (return1WkCol) updateData.tr_drip_1w = parseNumeric(row[return1WkCol]);
+
+      const { data: existing } = await supabase
+        .from('etf_static')
+        .select('ticker')
+        .eq('ticker', ticker)
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from('etf_static')
+          .update(updateData)
+          .eq('ticker', ticker);
+        
+        if (error) {
+          logger.error('CEF Upload', `Failed to update ${ticker}: ${error.message}`);
+        } else {
+          updated++;
+        }
+      } else {
+        updateData.issuer = null;
+        updateData.pay_day_text = null;
+        const { error } = await supabase
+          .from('etf_static')
+          .insert(updateData);
+        
+        if (error) {
+          logger.error('CEF Upload', `Failed to insert ${ticker}: ${error.message}`);
+        } else {
+          added++;
+        }
+      }
+
+      if (lastDivCol && row[lastDivCol]) {
+        const divAmount = parseNumeric(row[lastDivCol]);
+        if (divAmount && divAmount > 0) {
+          const latestDividend = await getDividendHistory(ticker);
+          if (latestDividend.length > 0) {
+            const latest = latestDividend[0];
+            const exDate = new Date().toISOString().split('T')[0];
+            await supabase
+              .from('dividends')
+              .upsert({
+                ticker,
+                ex_date: exDate,
+                div_cash: divAmount,
+                is_manual: true,
+                pay_date: null,
+                record_date: null,
+                declare_date: null,
+              }, {
+                onConflict: 'ticker,ex_date',
+                ignoreDuplicates: false,
+              });
+          }
+        }
+      }
+    }
+
+    cleanupFile(filePath);
+
+    res.json({
+      success: true,
+      message: `Processed CEF upload: ${added} added, ${updated} updated, ${skipped} skipped`,
+      added,
+      updated,
+      skipped,
+      count: added + updated,
+    });
+
+  } catch (error) {
+    cleanupFile(filePath);
+    logger.error('CEF Upload', `Error: ${(error as Error).message}`);
+    res.status(500).json({ error: 'Internal server error', details: (error as Error).message });
+  }
+});
 
 // ============================================================================
 // GET / - List all CEFs
@@ -73,7 +344,6 @@ function calculateDividendHistory(dividends: DividendRecord[]): string {
 
 router.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
-    // Try Redis cache first
     const cacheKey = 'cef_list';
     const cached = await getCached<any>(cacheKey);
     if (cached) {
@@ -84,8 +354,6 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
 
     const supabase = getSupabase();
 
-    // For now, use etf_static table (CEFs will be stored here with a category flag)
-    // In the future, you may want a separate cef_static table
     const staticResult = await supabase
       .from('etf_static')
       .select('*')
@@ -101,7 +369,6 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     const staticData = staticResult.data || [];
     logger.info('Routes', `Fetched ${staticData.length} CEFs from database`);
 
-    // Fetch dividend history for each CEF to calculate X+ Y- format
     const cefsWithDividendHistory = await Promise.all(
       staticData.map(async (cef: any) => {
         let dividendHistory = "0+ 0-";
@@ -112,7 +379,6 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
           logger.warn('Routes', `Failed to calculate dividend history for ${cef.ticker}: ${error}`);
         }
 
-        // Calculate premium/discount if NAV and market price exist
         let premiumDiscount: number | null = null;
         if (cef.nav && cef.price) {
           premiumDiscount = ((cef.price - cef.nav) / cef.nav) * 100;
@@ -142,7 +408,7 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
           dividendCV: cef.dividend_cv || null,
           dividendCVPercent: cef.dividend_cv_percent || null,
           dividendVolatilityIndex: cef.dividend_volatility_index || null,
-          return10Yr: cef.tr_drip_3y || null, // Using 3yr as placeholder - adjust as needed
+          return10Yr: cef.tr_drip_3y || null,
           return5Yr: cef.tr_drip_3y || null,
           return3Yr: cef.tr_drip_3y || null,
           return12Mo: cef.tr_drip_12m || null,
@@ -159,7 +425,6 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
       })
     );
 
-    // Get the most recent update time
     let lastUpdatedTimestamp: string | null = null;
     if (staticData.length > 0) {
       const mostRecent = staticData.reduce((latest: any, current: any) => {
@@ -176,8 +441,7 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
       lastUpdatedTimestamp: lastUpdatedTimestamp,
     };
 
-    // Cache the response in Redis
-    await setCached(cacheKey, response, CACHE_TTL.ETF_LIST); // Using same TTL as ETFs
+    await setCached(cacheKey, response, CACHE_TTL.ETF_LIST);
     logger.info('Routes', `Returning ${cefsWithDividendHistory.length} CEFs (cached)`);
 
     res.json(response);
@@ -200,7 +464,6 @@ router.get('/:symbol/price-nav', async (req: Request, res: Response): Promise<vo
     
     const supabase = getSupabase();
 
-    // Get CEF info to find NAV symbol
     const staticResult = await supabase
       .from('etf_static')
       .select('nav_symbol')
@@ -214,7 +477,6 @@ router.get('/:symbol/price-nav', async (req: Request, res: Response): Promise<vo
 
     const navSymbol = staticResult.data.nav_symbol;
 
-    // Calculate start date based on period
     const endDate = new Date();
     const startDate = new Date();
     switch (period) {
@@ -240,10 +502,8 @@ router.get('/:symbol/price-nav', async (req: Request, res: Response): Promise<vo
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
 
-    // Fetch price data for the CEF (market price)
     const priceData = await getPriceHistory(ticker, startDateStr, endDateStr);
 
-    // Fetch NAV data if navSymbol exists
     let navData: any[] = [];
     if (navSymbol) {
       try {
@@ -253,7 +513,6 @@ router.get('/:symbol/price-nav', async (req: Request, res: Response): Promise<vo
       }
     }
 
-    // Combine data by date - use close for EOD prices
     const priceMap = new Map<string, { close: number | null; date: string }>();
     priceData.forEach((p: any) => {
       const date = typeof p.date === 'string' ? p.date.split('T')[0] : p.date;
@@ -272,7 +531,6 @@ router.get('/:symbol/price-nav', async (req: Request, res: Response): Promise<vo
       }
     });
 
-    // Get all unique dates and combine
     const allDates = new Set([...priceMap.keys(), ...navMap.keys()]);
     const combinedData = Array.from(allDates)
       .sort()
@@ -281,7 +539,7 @@ router.get('/:symbol/price-nav', async (req: Request, res: Response): Promise<vo
         price: priceMap.get(date)?.close || null,
         nav: navMap.get(date)?.close || null,
       }))
-      .filter(d => d.price !== null || d.nav !== null); // Only include dates with at least one value
+      .filter(d => d.price !== null || d.nav !== null);
 
     res.json({
       symbol: ticker,
@@ -318,7 +576,6 @@ router.get('/:symbol', async (req: Request, res: Response): Promise<void> => {
 
     const cef = staticResult.data;
 
-    // Calculate dividend history
     let dividendHistory = "0+ 0-";
     try {
       const dividends = await getDividendHistory(ticker);
@@ -327,7 +584,6 @@ router.get('/:symbol', async (req: Request, res: Response): Promise<void> => {
       logger.warn('Routes', `Failed to calculate dividend history for ${ticker}: ${error}`);
     }
 
-    // Calculate premium/discount
     let premiumDiscount: number | null = null;
     if (cef.nav && cef.price) {
       premiumDiscount = ((cef.price - cef.nav) / cef.nav) * 100;

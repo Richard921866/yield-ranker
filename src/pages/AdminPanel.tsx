@@ -32,6 +32,7 @@ import {
   SiteSetting,
 } from "@/services/admin";
 import { clearETFCache } from "@/services/etfData";
+import { clearCEFCache } from "@/services/cefData";
 import {
   ArrowUpDown,
   BarChart3,
@@ -78,6 +79,9 @@ const AdminPanel = () => {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
+  const [cefUploadFile, setCefUploadFile] = useState<File | null>(null);
+  const [cefUploading, setCefUploading] = useState(false);
+  const [cefUploadStatus, setCefUploadStatus] = useState<string>("");
   const [siteSettings, setSiteSettings] = useState<SiteSetting[]>([]);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsValues, setSettingsValues] = useState<Record<string, string>>(
@@ -1125,6 +1129,81 @@ const AdminPanel = () => {
                         </p>
                       </Card>
                     )}
+                  </div>
+
+                  <div className="border-t pt-6 mt-6">
+                    <div>
+                      <h2 className="text-lg font-bold text-foreground mb-2">
+                        Upload CEF Spreadsheet
+                      </h2>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Upload CEF data from Excel file. Only accepts these symbols: DNP, FOF, GOF, UTF, UTG, CSQ, PCN, GAB, FFA, BTO, IGR, BME. File should have columns: SYMBOL, NAV, Description, OPEN, DIV HISTORY, IPO PRICE, MP, NAV, Last Div, #, Yrly Div, F Yield, Prem/Disc, DVI, 10 YR Annizd, 5 YR Annizd, 3 YR Annizd, 12 Month, 6 Month, 3 Month, 1 Month, 1 Week.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                        <div className="flex-1">
+                          <label
+                            htmlFor="cef-file-input"
+                            className="block text-sm font-medium text-foreground mb-2"
+                          >
+                            Select Excel File
+                          </label>
+                          <Input
+                            id="cef-file-input"
+                            type="file"
+                            accept=".xlsx,.xls"
+                            onChange={handleCefFileChange}
+                            className="border-2"
+                          />
+                        </div>
+                        <div className="flex items-end">
+                          <div className="flex flex-col gap-2">
+                            {cefUploadFile && (
+                              <p className="text-sm text-muted-foreground">
+                                Selected: {cefUploadFile.name}
+                              </p>
+                            )}
+                            <Button
+                              onClick={handleUploadCEF}
+                              disabled={!cefUploadFile || cefUploading}
+                              className="w-full sm:w-auto"
+                            >
+                              {cefUploading ? (
+                                <>
+                                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                  Uploading...
+                                </>
+                              ) : (
+                                <>
+                                  <Upload className="w-4 h-4 mr-2" />
+                                  Upload & Process
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {cefUploadStatus && (
+                        <Card
+                          className={`p-4 ${cefUploadStatus.startsWith("Error")
+                            ? "bg-red-50 border-red-200"
+                            : "bg-green-50 border-green-200"
+                            }`}
+                        >
+                          <p
+                            className={`text-sm font-medium ${cefUploadStatus.startsWith("Error")
+                              ? "text-red-800"
+                              : "text-green-800"
+                              }`}
+                          >
+                            {cefUploadStatus}
+                          </p>
+                        </Card>
+                      )}
+                    </div>
                   </div>
 
                   <div className="border-t pt-6">
