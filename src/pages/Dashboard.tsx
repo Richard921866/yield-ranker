@@ -280,7 +280,7 @@ export default function Dashboard() {
       window.removeEventListener('etfDeleted', handleETFDeleted as EventListener);
       window.removeEventListener('etfDataUpdated', handleETFDataUpdated);
     };
-  }, [selectedETF, cleanupFavorites]);
+  }, [cleanupFavorites]);
 
 
   const fetchAdminProfiles = useCallback(async () => {
@@ -1806,10 +1806,11 @@ export default function Dashboard() {
                   const maxValue = chartValues.length > 0 ? Math.max(...chartValues, 0) : 10;
 
                   return (
-                    <div className="flex flex-col lg:flex-row gap-4">
+                    <div className="flex flex-col lg:flex-row gap-4 h-full">
                       {/* Chart Area */}
-                      <div className="flex-1 min-w-0 order-2 lg:order-1">
-                        <ResponsiveContainer width="100%" height={chartHeight}>
+                      <div className="flex-1 min-w-0 order-2 lg:order-1 flex flex-col min-h-0">
+                        <div className="flex-1 min-h-0 overflow-auto">
+                          <ResponsiveContainer width="100%" height={chartHeight}>
                           {chartData && Array.isArray(chartData) && chartData.length > 0 ? (
                             <ComposedChart
                               key={`chart-${selectedETF.symbol}-${chartType}-${selectedTimeframe}`}
