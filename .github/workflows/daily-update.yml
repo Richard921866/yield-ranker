@@ -50,7 +50,8 @@ jobs:
         working-directory: server
         run: pnpm build
 
-      - name: Run daily update
+      - name: Run daily update and recalculate
+        id: daily_update
         working-directory: server
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -58,6 +59,8 @@ jobs:
           TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
           NODE_ENV: production
         run: |
+          set -e
+          echo "Starting daily update at $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           ARGS=""
           if [ "${{ inputs.force }}" == "true" ]; then
             ARGS="$ARGS --force"
@@ -65,13 +68,16 @@ jobs:
           if [ -n "${{ inputs.ticker }}" ]; then
             ARGS="$ARGS --ticker ${{ inputs.ticker }}"
           fi
+          echo "Running: npx tsx scripts/daily_update.ts $ARGS"
           npx tsx scripts/daily_update.ts $ARGS
+          echo "Daily update completed at $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
 
       - name: Report status
         if: always()
         run: |
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "✅ Daily update completed successfully"
+          if [ "${{ steps.daily_update.outcome }}" == "success" ]; then
+            echo "Daily update completed successfully"
           else
-            echo "❌ Daily update failed"
+            echo "Daily update failed - check logs above"
+            exit 1
           fi

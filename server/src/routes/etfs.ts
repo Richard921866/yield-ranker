@@ -294,24 +294,46 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
           if (dividends.length > 0) {
             const exDatesToUpdate = dividends.map(d => d.date.split('T')[0]);
             
-            const { data: existingDividends } = await supabase
+            const { data: allManualUploads } = await supabase
               .from('dividends_detail')
-              .select('ex_date, description, div_cash, adj_amount')
+              .select('ex_date, description, div_cash, adj_amount, pay_date, record_date, declare_date, scaled_amount, split_factor')
               .eq('ticker', ticker.toUpperCase())
-              .in('ex_date', exDatesToUpdate);
+              .or('description.ilike.%Manual upload%,description.ilike.%Early announcement%');
 
-            const manualUploadsMap = new Map<string, { divCash: number; adjAmount: number | null }>();
-            (existingDividends || []).forEach(d => {
-              if (d.description?.includes('Manual upload') || d.description?.includes('Early announcement')) {
-                const exDate = d.ex_date.split('T')[0];
-                const divCash = parseFloat(d.div_cash);
-                const adjAmount = d.adj_amount ? parseFloat(d.adj_amount) : null;
-                manualUploadsMap.set(exDate, { divCash, adjAmount });
-              }
+            const manualUploadsMap = new Map<string, { divCash: number; adjAmount: number | null; payDate: string | null; recordDate: string | null; declareDate: string | null; scaledAmount: number | null; splitFactor: number }>();
+            (allManualUploads || []).forEach(d => {
+              const exDate = d.ex_date.split('T')[0];
+              const divCash = parseFloat(d.div_cash);
+              const adjAmount = d.adj_amount ? parseFloat(d.adj_amount) : null;
+              const scaledAmount = d.scaled_amount ? parseFloat(d.scaled_amount) : null;
+              const splitFactor = d.split_factor ? parseFloat(d.split_factor) : 1;
+              manualUploadsMap.set(exDate, { 
+                divCash, 
+                adjAmount,
+                payDate: d.pay_date,
+                recordDate: d.record_date,
+                declareDate: d.declare_date,
+                scaledAmount,
+                splitFactor
+              });
             });
 
             let alignedCount = 0;
             let preservedCount = 0;
+
+            const manualUploadsToPreserve: Array<{ ticker: string; ex_date: string; pay_date: string | null; record_date: string | null; declare_date: string | null; div_cash: number; adj_amount: number | null; scaled_amount: number | null; split_factor: number; description: string }> = [];
+
+            const { data: allExistingDividends } = await supabase
+              .from('dividends_detail')
+              .select('*')
+              .eq('ticker', ticker.toUpperCase())
+              .in('ex_date', exDatesToUpdate);
+
+            const existingDividendsMap = new Map<string, any>();
+            (allExistingDividends || []).forEach(d => {
+              const exDate = d.ex_date.split('T')[0];
+              existingDividendsMap.set(exDate, d);
+            });
 
             const dividendRecords = dividends
               .filter(d => {
@@ -335,6 +357,21 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
                     return true;
                   } else {
                     preservedCount++;
+                    const existing = existingDividendsMap.get(exDate);
+                    if (existing) {
+                      manualUploadsToPreserve.push({
+                        ticker: ticker.toUpperCase(),
+                        ex_date: exDate,
+                        pay_date: manualDiv.payDate,
+                        record_date: manualDiv.recordDate,
+                        declare_date: manualDiv.declareDate,
+                        div_cash: manualDiv.divCash,
+                        adj_amount: manualDiv.adjAmount,
+                        scaled_amount: manualDiv.scaledAmount,
+                        split_factor: manualDiv.splitFactor,
+                        description: existing.description || 'Manual upload - Early announcement',
+                      });
+                    }
                     return false;
                   }
                 }
@@ -353,6 +390,32 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
                 split_factor: d.adjDividend > 0 ? d.dividend / d.adjDividend : 1,
               }));
 
+            for (const [exDate, manualDiv] of manualUploadsMap.entries()) {
+              if (!exDatesToUpdate.includes(exDate)) {
+                const { data: existing } = await supabase
+                  .from('dividends_detail')
+                  .select('*')
+                  .eq('ticker', ticker.toUpperCase())
+                  .eq('ex_date', exDate)
+                  .single();
+                
+                if (existing) {
+                  manualUploadsToPreserve.push({
+                    ticker: ticker.toUpperCase(),
+                    ex_date: exDate,
+                    pay_date: manualDiv.payDate,
+                    record_date: manualDiv.recordDate,
+                    declare_date: manualDiv.declareDate,
+                    div_cash: manualDiv.divCash,
+                    adj_amount: manualDiv.adjAmount,
+                    scaled_amount: manualDiv.scaledAmount,
+                    split_factor: manualDiv.splitFactor,
+                    description: existing.description || 'Manual upload - Early announcement',
+                  });
+                }
+              }
+            }
+
             if (alignedCount > 0) {
               logger.info('Upload', `Updating ${alignedCount} dividend(s) for ${ticker} where Tiingo aligns with manual upload`);
             }
@@ -360,10 +423,12 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
               logger.info('Upload', `Preserving ${preservedCount} manual dividend upload(s) for ${ticker} (values don't align)`);
             }
 
-            if (dividendRecords.length > 0) {
+            const allDividendRecords = [...dividendRecords, ...manualUploadsToPreserve];
+
+            if (allDividendRecords.length > 0) {
               const { error: divError } = await supabase
                 .from('dividends_detail')
-                .upsert(dividendRecords, {
+                .upsert(allDividendRecords, {
                   onConflict: 'ticker,ex_date',
                   ignoreDuplicates: false,
                 });
@@ -372,6 +437,9 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
                 logger.warn('Upload', `Failed to insert dividends for ${ticker}: ${divError.message}`);
               } else {
                 logger.info('Upload', `Inserted ${dividendRecords.length} dividend records for ${ticker}`);
+                if (manualUploadsToPreserve.length > 0) {
+                  logger.info('Upload', `Preserved ${manualUploadsToPreserve.length} manual upload(s) for ${ticker} not yet in Tiingo data`);
+                }
               }
             }
           }
