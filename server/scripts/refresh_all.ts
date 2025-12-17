@@ -136,7 +136,7 @@ async function upsertDividends(ticker: string, dividends: any[], dryRun: boolean
     .from('dividends_detail')
     .select('*')
     .eq('ticker', ticker.toUpperCase())
-    .or('description.ilike.%Manual upload%,description.ilike.%Early announcement%');
+    .or('is_manual.eq.true,description.ilike.%Manual upload%,description.ilike.%Early announcement%');
 
   const manualUploadsMap = new Map<string, any>();
   (allManualUploads || []).forEach(d => {
@@ -162,6 +162,9 @@ async function upsertDividends(ticker: string, dividends: any[], dryRun: boolean
   });
 
   const isManualUpload = (record: any): boolean => {
+    // Primary check: dedicated is_manual column (more reliable)
+    if (record?.is_manual === true) return true;
+    // Fallback: check description for legacy manual uploads
     const desc = record?.description || '';
     return desc.includes('Manual upload') || desc.includes('Early announcement');
   };
@@ -171,7 +174,7 @@ async function upsertDividends(ticker: string, dividends: any[], dryRun: boolean
   for (const d of dividends) {
     const exDate = d.date.split('T')[0];
     const existing = existingDividendsMap.get(exDate);
-    const manualUpload = manualUploadsMap.get(exDate);
+    const manualUpload = manualUploadsMap.get(exDate) || (existing && isManualUpload(existing) ? existing : null);
 
     if (manualUpload) {
       const tiingoDivCash = d.dividend;
@@ -273,7 +276,11 @@ async function upsertDividends(ticker: string, dividends: any[], dryRun: boolean
     return 0;
   }
 
-  const allRecordsToUpsert = [...tiingoRecordsToUpsert, ...manualUploadsToPreserve];
+  // Ensure preserved manual uploads have is_manual flag set
+  const allRecordsToUpsert = [...tiingoRecordsToUpsert, ...manualUploadsToPreserve.map(r => ({
+    ...r,
+    is_manual: true  // Mark as manual to prevent future overwrites
+  }))];
 
   const { error } = await supabase
     .from('dividends_detail')

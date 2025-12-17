@@ -268,6 +268,13 @@ export default function Dashboard() {
           });
           setEtfData(deduplicated);
           cleanupFavorites(deduplicated.map(etf => etf.symbol));
+          
+          if (selectedETF) {
+            const updated = deduplicated.find(e => e.symbol === selectedETF.symbol);
+            if (updated) {
+              setSelectedETF(updated);
+            }
+          }
         } catch (error) {
           console.error("[Dashboard] Failed to reload ETF data:", error);
         }
@@ -1181,7 +1188,7 @@ export default function Dashboard() {
       }
     };
     buildChartData();
-  }, [selectedETF?.symbol, comparisonETFs, chartType, selectedTimeframe, sanitizeChartData]);
+  }, [selectedETF, comparisonETFs, chartType, selectedTimeframe, sanitizeChartData, etfData]);
 
   useEffect(() => {
     if (selectedETF) {
