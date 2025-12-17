@@ -320,6 +320,10 @@ async function upsertDividends(
           adj_amount: d.adjDividend > 0 ? d.adjDividend : null,
           scaled_amount: d.scaledDividend > 0 ? d.scaledDividend : null,
           split_factor: d.adjDividend > 0 ? d.dividend / d.adjDividend : 1,
+          description: existing.description,  // Preserve manual upload marker
+          div_type: existing.div_type,
+          frequency: existing.frequency,
+          currency: existing.currency || 'USD',
         });
       } else {
         preservedCount++;
