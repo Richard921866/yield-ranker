@@ -1,11 +1,14 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 const FAVORITES_STORAGE_KEY = 'yield-ranker-favorites';
 
 export function useFavorites() {
   const { user } = useAuth();
   const storageKey = user ? `${FAVORITES_STORAGE_KEY}-${user.id}` : FAVORITES_STORAGE_KEY;
+  const isInitialLoad = useRef(true);
+  const isSyncing = useRef(false);
 
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     try {
@@ -20,25 +23,102 @@ export function useFavorites() {
     return new Set();
   });
 
-  useEffect(() => {
+  const syncToDatabase = useCallback(async (symbols: string[]) => {
+    if (!user?.id) return;
+
     try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setFavorites(new Set(Array.isArray(parsed) ? parsed : []));
+      const { error: deleteError } = await supabase
+        .from('favorites')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (deleteError) {
+        console.error('Failed to clear database favorites:', deleteError);
+        return;
+      }
+
+      if (symbols.length > 0) {
+        const favoritesToInsert = symbols.map(symbol => ({
+          user_id: user.id,
+          symbol: symbol,
+        }));
+
+        const { error: insertError } = await supabase
+          .from('favorites')
+          .insert(favoritesToInsert);
+
+        if (insertError) {
+          console.error('Failed to save favorites to database:', insertError);
+        }
       }
     } catch (error) {
-      console.error('Failed to load favorites from localStorage:', error);
+      console.error('Failed to sync favorites to database:', error);
     }
-  }, [storageKey]);
+  }, [user?.id]);
 
   useEffect(() => {
+    const loadFavorites = async () => {
+      if (isSyncing.current) return;
+      isSyncing.current = true;
+
+      try {
+        let dbFavorites: string[] = [];
+        
+        if (user?.id) {
+          const { data, error } = await supabase
+            .from('favorites')
+            .select('symbol')
+            .eq('user_id', user.id);
+          
+          if (error) {
+            console.error('Failed to load favorites from database:', error);
+          } else if (data) {
+            dbFavorites = data.map(row => row.symbol);
+          }
+        }
+
+        const stored = localStorage.getItem(storageKey);
+        let localFavorites: string[] = [];
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            localFavorites = Array.isArray(parsed) ? parsed : [];
+          } catch (e) {
+            console.error('Failed to parse localStorage favorites:', e);
+          }
+        }
+
+        const merged = new Set<string>([...dbFavorites, ...localFavorites]);
+        
+        if (merged.size > 0) {
+          setFavorites(merged);
+          if (user?.id && dbFavorites.length !== merged.size) {
+            await syncToDatabase(Array.from(merged));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load favorites:', error);
+      } finally {
+        isSyncing.current = false;
+        isInitialLoad.current = false;
+      }
+    };
+
+    loadFavorites();
+  }, [user?.id, storageKey, syncToDatabase]);
+
+  useEffect(() => {
+    if (isInitialLoad.current) return;
+
     try {
       localStorage.setItem(storageKey, JSON.stringify(Array.from(favorites)));
+      if (user?.id) {
+        syncToDatabase(Array.from(favorites));
+      }
     } catch (error) {
-      console.error('Failed to save favorites to localStorage:', error);
+      console.error('Failed to save favorites:', error);
     }
-  }, [favorites, storageKey]);
+  }, [favorites, storageKey, user?.id, syncToDatabase]);
 
   const toggleFavorite = useCallback((symbol: string) => {
     setFavorites(prev => {
@@ -75,12 +155,10 @@ export function useFavorites() {
   }, [favorites]);
 
   /**
-   * Clean up favorites by removing symbols that no longer exist in the ETF data
-   * This should be called when ETF data is loaded to ensure favorites only contain valid symbols
-   * Also normalizes favorites to match the exact symbol format from the data
+   * Normalize favorites to match the exact symbol format from the data
+   * This does NOT remove favorites - it only normalizes casing to match the data
    */
   const cleanupFavorites = useCallback((validSymbols: string[]) => {
-    // Only cleanup if we have valid symbols - don't remove all favorites if ETF data is empty
     if (!validSymbols || validSymbols.length === 0) {
       return;
     }
@@ -92,26 +170,25 @@ export function useFavorites() {
     });
 
     setFavorites(prev => {
-      const cleaned = new Set<string>();
+      const normalized = new Set<string>();
       let hasChanges = false;
 
       prev.forEach(favSymbol => {
         const upperFav = favSymbol.toUpperCase();
         const matchedSymbol = validMap.get(upperFav);
         if (matchedSymbol) {
-          // Only normalize if the casing is different, otherwise keep original
-          cleaned.add(favSymbol === matchedSymbol ? favSymbol : matchedSymbol);
+          if (favSymbol !== matchedSymbol) {
+            normalized.add(matchedSymbol);
+            hasChanges = true;
+          } else {
+            normalized.add(favSymbol);
+          }
         } else {
-          // Symbol doesn't exist in valid list - this is intentional removal
-          hasChanges = true;
+          normalized.add(favSymbol);
         }
       });
 
-      // Only update if we actually removed invalid symbols
-      if (hasChanges) {
-        return cleaned;
-      }
-      return prev;
+      return hasChanges ? normalized : prev;
     });
   }, []);
 
