@@ -230,7 +230,7 @@ async function upsertDividends(
     let alignedCount = 0;
     let preservedCount = 0;
 
-    const manualUploadsToPreserve: Array<{ ticker: string; ex_date: string; pay_date: string | null; record_date: string | null; declare_date: string | null; div_cash: number; adj_amount: number | null; scaled_amount: number | null; split_factor: number; description: string }> = [];
+    const manualUploadsToPreserve: Array<{ ticker: string; ex_date: string; pay_date: string | null; record_date: string | null; declare_date: string | null; div_cash: number; adj_amount: number | null; scaled_amount: number | null; split_factor: number; description: string; div_type?: string | null; frequency?: string | null; currency?: string }> = [];
 
     const { data: allExistingDividends } = await supabase
         .from('dividends_detail')
