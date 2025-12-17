@@ -151,7 +151,7 @@ export const CEFTable = ({
                 CEF DETAILS
               </th>
               <th colSpan={returnColumns.length} className="h-8 px-1.5 text-center align-middle font-bold bg-primary/10 text-primary text-sm">
-                RETURNS
+                TOTAL RETURNS
               </th>
             </tr>
             <tr className="bg-slate-50">

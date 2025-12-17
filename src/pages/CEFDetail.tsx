@@ -277,51 +277,62 @@ const CEFDetail = () => {
                 <p>{chartError}</p>
               </div>
             ) : chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <ResponsiveContainer width="100%" height={450}>
+                <LineChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="date" 
-                    stroke="#6b7280"
-                    style={{ fontSize: '12px' }}
+                    stroke="#666"
+                    style={{ fontSize: '11px', fontWeight: 500 }}
                     angle={-45}
                     textAnchor="end"
                     height={80}
+                    tick={{ fill: '#666' }}
                   />
                   <YAxis 
                     domain={[minValue, maxValue]}
-                    stroke="#6b7280"
-                    style={{ fontSize: '12px' }}
+                    stroke="#666"
+                    style={{ fontSize: '11px', fontWeight: 500 }}
                     tickFormatter={(value) => `$${value.toFixed(2)}`}
+                    label={{ value: 'Closing Price ($)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: '12px', fill: '#666' } }}
+                    tick={{ fill: '#666' }}
                   />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: 'white',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                      padding: '8px',
                     }}
                     formatter={(value: number | null, name: string) => {
                       if (value === null) return 'N/A';
                       return [`$${value.toFixed(2)}`, name === 'price' ? 'Price' : 'NAV'];
                     }}
+                    labelStyle={{ fontWeight: 600, marginBottom: '4px' }}
                   />
                   <Legend 
+                    verticalAlign="top"
+                    align="left"
+                    iconType="square"
+                    wrapperStyle={{ paddingBottom: '10px', fontSize: '12px' }}
                     formatter={(value) => value === 'price' ? 'Price' : 'NAV'}
                   />
                   <Line
                     type="monotone"
                     dataKey="price"
-                    stroke="#3b82f6"
+                    stroke="#1f2937"
                     strokeWidth={2}
                     dot={false}
+                    activeDot={{ r: 4 }}
                     name="Price"
                   />
                   <Line
                     type="monotone"
                     dataKey="nav"
-                    stroke="#6b7280"
+                    stroke="#3b82f6"
                     strokeWidth={2}
                     dot={false}
+                    activeDot={{ r: 4 }}
                     name="NAV"
                   />
                 </LineChart>

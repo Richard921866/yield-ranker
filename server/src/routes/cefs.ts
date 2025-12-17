@@ -336,17 +336,23 @@ router.get('/:symbol/price-nav', async (req: Request, res: Response): Promise<vo
       }
     }
 
-    // Combine data by date
+    // Combine data by date - use close for EOD prices
     const priceMap = new Map<string, { close: number | null; date: string }>();
     priceData.forEach((p: any) => {
-      const date = p.date.split('T')[0];
-      priceMap.set(date, { close: p.close, date });
+      const date = typeof p.date === 'string' ? p.date.split('T')[0] : p.date;
+      const closePrice = p.close ?? p.adj_close ?? null;
+      if (closePrice !== null) {
+        priceMap.set(date, { close: closePrice, date });
+      }
     });
 
     const navMap = new Map<string, { close: number | null; date: string }>();
     navData.forEach((p: any) => {
-      const date = p.date.split('T')[0];
-      navMap.set(date, { close: p.close, date });
+      const date = typeof p.date === 'string' ? p.date.split('T')[0] : p.date;
+      const closePrice = p.close ?? p.adj_close ?? null;
+      if (closePrice !== null) {
+        navMap.set(date, { close: closePrice, date });
+      }
     });
 
     // Get all unique dates and combine
