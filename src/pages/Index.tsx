@@ -435,9 +435,12 @@ const Index = () => {
           <section className="w-full relative z-0">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
               <div className="flex flex-col gap-1">
-                <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">
-                  Covered Call Option ETFs
-                </h3>
+                <div className="flex items-center gap-3">
+                  <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">
+                    Covered Call Option ETFs
+                  </h3>
+                  <CategorySelector />
+                </div>
                 <div className="text-xs text-muted-foreground leading-tight">
                   {lastDataUpdate ? (
                     <div className="flex items-center gap-1 mb-1">

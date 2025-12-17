@@ -20,6 +20,7 @@ import { getRedis, closeRedis } from "./services/redis.js";
 
 import tiingoRoutes from "./routes/tiingo.js";
 import etfRoutes from "./routes/etfs.js";
+import cefRoutes from "./routes/cefs.js";
 import userRoutes from "./routes/user.js";
 
 // ============================================================================
@@ -107,6 +108,7 @@ app.get("/api/health", (_req: Request, res: Response) => {
 // ============================================================================
 app.use("/api/tiingo", tiingoRoutes);
 app.use("/api/etfs", etfRoutes);
+app.use("/api/cefs", cefRoutes);
 app.use("/api/admin", etfRoutes); // Legacy
 app.use("/api/user", userRoutes);
 

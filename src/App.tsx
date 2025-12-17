@@ -7,8 +7,11 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { RequireAuth } from "@/auth/RequireAuth";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import Index from "./pages/Index";
+import CEFIndex from "./pages/CEFIndex";
 import ETFDetail from "./pages/ETFDetail";
+import CEFDetail from "./pages/CEFDetail";
 import DividendHistoryPage from "./pages/DividendHistoryPage";
+import CEFDividendHistoryPage from "./pages/CEFDividendHistoryPage";
 import OurFocus from "./pages/OurFocus";
 import Focus from "./pages/Focus";
 import CoveredCallETFs from "./pages/CoveredCallETFs";
@@ -40,6 +43,9 @@ const App = () => (
           <DisclaimerModal />
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/cef" element={<CEFIndex />} />
+            <Route path="/cef/:symbol" element={<CEFDetail />} />
+            <Route path="/cef/:symbol/dividends" element={<CEFDividendHistoryPage />} />
             <Route path="/etf/:symbol" element={<ETFDetail />} />
             <Route path="/etf/:symbol/dividends" element={<DividendHistoryPage />} />
             <Route path="/our-focus" element={<OurFocus />} />
