@@ -188,91 +188,8 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
 });
 
 // ============================================================================
-// GET /:symbol - Get single CEF
-// ============================================================================
-
-router.get('/:symbol', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { symbol } = req.params;
-    const ticker = symbol.toUpperCase();
-    const supabase = getSupabase();
-
-    const staticResult = await supabase
-      .from('etf_static')
-      .select('*')
-      .eq('ticker', ticker)
-      .maybeSingle();
-
-    if (!staticResult.data) {
-      res.status(404).json({ error: 'CEF not found' });
-      return;
-    }
-
-    const cef = staticResult.data;
-
-    // Calculate dividend history
-    let dividendHistory = "0+ 0-";
-    try {
-      const dividends = await getDividendHistory(ticker);
-      dividendHistory = calculateDividendHistory(dividends);
-    } catch (error) {
-      logger.warn('Routes', `Failed to calculate dividend history for ${ticker}: ${error}`);
-    }
-
-    // Calculate premium/discount
-    let premiumDiscount: number | null = null;
-    if (cef.nav && cef.price) {
-      premiumDiscount = ((cef.price - cef.nav) / cef.nav) * 100;
-    }
-
-    const response = {
-      symbol: cef.ticker,
-      name: cef.description || cef.ticker,
-      issuer: cef.issuer || null,
-      description: cef.description || null,
-      navSymbol: cef.nav_symbol || null,
-      openDate: cef.open_date || null,
-      ipoPrice: cef.ipo_price || null,
-      marketPrice: cef.price || null,
-      nav: cef.nav || null,
-      premiumDiscount: premiumDiscount,
-      fiveYearZScore: cef.five_year_z_score || null,
-      navTrend6M: cef.nav_trend_6m || null,
-      navTrend12M: cef.nav_trend_12m || null,
-      valueHealthScore: cef.value_health_score || null,
-      lastDividend: cef.last_dividend || null,
-      numPayments: cef.payments_per_year || 12,
-      yearlyDividend: cef.annual_dividend || null,
-      forwardYield: cef.forward_yield || null,
-      dividendHistory: dividendHistory,
-      dividendSD: cef.dividend_sd || null,
-      dividendCV: cef.dividend_cv || null,
-      dividendCVPercent: cef.dividend_cv_percent || null,
-      dividendVolatilityIndex: cef.dividend_volatility_index || null,
-      return10Yr: cef.tr_drip_3y || null,
-      return5Yr: cef.tr_drip_3y || null,
-      return3Yr: cef.tr_drip_3y || null,
-      return12Mo: cef.tr_drip_12m || null,
-      return6Mo: cef.tr_drip_6m || null,
-      return3Mo: cef.tr_drip_3m || null,
-      return1Mo: cef.tr_drip_1m || null,
-      return1Wk: cef.tr_drip_1w || null,
-      weightedRank: cef.weighted_rank || null,
-      week52Low: cef.week_52_low || null,
-      week52High: cef.week_52_high || null,
-      lastUpdated: cef.last_updated || cef.updated_at,
-      dataSource: 'Tiingo',
-    };
-
-    res.json(response);
-  } catch (error) {
-    logger.error('Routes', `Error fetching CEF: ${(error as Error).message}`);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// ============================================================================
 // GET /:symbol/price-nav - Get price and NAV data for charting
+// MUST come before /:symbol route to avoid route conflict
 // ============================================================================
 
 router.get('/:symbol/price-nav', async (req: Request, res: Response): Promise<void> => {
@@ -374,6 +291,90 @@ router.get('/:symbol/price-nav', async (req: Request, res: Response): Promise<vo
     });
   } catch (error) {
     logger.error('Routes', `Error fetching price/NAV data for ${req.params.symbol}: ${(error as Error).message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// GET /:symbol - Get single CEF
+// ============================================================================
+
+router.get('/:symbol', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { symbol } = req.params;
+    const ticker = symbol.toUpperCase();
+    const supabase = getSupabase();
+
+    const staticResult = await supabase
+      .from('etf_static')
+      .select('*')
+      .eq('ticker', ticker)
+      .maybeSingle();
+
+    if (!staticResult.data) {
+      res.status(404).json({ error: 'CEF not found' });
+      return;
+    }
+
+    const cef = staticResult.data;
+
+    // Calculate dividend history
+    let dividendHistory = "0+ 0-";
+    try {
+      const dividends = await getDividendHistory(ticker);
+      dividendHistory = calculateDividendHistory(dividends);
+    } catch (error) {
+      logger.warn('Routes', `Failed to calculate dividend history for ${ticker}: ${error}`);
+    }
+
+    // Calculate premium/discount
+    let premiumDiscount: number | null = null;
+    if (cef.nav && cef.price) {
+      premiumDiscount = ((cef.price - cef.nav) / cef.nav) * 100;
+    }
+
+    const response = {
+      symbol: cef.ticker,
+      name: cef.description || cef.ticker,
+      issuer: cef.issuer || null,
+      description: cef.description || null,
+      navSymbol: cef.nav_symbol || null,
+      openDate: cef.open_date || null,
+      ipoPrice: cef.ipo_price || null,
+      marketPrice: cef.price || null,
+      nav: cef.nav || null,
+      premiumDiscount: premiumDiscount,
+      fiveYearZScore: cef.five_year_z_score || null,
+      navTrend6M: cef.nav_trend_6m || null,
+      navTrend12M: cef.nav_trend_12m || null,
+      valueHealthScore: cef.value_health_score || null,
+      lastDividend: cef.last_dividend || null,
+      numPayments: cef.payments_per_year || 12,
+      yearlyDividend: cef.annual_dividend || null,
+      forwardYield: cef.forward_yield || null,
+      dividendHistory: dividendHistory,
+      dividendSD: cef.dividend_sd || null,
+      dividendCV: cef.dividend_cv || null,
+      dividendCVPercent: cef.dividend_cv_percent || null,
+      dividendVolatilityIndex: cef.dividend_volatility_index || null,
+      return10Yr: cef.tr_drip_3y || null,
+      return5Yr: cef.tr_drip_3y || null,
+      return3Yr: cef.tr_drip_3y || null,
+      return12Mo: cef.tr_drip_12m || null,
+      return6Mo: cef.tr_drip_6m || null,
+      return3Mo: cef.tr_drip_3m || null,
+      return1Mo: cef.tr_drip_1m || null,
+      return1Wk: cef.tr_drip_1w || null,
+      weightedRank: cef.weighted_rank || null,
+      week52Low: cef.week_52_low || null,
+      week52High: cef.week_52_high || null,
+      lastUpdated: cef.last_updated || cef.updated_at,
+      dataSource: 'Tiingo',
+    };
+
+    res.json(response);
+  } catch (error) {
+    logger.error('Routes', `Error fetching CEF: ${(error as Error).message}`);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
