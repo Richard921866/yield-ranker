@@ -172,9 +172,11 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 
     if (headerRowIndex === -1) {
       cleanupFile(filePath);
+      logger.error('CEF Upload', 'Could not find header row with SYMBOL column');
+      logger.error('CEF Upload', `First few rows: ${JSON.stringify(allRows.slice(0, 5))}`);
       res.status(400).json({ 
         error: 'SYMBOL column not found in header row',
-        details: 'Please ensure your spreadsheet has a header row with a SYMBOL or TICKER column'
+        details: 'Please ensure your spreadsheet has a header row with a SYMBOL or TICKER column. The system searched the first 20 rows for a header containing "SYMBOL" or "TICKER".'
       });
       return;
     }
@@ -201,12 +203,16 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     const symbolCol = findColumn(headerMap, 'symbol', 'ticker', 'ticker symbol');
     if (!symbolCol) {
       cleanupFile(filePath);
+      logger.error('CEF Upload', `SYMBOL column not found. Headers: ${JSON.stringify(headers)}`);
+      logger.error('CEF Upload', `Header map: ${JSON.stringify(headerMap)}`);
       res.status(400).json({ 
         error: 'SYMBOL column not found',
         details: `Available columns: ${headers.join(', ')}. Please ensure your spreadsheet has a column named SYMBOL or TICKER.`
       });
       return;
     }
+    
+    logger.info('CEF Upload', `Found SYMBOL column: ${symbolCol}, Total headers: ${headers.length}`);
 
     const allowedCEFs = ['DNP', 'FOF', 'GOF', 'UTF', 'UTG', 'CSQ', 'PCN', 'GAB', 'FFA', 'BTO', 'IGR', 'BME'];
     
