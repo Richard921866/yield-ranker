@@ -945,13 +945,16 @@ export default function Dashboard() {
   // Sort ETFs - preserve ranking order by default, allow manual sorting
   // Use stable sort to prevent chart from re-rendering unnecessarily
   const sortedETFs = useMemo(() => {
+    console.log('[Dashboard] sortedETFs useMemo triggered - sortField:', sortField, 'sortDirection:', sortDirection, 'ETF count:', filteredETFs.length);
+
     // If no sort field is selected, return the ranked order (default by weightedRank asc)
     if (!sortField) {
+      console.log('[Dashboard] No sort field, returning unsorted filteredETFs');
       return filteredETFs;
     }
 
     // Create a stable sorted array - use symbol as secondary sort to ensure stability
-    return [...filteredETFs].sort((a, b) => {
+    const sorted = [...filteredETFs].sort((a, b) => {
       const aValue = a[sortField];
       const bValue = b[sortField];
 
@@ -964,13 +967,25 @@ export default function Dashboard() {
       }
       if (bValue === undefined || bValue === null) return -1;
 
-      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      // Handle different data types properly
+      let comparison: number;
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        comparison = aValue.localeCompare(bValue);
+      } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+        comparison = aValue - bValue;
+      } else {
+        comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      }
+
       if (comparison !== 0) {
         return sortDirection === "asc" ? comparison : -comparison;
       }
       // If values are equal, sort by symbol for stability
       return a.symbol.localeCompare(b.symbol);
     });
+
+    console.log('[Dashboard] Sorted ETFs - first 3:', sorted.slice(0, 3).map(e => ({ symbol: e.symbol, [sortField]: e[sortField] })));
+    return sorted;
   }, [filteredETFs, sortField, sortDirection]);
 
   const favoritesFilteredETFs = showFavoritesOnly
@@ -984,9 +999,13 @@ export default function Dashboard() {
   const displayedETFs = uniqueSymbolETFs;
 
   const handleSort = (field: keyof ETF) => {
+    console.log('[Dashboard] handleSort called with field:', field, 'current sortField:', sortField, 'current direction:', sortDirection);
     if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      const newDirection = sortDirection === "asc" ? "desc" : "asc";
+      console.log('[Dashboard] Toggling direction to:', newDirection);
+      setSortDirection(newDirection);
     } else {
+      console.log('[Dashboard] Setting new field:', field, 'with direction: desc');
       setSortField(field);
       setSortDirection("desc");
     }
@@ -1014,7 +1033,11 @@ export default function Dashboard() {
         size="sm"
         className={`h-8 hover:bg-slate-100 hover:text-foreground transition-colors ${align === "left" ? "-ml-3" : "-mr-3"
           } ${isActive ? "text-primary font-semibold" : ""}`}
-        onClick={() => handleSort(field)}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleSort(field);
+        }}
       >
         {children}
         <Icon className={`ml-2 h-4 w-4 ${isActive ? "text-primary" : ""}`} />
