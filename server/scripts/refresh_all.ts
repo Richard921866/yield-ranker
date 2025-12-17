@@ -265,11 +265,11 @@ async function upsertDividends(ticker: string, dividends: any[], dryRun: boolean
     console.log(`  Preserving ${preservedCount} manual dividend upload(s) (values don't align)`);
   }
 
-  if (recordsToUpsert.length === 0 && manualUploadsToPreserve.length === 0) {
+  if (tiingoRecordsToUpsert.length === 0 && manualUploadsToPreserve.length === 0) {
     return 0;
   }
 
-  const allRecordsToUpsert = [...recordsToUpsert, ...manualUploadsToPreserve];
+  const allRecordsToUpsert = [...tiingoRecordsToUpsert, ...manualUploadsToPreserve];
 
   const { error } = await supabase
     .from('dividends_detail')
@@ -287,7 +287,7 @@ async function upsertDividends(ticker: string, dividends: any[], dryRun: boolean
     console.log(`  Preserved ${manualUploadsToPreserve.length} manual upload(s) not yet in Tiingo data`);
   }
 
-  return recordsToUpsert.length;
+  return tiingoRecordsToUpsert.length;
 }
 
 async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
