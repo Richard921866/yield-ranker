@@ -147,9 +147,12 @@ export default function Dashboard() {
 
   // Load ETF data and site settings on initial mount only
   useEffect(() => {
-    const loadETFData = async () => {
+    const loadETFData = async (showLoading: boolean = true) => {
       console.log("[Dashboard] Starting to load ETF data...");
-      setIsLoadingData(true);
+      // Only show loading state on initial load to prevent flickering
+      if (showLoading) {
+        setIsLoadingData(true);
+      }
       try {
         const result = await fetchETFDataWithMetadata();
         console.log("[Dashboard] Fetched ETF data:", result.etfs?.length || 0, "ETFs");
@@ -1808,155 +1811,155 @@ export default function Dashboard() {
                       <div className="flex-1 min-w-0 order-2 lg:order-1 flex flex-col min-h-0">
                         <div className="flex-1 min-h-0 overflow-auto">
                           <ResponsiveContainer width="100%" height={chartHeight}>
-                          {chartData && Array.isArray(chartData) && chartData.length > 0 ? (
-                            <ComposedChart
-                              key={`chart-${selectedETF.symbol}-${chartType}-${selectedTimeframe}`}
-                              data={chartData}
-                            >
-                              <defs>
-                                <linearGradient
-                                  id="colorPricePrimary"
-                                  x1="0"
-                                  y1="0"
-                                  x2="0"
-                                  y2="1"
-                                >
-                                  <stop
-                                    offset="5%"
-                                    stopColor={isPositive ? "#10b981" : "#ef4444"}
-                                    stopOpacity={0.3}
-                                  />
-                                  <stop
-                                    offset="95%"
-                                    stopColor={isPositive ? "#10b981" : "#ef4444"}
-                                    stopOpacity={0}
-                                  />
-                                </linearGradient>
-                              </defs>
-                              <CartesianGrid
-                                strokeDasharray="3 3"
-                                stroke="#f1f5f9"
-                                vertical={false}
-                              />
-                              <XAxis
-                                dataKey="time"
-                                stroke="#94a3b8"
-                                fontSize={chartHeight < 280 ? 9 : 12}
-                                tickLine={false}
-                                axisLine={false}
-                                angle={chartHeight < 280 ? -45 : 0}
-                                textAnchor={chartHeight < 280 ? "end" : "middle"}
-                                height={chartHeight < 280 ? 50 : 30}
-                                interval="preserveStartEnd"
-                                tickFormatter={(value) => value || ''}
-                              />
-                              <YAxis
-                                stroke="#94a3b8"
-                                fontSize={12}
-                                domain={chartType === "totalReturn" ? [minValue, maxValue] : [minValue, maxValue]}
-                                tickLine={false}
-                                axisLine={false}
-                                tickFormatter={(value: any) => {
-                                  if (value === null || value === undefined) return '';
-                                  const numValue = typeof value === 'number' ? value : parseFloat(String(value));
-                                  if (typeof numValue === 'number' && !isNaN(numValue) && isFinite(numValue)) {
-                                    try {
-                                      return `${numValue.toFixed(1)}%`;
-                                    } catch (e) {
-                                      return '';
+                            {chartData && Array.isArray(chartData) && chartData.length > 0 ? (
+                              <ComposedChart
+                                key={`chart-${selectedETF.symbol}-${chartType}-${selectedTimeframe}`}
+                                data={chartData}
+                              >
+                                <defs>
+                                  <linearGradient
+                                    id="colorPricePrimary"
+                                    x1="0"
+                                    y1="0"
+                                    x2="0"
+                                    y2="1"
+                                  >
+                                    <stop
+                                      offset="5%"
+                                      stopColor={isPositive ? "#10b981" : "#ef4444"}
+                                      stopOpacity={0.3}
+                                    />
+                                    <stop
+                                      offset="95%"
+                                      stopColor={isPositive ? "#10b981" : "#ef4444"}
+                                      stopOpacity={0}
+                                    />
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid
+                                  strokeDasharray="3 3"
+                                  stroke="#f1f5f9"
+                                  vertical={false}
+                                />
+                                <XAxis
+                                  dataKey="time"
+                                  stroke="#94a3b8"
+                                  fontSize={chartHeight < 280 ? 9 : 12}
+                                  tickLine={false}
+                                  axisLine={false}
+                                  angle={chartHeight < 280 ? -45 : 0}
+                                  textAnchor={chartHeight < 280 ? "end" : "middle"}
+                                  height={chartHeight < 280 ? 50 : 30}
+                                  interval="preserveStartEnd"
+                                  tickFormatter={(value) => value || ''}
+                                />
+                                <YAxis
+                                  stroke="#94a3b8"
+                                  fontSize={12}
+                                  domain={chartType === "totalReturn" ? [minValue, maxValue] : [minValue, maxValue]}
+                                  tickLine={false}
+                                  axisLine={false}
+                                  tickFormatter={(value: any) => {
+                                    if (value === null || value === undefined) return '';
+                                    const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+                                    if (typeof numValue === 'number' && !isNaN(numValue) && isFinite(numValue)) {
+                                      try {
+                                        return `${numValue.toFixed(1)}%`;
+                                      } catch (e) {
+                                        return '';
+                                      }
                                     }
-                                  }
-                                  return '';
-                                }}
-                              />
-                              <Tooltip
-                                contentStyle={{
-                                  backgroundColor: "rgba(255, 255, 255, 0.98)",
-                                  border: "none",
-                                  borderRadius: "12px",
-                                  boxShadow:
-                                    "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-                                  padding: "12px 16px",
-                                }}
-                                labelStyle={{
-                                  color: "#64748b",
-                                  fontSize: "12px",
-                                  marginBottom: "4px",
-                                }}
-                                formatter={(value: any, name: string) => {
-                                  if (value === null || value === undefined) {
-                                    return ['N/A', name];
-                                  }
-                                  const numValue = typeof value === 'number' ? value : parseFloat(String(value));
-                                  if (typeof numValue === 'number' && !isNaN(numValue) && isFinite(numValue)) {
-                                    try {
-                                      return [`${numValue.toFixed(2)}%`, name];
-                                    } catch (e) {
+                                    return '';
+                                  }}
+                                />
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: "rgba(255, 255, 255, 0.98)",
+                                    border: "none",
+                                    borderRadius: "12px",
+                                    boxShadow:
+                                      "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                                    padding: "12px 16px",
+                                  }}
+                                  labelStyle={{
+                                    color: "#64748b",
+                                    fontSize: "12px",
+                                    marginBottom: "4px",
+                                  }}
+                                  formatter={(value: any, name: string) => {
+                                    if (value === null || value === undefined) {
                                       return ['N/A', name];
                                     }
-                                  }
-                                  return ['N/A', name];
-                                }}
-                              />
-                              {/* Primary ETF with gradient Area (only when no comparisons) */}
-                              {comparisonETFs.length === 0 && (
-                                <Area
-                                  type="monotone"
-                                  dataKey="price"
-                                  stroke={isPositive ? "#10b981" : "#ef4444"}
-                                  strokeWidth={3}
-                                  fill="url(#colorPricePrimary)"
-                                  fillOpacity={1}
-                                  dot={false}
-                                  name={selectedETF.symbol}
-                                  animationDuration={500}
-                                  strokeLinecap="round"
-                                  connectNulls={false}
+                                    const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+                                    if (typeof numValue === 'number' && !isNaN(numValue) && isFinite(numValue)) {
+                                      try {
+                                        return [`${numValue.toFixed(2)}%`, name];
+                                      } catch (e) {
+                                        return ['N/A', name];
+                                      }
+                                    }
+                                    return ['N/A', name];
+                                  }}
                                 />
-                              )}
-                              {/* All ETFs as Lines (when comparing) */}
-                              {[
-                                selectedETF.symbol,
-                                ...comparisonETFs.filter((s) => s !== selectedETF.symbol),
-                              ].map((symbol, index) => {
-                                const colors = [
-                                  "#3b82f6",
-                                  "#f97316",
-                                  "#8b5cf6",
-                                  "#10b981",
-                                  "#ef4444",
-                                ];
-                                const color = colors[index % colors.length];
-                                const dataKey =
-                                  chartType === "totalReturn"
-                                    ? `return_${symbol}`
-                                    : `price_${symbol}`;
-                                return (
-                                  <Line
-                                    key={symbol}
+                                {/* Primary ETF with gradient Area (only when no comparisons) */}
+                                {comparisonETFs.length === 0 && (
+                                  <Area
                                     type="monotone"
-                                    dataKey={dataKey}
-                                    stroke={color}
-                                    strokeWidth={index === 0 ? 3 : 2.5}
+                                    dataKey="price"
+                                    stroke={isPositive ? "#10b981" : "#ef4444"}
+                                    strokeWidth={3}
+                                    fill="url(#colorPricePrimary)"
+                                    fillOpacity={1}
                                     dot={false}
-                                    name={symbol}
+                                    name={selectedETF.symbol}
                                     animationDuration={500}
-                                    animationBegin={(index + 1) * 100}
                                     strokeLinecap="round"
                                     connectNulls={false}
                                   />
-                                );
-                              })}
-                            </ComposedChart>
-                          ) : (
-                            <div className="flex items-center justify-center h-full">
-                              <div className="text-center">
-                                <p className="text-muted-foreground">Chart data is loading or unavailable.</p>
-                                {isChartLoading && <RefreshCw className="h-4 w-4 animate-spin mx-auto mt-2" />}
+                                )}
+                                {/* All ETFs as Lines (when comparing) */}
+                                {[
+                                  selectedETF.symbol,
+                                  ...comparisonETFs.filter((s) => s !== selectedETF.symbol),
+                                ].map((symbol, index) => {
+                                  const colors = [
+                                    "#3b82f6",
+                                    "#f97316",
+                                    "#8b5cf6",
+                                    "#10b981",
+                                    "#ef4444",
+                                  ];
+                                  const color = colors[index % colors.length];
+                                  const dataKey =
+                                    chartType === "totalReturn"
+                                      ? `return_${symbol}`
+                                      : `price_${symbol}`;
+                                  return (
+                                    <Line
+                                      key={symbol}
+                                      type="monotone"
+                                      dataKey={dataKey}
+                                      stroke={color}
+                                      strokeWidth={index === 0 ? 3 : 2.5}
+                                      dot={false}
+                                      name={symbol}
+                                      animationDuration={500}
+                                      animationBegin={(index + 1) * 100}
+                                      strokeLinecap="round"
+                                      connectNulls={false}
+                                    />
+                                  );
+                                })}
+                              </ComposedChart>
+                            ) : (
+                              <div className="flex items-center justify-center h-full">
+                                <div className="text-center">
+                                  <p className="text-muted-foreground">Chart data is loading or unavailable.</p>
+                                  {isChartLoading && <RefreshCw className="h-4 w-4 animate-spin mx-auto mt-2" />}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </ResponsiveContainer>
+                            )}
+                          </ResponsiveContainer>
                         </div>
                       </div>
 

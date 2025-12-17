@@ -62,9 +62,13 @@ const Index = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const loadData = async () => {
+    const loadData = async (isInitialLoad: boolean = true) => {
       try {
-        setIsLoading(true);
+        // Only show loading state on initial load, not on refreshes
+        // This prevents flicker when data is already displayed
+        if (isInitialLoad) {
+          setIsLoading(true);
+        }
         const result = await fetchETFDataWithMetadata();
         const seen = new Set<string>();
         const deduplicated = result.etfs.filter((etf) => {
@@ -125,7 +129,7 @@ const Index = () => {
     // Listen for ETF data updates (e.g., after upload) - only refresh when explicitly triggered
     const handleETFDataUpdated = () => {
       clearETFCache();
-      loadData();
+      loadData(false); // Pass false to prevent showing loading state during refresh
     };
 
     window.addEventListener('etfDataUpdated', handleETFDataUpdated);
