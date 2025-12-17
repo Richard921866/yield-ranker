@@ -25,8 +25,6 @@ import {
   Search,
   RotateCcw,
   ArrowLeft,
-  ChevronDown,
-  ChevronUp,
   ChevronRight,
   Upload,
   ArrowUpDown,
@@ -1049,11 +1047,6 @@ export default function Dashboard() {
     align?: "left" | "right";
   }) => {
     const isActive = sortField === field;
-    const Icon = isActive
-      ? sortDirection === "asc"
-        ? ChevronUp
-        : ChevronDown
-      : ArrowUpDown;
 
     return (
       <Button
@@ -1061,7 +1054,7 @@ export default function Dashboard() {
         variant="ghost"
         size="sm"
         className={`h-8 hover:bg-slate-100 hover:text-foreground transition-colors ${align === "left" ? "-ml-3" : "-mr-3"
-          } ${isActive ? "text-primary font-semibold" : ""}`}
+          } ${isActive ? "font-semibold" : ""}`}
         onClick={(e) => {
           console.log('[Dashboard] SortButton clicked for field:', field);
           e.preventDefault();
@@ -1070,7 +1063,7 @@ export default function Dashboard() {
         }}
       >
         {children}
-        <Icon className={`ml-2 h-4 w-4 ${isActive ? "text-primary" : ""}`} />
+        <ArrowUpDown className="ml-2 h-4 w-4" />
       </Button>
     );
   };
@@ -2886,7 +2879,7 @@ export default function Dashboard() {
                           </div>
 
                           <div className="flex-1 min-h-0 flex flex-col">
-                            <div className="flex-1 min-h-0 overflow-auto">
+                            <div className="flex-1 min-h-0 max-h-[calc(100vh-250px)] overflow-x-auto overflow-y-scroll">
                               <table className="w-full caption-bottom text-xs min-w-max border-collapse">
                                 <thead className="sticky top-0 z-[100] bg-slate-50 shadow-sm border-b border-slate-200">
                                   <tr className="bg-slate-50">

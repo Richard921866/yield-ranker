@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ETF } from "@/types/etf";
-import { ArrowUpDown, ChevronDown, ChevronUp, Info, Star, LineChart, X, Lock, Sliders } from "lucide-react";
+import { ArrowUpDown, Info, Star, LineChart, X, Lock, Sliders } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
@@ -38,18 +38,13 @@ const SortButton = ({
   onSort: (field: SortField) => void;
 }) => {
   const isActive = sortField === field;
-  const Icon = isActive
-    ? sortDirection === "asc"
-      ? ChevronUp
-      : ChevronDown
-    : ArrowUpDown;
 
   return (
     <Button
       type="button"
       variant="ghost"
       size="sm"
-      className={`h-8 hover:bg-slate-100 hover:text-foreground transition-colors ${align === "left" ? "-ml-3" : "-mr-3"} ${isActive ? "text-primary font-semibold" : ""}`}
+      className={`h-8 hover:bg-slate-100 hover:text-foreground transition-colors ${align === "left" ? "-ml-3" : "-mr-3"} ${isActive ? "font-semibold" : ""}`}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -57,7 +52,7 @@ const SortButton = ({
       }}
     >
       {children}
-      <Icon className={`ml-2 h-4 w-4 ${isActive ? "text-primary" : ""}`} />
+      <ArrowUpDown className="ml-2 h-4 w-4" />
     </Button>
   );
 };
@@ -78,7 +73,6 @@ export const ETFTable = ({
   );
   const [sortField, setSortField] = useState<SortField>("weightedRank");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [isExpanded, setIsExpanded] = useState(false);
   const [comparisonETFs, setComparisonETFs] = useState<string[]>([]);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
@@ -213,16 +207,11 @@ export const ETFTable = ({
     return sorted;
   }, [etfs, sortField, sortDirection]);
 
-  const INITIAL_DISPLAY_COUNT = 20;
-  const displayedETFs = isExpanded
-    ? sortedETFs
-    : sortedETFs.slice(0, INITIAL_DISPLAY_COUNT);
-  const hasMore = sortedETFs.length > INITIAL_DISPLAY_COUNT;
 
 
   return (
     <div className="rounded-lg sm:rounded-xl border-2 border-border/50 shadow-card bg-card overflow-hidden">
-      <div className="max-h-[calc(100vh-150px)] sm:max-h-[calc(100vh-200px)] overflow-x-auto overflow-y-auto touch-auto">
+      <div className="max-h-[calc(100vh-150px)] sm:max-h-[calc(100vh-200px)] overflow-x-auto overflow-y-scroll touch-auto">
         <table className="w-full caption-bottom text-xs min-w-max">
           <thead className="sticky top-0 z-50 bg-slate-50 shadow-sm border-b-2 border-slate-200">
             <tr className="bg-slate-50">
@@ -345,7 +334,7 @@ export const ETFTable = ({
             </tr>
           </thead>
           <tbody>
-            {displayedETFs.map((etf, index) => (
+            {sortedETFs.map((etf, index) => (
               <tr
                 key={etf.symbol}
                 id={`etf-row-${etf.symbol}`}
@@ -481,28 +470,6 @@ export const ETFTable = ({
           </tbody>
         </table>
       </div>
-
-      {hasMore && (
-        <div className="flex justify-center py-4 border-t bg-muted/30">
-          <Button
-            variant="ghost"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="hover:bg-slate-100 hover:text-foreground transition-colors"
-          >
-            {isExpanded ? (
-              <>
-                <ChevronUp className="w-4 h-4 mr-2" />
-                Show Less
-              </>
-            ) : (
-              <>
-                <ChevronDown className="w-4 h-4 mr-2" />
-                Show More ({sortedETFs.length - INITIAL_DISPLAY_COUNT} more)
-              </>
-            )}
-          </Button>
-        </div>
-      )}
 
       <UpgradeToPremiumModal
         open={showUpgradeModal}
