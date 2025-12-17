@@ -536,7 +536,9 @@ const AdminPanel = () => {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Upload failed");
+        const errorMsg = result.error || "Upload failed";
+        const detailsMsg = result.details ? ` ${result.details}` : "";
+        throw new Error(`${errorMsg}${detailsMsg}`);
       }
 
       setCefUploadStatus(`Success! Processed ${result.count} CEFs (${result.added} added, ${result.updated} updated)`);
