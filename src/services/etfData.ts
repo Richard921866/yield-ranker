@@ -4,9 +4,9 @@ import { fetchRealtimeReturnsBatch } from "@/services/tiingoApi";
 // ...existing code...
 
 const dataCache = new Map<string, { data: ETF; timestamp: number }>();
-// Cache duration: 10 seconds to ensure fresh data while reducing API calls
-// Data is updated daily from Tiingo at 8:00 PM EST via daily_update.ts script
-const CACHE_DURATION = 10000;
+// Cache duration: 24 hours - data is updated daily from Tiingo at 8:00 PM EST
+// Frontend fetches once and keeps cached data until manually refreshed or cache expires
+const CACHE_DURATION = 86400000;
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '';
 

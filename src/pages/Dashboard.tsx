@@ -252,7 +252,6 @@ export default function Dashboard() {
     const handleETFDataUpdated = () => {
       clearETFCache();
       const reloadData = async () => {
-        setIsLoadingData(true);
         try {
           const result = await fetchETFDataWithMetadata();
           const seen = new Set<string>();
@@ -267,8 +266,6 @@ export default function Dashboard() {
           cleanupFavorites(deduplicated.map(etf => etf.symbol));
         } catch (error) {
           console.error("[Dashboard] Failed to reload ETF data:", error);
-        } finally {
-          setIsLoadingData(false);
         }
       };
       reloadData();

@@ -122,7 +122,7 @@ const Index = () => {
     // Removed auto-refresh interval: once data is loaded from our database,
     // keep it stable for a clean, non-jittery experience.
 
-    // Listen for ETF data updates (e.g., after upload)
+    // Listen for ETF data updates (e.g., after upload) - only refresh when explicitly triggered
     const handleETFDataUpdated = () => {
       clearETFCache();
       loadData();
@@ -160,10 +160,10 @@ const Index = () => {
     loadWeightsFromProfile();
   }, [profile, loadWeightsFromProfile]);
 
-  // Reload weights when navigating to this page
+  // Load weights when navigating to this page (only once, no reload)
   useEffect(() => {
     if (user?.id && location.pathname === "/") {
-      const reloadWeights = async () => {
+      const loadWeightsOnce = async () => {
         try {
           const { data } = await supabase
             .from("profiles")
@@ -195,48 +195,6 @@ const Index = () => {
     }
   }, [location.pathname, user?.id]);
 
-  // Reload weights when page becomes visible (handles navigation between pages)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && user?.id) {
-        // Reload profile from database to get latest weights
-        const reloadProfile = async () => {
-          try {
-            const { data } = await supabase
-              .from("profiles")
-              .select("preferences")
-              .eq("id", user.id)
-              .single();
-            if (data?.preferences) {
-              const prefs = data.preferences as { ranking_weights?: RankingWeights; ranking_presets?: RankingPreset[] };
-              const savedWeights = prefs.ranking_weights;
-              if (savedWeights) {
-                setWeights(savedWeights);
-                setYieldWeight(savedWeights.yield);
-                setVolatilityWeight(savedWeights.volatility ?? savedWeights.stdDev ?? 30);
-                setTotalReturnWeight(savedWeights.totalReturn);
-                if (savedWeights.timeframe === "3mo" || savedWeights.timeframe === "6mo") {
-                  setTotalReturnTimeframe(savedWeights.timeframe);
-                }
-              }
-              const savedPresets = prefs.ranking_presets;
-              if (savedPresets) {
-                setRankingPresets(savedPresets);
-              }
-            }
-          } catch (error) {
-            console.error("Failed to reload profile:", error);
-          }
-        };
-        reloadProfile();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [user?.id]);
 
   const totalWeight = (yieldWeight ?? 0) + (volatilityWeight ?? 0) + (totalReturnWeight ?? 0);
   const isValid = !isNaN(totalWeight) && totalWeight === 100;
