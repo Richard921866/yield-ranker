@@ -27,18 +27,17 @@ export function useFavorites() {
     if (!user?.id) return;
 
     try {
-      const { error: deleteError } = await supabase
+      const { data: currentDbFavorites } = await supabase
         .from('favorites')
-        .delete()
+        .select('symbol')
         .eq('user_id', user.id);
 
-      if (deleteError) {
-        console.error('Failed to clear database favorites:', deleteError);
-        return;
-      }
+      const dbSymbols = currentDbFavorites ? new Set(currentDbFavorites.map(row => row.symbol)) : new Set<string>();
+      const symbolsToAdd = symbols.filter(s => !dbSymbols.has(s));
+      const symbolsToRemove = Array.from(dbSymbols).filter(s => !symbols.includes(s));
 
-      if (symbols.length > 0) {
-        const favoritesToInsert = symbols.map(symbol => ({
+      if (symbolsToAdd.length > 0) {
+        const favoritesToInsert = symbolsToAdd.map(symbol => ({
           user_id: user.id,
           symbol: symbol,
         }));
@@ -48,7 +47,19 @@ export function useFavorites() {
           .insert(favoritesToInsert);
 
         if (insertError) {
-          console.error('Failed to save favorites to database:', insertError);
+          console.error('Failed to add favorites to database:', insertError);
+        }
+      }
+
+      if (symbolsToRemove.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .in('symbol', symbolsToRemove);
+
+        if (deleteError) {
+          console.error('Failed to remove favorites from database:', deleteError);
         }
       }
     } catch (error) {
@@ -77,23 +88,24 @@ export function useFavorites() {
           }
         }
 
-        const stored = localStorage.getItem(storageKey);
-        let localFavorites: string[] = [];
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            localFavorites = Array.isArray(parsed) ? parsed : [];
-          } catch (e) {
-            console.error('Failed to parse localStorage favorites:', e);
-          }
-        }
-
-        const merged = new Set<string>([...dbFavorites, ...localFavorites]);
-        
-        if (merged.size > 0) {
-          setFavorites(merged);
-          if (user?.id && dbFavorites.length !== merged.size) {
-            await syncToDatabase(Array.from(merged));
+        if (user?.id && dbFavorites.length > 0) {
+          setFavorites(new Set(dbFavorites));
+          localStorage.setItem(storageKey, JSON.stringify(dbFavorites));
+        } else {
+          const stored = localStorage.getItem(storageKey);
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored);
+              const localFavorites = Array.isArray(parsed) ? parsed : [];
+              if (localFavorites.length > 0) {
+                setFavorites(new Set(localFavorites));
+                if (user?.id) {
+                  await syncToDatabase(localFavorites);
+                }
+              }
+            } catch (e) {
+              console.error('Failed to parse localStorage favorites:', e);
+            }
           }
         }
       } catch (error) {
@@ -108,15 +120,21 @@ export function useFavorites() {
   }, [user?.id, storageKey, syncToDatabase]);
 
   useEffect(() => {
-    if (isInitialLoad.current) return;
+    if (isInitialLoad.current || isSyncing.current) return;
 
     try {
-      localStorage.setItem(storageKey, JSON.stringify(Array.from(favorites)));
+      const favoritesArray = Array.from(favorites);
+      localStorage.setItem(storageKey, JSON.stringify(favoritesArray));
+      
       if (user?.id) {
-        syncToDatabase(Array.from(favorites));
+        isSyncing.current = true;
+        syncToDatabase(favoritesArray).finally(() => {
+          isSyncing.current = false;
+        });
       }
     } catch (error) {
       console.error('Failed to save favorites:', error);
+      isSyncing.current = false;
     }
   }, [favorites, storageKey, user?.id, syncToDatabase]);
 
