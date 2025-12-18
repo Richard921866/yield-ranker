@@ -28,7 +28,7 @@ import {
   healthCheck,
 } from '../src/services/tiingo.js';
 import { calculateMetrics } from '../src/services/metrics.js';
-import { batchUpdateETFMetrics } from '../src/services/database.js';
+import { batchUpdateETFMetrics, batchUpdateETFMetricsPreservingCEF } from '../src/services/database.js';
 import type { TiingoPriceData } from '../src/types/index.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
@@ -322,39 +322,73 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
     console.log(`  Recalculating metrics...`);
     if (!dryRun) {
       const metrics = await calculateMetrics(ticker);
-      await batchUpdateETFMetrics([{
-        ticker,
-        metrics: {
-          price: metrics.currentPrice,
-          price_change: metrics.priceChange,
-          price_change_pct: metrics.priceChangePercent,
-          last_dividend: metrics.lastDividend,
-          annual_dividend: metrics.annualizedDividend,
-          forward_yield: metrics.forwardYield,
-          dividend_sd: metrics.dividendSD,
-          dividend_cv: metrics.dividendCV,
-          dividend_cv_percent: metrics.dividendCVPercent,
-          dividend_volatility_index: metrics.dividendVolatilityIndex,
-          week_52_high: metrics.week52High,
-          week_52_low: metrics.week52Low,
-          tr_drip_3y: metrics.totalReturnDrip?.['3Y'],
-          tr_drip_12m: metrics.totalReturnDrip?.['1Y'],
-          tr_drip_6m: metrics.totalReturnDrip?.['6M'],
-          tr_drip_3m: metrics.totalReturnDrip?.['3M'],
-          tr_drip_1m: metrics.totalReturnDrip?.['1M'],
-          tr_drip_1w: metrics.totalReturnDrip?.['1W'],
-          price_return_3y: metrics.priceReturn?.['3Y'],
-          price_return_12m: metrics.priceReturn?.['1Y'],
-          price_return_6m: metrics.priceReturn?.['6M'],
-          price_return_3m: metrics.priceReturn?.['3M'],
-          price_return_1m: metrics.priceReturn?.['1M'],
-          price_return_1w: metrics.priceReturn?.['1W'],
-        },
-      }]);
+      
+      const updateData: any = {
+        price: metrics.currentPrice,
+        price_change: metrics.priceChange,
+        price_change_pct: metrics.priceChangePercent,
+        last_dividend: metrics.lastDividend,
+        annual_dividend: metrics.annualizedDividend,
+        forward_yield: metrics.forwardYield,
+        dividend_sd: metrics.dividendSD,
+        dividend_cv: metrics.dividendCV,
+        dividend_cv_percent: metrics.dividendCVPercent,
+        dividend_volatility_index: metrics.dividendVolatilityIndex,
+        week_52_high: metrics.week52High,
+        week_52_low: metrics.week52Low,
+        tr_drip_3y: metrics.totalReturnDrip?.['3Y'],
+        tr_drip_12m: metrics.totalReturnDrip?.['1Y'],
+        tr_drip_6m: metrics.totalReturnDrip?.['6M'],
+        tr_drip_3m: metrics.totalReturnDrip?.['3M'],
+        tr_drip_1m: metrics.totalReturnDrip?.['1M'],
+        tr_drip_1w: metrics.totalReturnDrip?.['1W'],
+        price_return_3y: metrics.priceReturn?.['3Y'],
+        price_return_12m: metrics.priceReturn?.['1Y'],
+        price_return_6m: metrics.priceReturn?.['6M'],
+        price_return_3m: metrics.priceReturn?.['3M'],
+        price_return_1m: metrics.priceReturn?.['1M'],
+        price_return_1w: metrics.priceReturn?.['1W'],
+      };
+
+      if (navSymbol) {
+        const { data: navPriceData } = await supabase
+          .from('prices_daily')
+          .select('close')
+          .eq('ticker', navSymbol.toUpperCase())
+          .order('date', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (navPriceData?.close) {
+          updateData.nav = navPriceData.close;
+          
+          if (metrics.currentPrice && navPriceData.close) {
+            updateData.premium_discount = ((metrics.currentPrice - navPriceData.close) / navPriceData.close) * 100;
+          }
+        }
+      }
+
+      if (navSymbol) {
+        await batchUpdateETFMetricsPreservingCEF([{
+          ticker,
+          metrics: updateData,
+        }]);
+      } else {
+        await batchUpdateETFMetrics([{
+          ticker,
+          metrics: updateData,
+        }]);
+      }
       console.log(`  ✓ Metrics recalculated`);
       console.log(`    - Annual Dividend: ${metrics.annualizedDividend?.toFixed(2) || 'N/A'}`);
       console.log(`    - DVI: ${metrics.dividendCVPercent?.toFixed(1) || 'N/A'}%`);
       console.log(`    - Current Price: $${metrics.currentPrice?.toFixed(2) || 'N/A'}`);
+      if (navSymbol && updateData.nav) {
+        console.log(`    - NAV: $${updateData.nav.toFixed(2)}`);
+        if (updateData.premium_discount !== undefined) {
+          console.log(`    - Prem/Disc: ${updateData.premium_discount.toFixed(2)}%`);
+        }
+      }
     } else {
       console.log(`  Would recalculate metrics`);
     }

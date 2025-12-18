@@ -178,13 +178,68 @@ export async function updateETFMetrics(
 ): Promise<void> {
   const db = getSupabase();
 
+  const updateData: any = {
+    ...metrics,
+    last_updated: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
   const { error } = await db
     .from('etf_static')
-    .update({
-      ...metrics,
-      last_updated: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
+    .eq('ticker', ticker.toUpperCase());
+
+  if (error) {
+    logger.error('Database', `Failed to update metrics for ${ticker}: ${error.message}`);
+  }
+}
+
+export async function updateETFMetricsPreservingCEFFields(
+  ticker: string,
+  metrics: Partial<ETFStaticRecord>
+): Promise<void> {
+  const db = getSupabase();
+
+  const cefFieldsToPreserve = [
+    'nav_symbol',
+    'nav',
+    'premium_discount',
+    'five_year_z_score',
+    'nav_trend_6m',
+    'nav_trend_12m',
+    'value_health_score',
+    'open_date',
+    'ipo_price',
+    'description',
+    'dividend_history',
+    'average_premium_discount',
+  ];
+
+  const { data: existing } = await db
+    .from('etf_static')
+    .select(cefFieldsToPreserve.join(','))
+    .eq('ticker', ticker.toUpperCase())
+    .maybeSingle();
+
+  const updateData: any = {
+    ...metrics,
+    last_updated: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (existing) {
+    cefFieldsToPreserve.forEach(field => {
+      if (existing[field] !== null && existing[field] !== undefined && existing[field] !== '') {
+        if (!(field in updateData)) {
+          updateData[field] = existing[field];
+        }
+      }
+    });
+  }
+
+  const { error } = await db
+    .from('etf_static')
+    .update(updateData)
     .eq('ticker', ticker.toUpperCase());
 
   if (error) {
