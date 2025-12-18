@@ -296,9 +296,9 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
 
             const { data: allManualUploads } = await supabase
               .from('dividends_detail')
-              .select('ex_date, description, div_cash, adj_amount, pay_date, record_date, declare_date, scaled_amount, split_factor')
+              .select('ex_date, description, div_cash, adj_amount, pay_date, record_date, declare_date, scaled_amount, split_factor, is_manual')
               .eq('ticker', ticker.toUpperCase())
-              .or('description.ilike.%Manual upload%,description.ilike.%Early announcement%');
+              .or('is_manual.eq.true,description.ilike.%Manual upload%,description.ilike.%Early announcement%');
 
             const manualUploadsMap = new Map<string, { divCash: number; adjAmount: number | null; payDate: string | null; recordDate: string | null; declareDate: string | null; scaledAmount: number | null; splitFactor: number }>();
             (allManualUploads || []).forEach(d => {
@@ -409,7 +409,7 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
               .from('dividends_detail')
               .select('*')
               .eq('ticker', ticker.toUpperCase())
-              .or('description.ilike.%Manual upload%,description.ilike.%Early announcement%');
+              .or('is_manual.eq.true,description.ilike.%Manual upload%,description.ilike.%Early announcement%');
 
             (allManualUploadsNotInTiingo || []).forEach(existing => {
               const exDate = existing.ex_date.split('T')[0];
@@ -1608,8 +1608,8 @@ router.delete('/:ticker', async (req: Request, res: Response): Promise<void> => 
 
     // Clear cache immediately after deletion
     try {
-      const { clearCache } = await import('../services/redis.js');
-      await clearCache(CACHE_KEYS.ETF_LIST);
+      const { deleteCached } = await import('../services/redis.js');
+      await deleteCached(CACHE_KEYS.ETF_LIST);
       logger.info('Routes', `Cleared ETF list cache after deleting ${upperTicker}`);
     } catch (cacheError) {
       logger.warn('Routes', `Failed to clear cache: ${(cacheError as Error).message}`);
