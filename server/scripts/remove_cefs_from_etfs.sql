@@ -10,7 +10,7 @@ SELECT
   description,
   'CEF' as type
 FROM etf_static
-WHERE nav_symbol IS NOT NULL 
+WHERE (nav_symbol IS NOT NULL AND nav_symbol != '')
    OR nav IS NOT NULL
 ORDER BY ticker;
 
@@ -25,13 +25,13 @@ SET nav_symbol = NULL,
     nav_trend_12m = NULL,
     value_health_score = NULL,
     open_date = NULL
-WHERE nav_symbol IS NOT NULL 
+WHERE (nav_symbol IS NOT NULL AND nav_symbol != '')
    OR nav IS NOT NULL;
 
 -- OPTION 2: Completely delete CEFs
 -- (Uncomment to use - removes them entirely)
 -- DELETE FROM etf_static 
--- WHERE nav_symbol IS NOT NULL 
+-- WHERE (nav_symbol IS NOT NULL AND nav_symbol != '')
 --    OR nav IS NOT NULL;
 
 -- Verify: Check ETF count (should be 117 after removing 12 CEFs)
@@ -43,6 +43,5 @@ WHERE (nav_symbol IS NULL OR nav_symbol = '')
 -- Verify: Check CEF count (should be 0 after clearing, or 12 if you kept them)
 SELECT COUNT(*) as cef_count
 FROM etf_static
-WHERE nav_symbol IS NOT NULL 
+WHERE (nav_symbol IS NOT NULL AND nav_symbol != '')
    OR nav IS NOT NULL;
-
