@@ -18,7 +18,7 @@ import {
   getRedis,
 } from "../services/redis.js";
 import { logger, parseNumeric } from "../utils/index.js";
-import { getDividendHistory, getPriceHistory } from "../services/database.js";
+import { getDividendHistory, getPriceHistory, getLatestPrice } from "../services/database.js";
 import type { DividendRecord } from "../types/index.js";
 
 const router: Router = Router();
@@ -850,7 +850,10 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
         let currentNav: number | null = cef.nav ?? null;
         if (!currentNav && cef.nav_symbol) {
           try {
-            const navPrices = await getLatestPrice(cef.nav_symbol.toUpperCase(), 1);
+            const navPrices = await getLatestPrice(
+              cef.nav_symbol.toUpperCase(),
+              1
+            );
             if (navPrices.length > 0 && navPrices[0].close) {
               currentNav = navPrices[0].close;
             }
