@@ -232,9 +232,26 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       
       logger.info('CEF Upload', `Processing ${ticker}`);
 
-      const navSymbol = navSymbolCol && row[navSymbolCol] ? String(row[navSymbolCol]).trim().toUpperCase() : null;
+      let navSymbol: string | null = null;
+      if (navSymbolCol && row[navSymbolCol]) {
+        const navSymbolValue = String(row[navSymbolCol]).trim();
+        if (navSymbolValue && navSymbolValue.toUpperCase() !== 'NULL') {
+          const numericTest = parseNumeric(navSymbolValue);
+          if (numericTest === null || navSymbolValue.length <= 6) {
+            navSymbol = navSymbolValue.toUpperCase();
+          }
+        }
+      }
       const mp = mpCol && row[mpCol] ? parseNumeric(row[mpCol]) : null;
-      const nav = navCol && row[navCol] ? parseNumeric(row[navCol]) : null;
+      let nav: number | null = null;
+      if (navCol && row[navCol]) {
+        nav = parseNumeric(row[navCol]);
+      } else if (navSymbolCol && navSymbolCol.toLowerCase() === 'nav' && row[navSymbolCol]) {
+        const navValue = parseNumeric(String(row[navSymbolCol]));
+        if (navValue !== null) {
+          nav = navValue;
+        }
+      }
       
       let premiumDiscount: number | null = null;
       if (premDiscCol && row[premDiscCol]) {
@@ -436,9 +453,16 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     
     const staticData = allData.filter((item: any) => {
       const hasNavSymbol = item.nav_symbol !== null && item.nav_symbol !== undefined && item.nav_symbol !== '';
-      const hasNav = item.nav !== null && item.nav !== undefined;
+      const hasNav = item.nav !== null && item.nav !== undefined && item.nav !== '';
       return hasNavSymbol || hasNav;
     });
+    
+    if (staticData.length === 0 && allData.length > 0) {
+      logger.warn('Routes', `No CEFs found - checking sample record`);
+      const sample = allData[0];
+      logger.warn('Routes', `Sample record keys: ${Object.keys(sample).join(', ')}`);
+      logger.warn('Routes', `Sample nav_symbol: ${sample.nav_symbol}, nav: ${sample.nav}`);
+    }
     
     logger.info('Routes', `Fetched ${allData.length} total records, ${staticData.length} CEFs (filtered by nav_symbol or nav)`);
 
