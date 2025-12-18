@@ -28,7 +28,7 @@ import {
   healthCheck,
 } from '../src/services/tiingo.js';
 import { calculateMetrics } from '../src/services/metrics.js';
-import { batchUpdateETFMetrics, batchUpdateETFMetricsPreservingCEF } from '../src/services/database.js';
+import { batchUpdateETFMetrics, batchUpdateETFMetricsPreservingCEFFields } from '../src/services/database.js';
 import type { TiingoPriceData } from '../src/types/index.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
@@ -334,7 +334,7 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
     console.log(`  Recalculating metrics...`);
     if (!dryRun) {
       const metrics = await calculateMetrics(ticker);
-      
+
       const updateData: any = {
         price: metrics.currentPrice,
         price_change: metrics.priceChange,
@@ -381,7 +381,7 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
           if (!existingCEF?.nav || existingCEF.nav === null || existingCEF.nav === undefined) {
             updateData.nav = navPriceData.close;
           }
-          
+
           if (metrics.currentPrice && navPriceData.close) {
             if (!existingCEF?.premium_discount || existingCEF.premium_discount === null || existingCEF.premium_discount === undefined) {
               updateData.premium_discount = ((metrics.currentPrice - navPriceData.close) / navPriceData.close) * 100;
@@ -391,7 +391,7 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
       }
 
       if (navSymbol) {
-        await batchUpdateETFMetricsPreservingCEF([{
+        await batchUpdateETFMetricsPreservingCEFFields([{
           ticker,
           metrics: updateData,
         }]);

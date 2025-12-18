@@ -277,6 +277,26 @@ export async function batchUpdateETFMetrics(
   return updated;
 }
 
+/**
+ * Batch update metrics for multiple tickers, preserving CEF-specific fields
+ */
+export async function batchUpdateETFMetricsPreservingCEFFields(
+  updates: Array<{ ticker: string; metrics: Partial<ETFStaticRecord> }>
+): Promise<number> {
+  let updated = 0;
+
+  for (const { ticker, metrics } of updates) {
+    try {
+      await updateETFMetricsPreservingCEFFields(ticker, metrics);
+      updated++;
+    } catch (error) {
+      logger.error('Database', `Failed to update ${ticker}: ${error}`);
+    }
+  }
+
+  return updated;
+}
+
 // ============================================================================
 // Price Daily Table Operations
 // ============================================================================
@@ -308,7 +328,7 @@ export async function getPriceHistory(
       }
 
       const records = (data ?? []) as PriceRecord[];
-      
+
       if (records.length === 0) {
         logger.debug('Database', `No price data in database for ${ticker}, attempting Tiingo API fallback`);
         try {
@@ -409,7 +429,7 @@ export async function getDividendHistory(
       }
 
       const dividends = (data ?? []) as DividendRecord[];
-      
+
       // Additional client-side sort to ensure manual always comes first
       return dividends.sort((a, b) => {
         const aManual = a.is_manual === true ? 1 : 0;
