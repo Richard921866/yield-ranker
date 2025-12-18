@@ -16,9 +16,9 @@ export const calculateWeightedRank = (
     .map(c => c.forwardYield)
     .filter((v): v is number => v !== null && v !== undefined && !isNaN(v) && v > 0);
   
-  const volatilityValues = allCEFs
-    .map(c => c.dividendCVPercent ?? null)
-    .filter((v): v is number => v !== null && v !== undefined && !isNaN(v) && v >= 0);
+  const zScoreValues = allCEFs
+    .map(c => c.fiveYearZScore ?? null)
+    .filter((v): v is number => v !== null && v !== undefined && !isNaN(v));
   
   const returns = allCEFs
     .map(c => {
@@ -29,14 +29,14 @@ export const calculateWeightedRank = (
     })
     .filter((v): v is number => v !== null && v !== undefined && !isNaN(v));
 
-  if (yields.length === 0 && volatilityValues.length === 0 && returns.length === 0) {
+  if (yields.length === 0 && zScoreValues.length === 0 && returns.length === 0) {
     return 0;
   }
 
   const minYield = yields.length > 0 ? Math.min(...yields) : 0;
   const maxYield = yields.length > 0 ? Math.max(...yields) : 1;
-  const minVol = volatilityValues.length > 0 ? Math.min(...volatilityValues) : 0;
-  const maxVol = volatilityValues.length > 0 ? Math.max(...volatilityValues) : 1;
+  const minZScore = zScoreValues.length > 0 ? Math.min(...zScoreValues) : -3;
+  const maxZScore = zScoreValues.length > 0 ? Math.max(...zScoreValues) : 3;
   const minReturn = returns.length > 0 ? Math.min(...returns) : 0;
   const maxReturn = returns.length > 0 ? Math.max(...returns) : 1;
 
@@ -46,11 +46,11 @@ export const calculateWeightedRank = (
     return (value - minYield) / (maxYield - minYield);
   };
 
-  const normalizeVolatility = (value: number | null) => {
-    const volValue = value ?? null;
-    if (volValue === null || isNaN(volValue) || volValue < 0) return 0.5;
-    if (maxVol === minVol) return 0.5;
-    return (maxVol - volValue) / (maxVol - minVol);
+  const normalizeZScore = (value: number | null) => {
+    const zScoreValue = value ?? null;
+    if (zScoreValue === null || isNaN(zScoreValue)) return 0.5;
+    if (maxZScore === minZScore) return 0.5;
+    return (zScoreValue - minZScore) / (maxZScore - minZScore);
   };
 
   const normalizeReturn = (value: number | null) => {
@@ -60,7 +60,7 @@ export const calculateWeightedRank = (
   };
 
   const yieldValue = cef.forwardYield ?? 0;
-  const volatilityValue = cef.dividendCVPercent ?? null;
+  const zScoreValue = cef.fiveYearZScore ?? null;
   const returnValue = returnField === "return3Mo" 
     ? (cef.return3Mo ?? null)
     : returnField === "return6Mo"
@@ -68,10 +68,10 @@ export const calculateWeightedRank = (
     : (cef.return12Mo ?? null);
 
   const yieldScore = normalizeYield(yieldValue) * (weights.yield / 100);
-  const volatilityScore = normalizeVolatility(volatilityValue) * (weights.volatility / 100);
+  const zScoreScore = normalizeZScore(zScoreValue) * (weights.volatility / 100);
   const returnScore = normalizeReturn(returnValue) * (weights.totalReturn / 100);
 
-  return yieldScore + volatilityScore + returnScore;
+  return yieldScore + zScoreScore + returnScore;
 };
 
 export const rankCEFs = (cefs: CEF[], weights: RankingWeights): CEF[] => {

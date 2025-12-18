@@ -522,7 +522,7 @@ const Index = () => {
                         className={`h-4 w-4 mr-2 ${showFavoritesOnly ? "fill-white" : "fill-yellow-400"
                           }`}
                       />
-                      {showFavoritesOnly ? "Show All" : "Favorites"}{" "}
+                      {showFavoritesOnly ? "Show All" : "CC ETF Favorites"}{" "}
                       {favorites.size > 0 && `(${favorites.size})`}
                     </Button>
                   )}
