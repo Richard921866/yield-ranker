@@ -190,21 +190,43 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     let updated = 0;
     let skipped = 0;
 
-    const navSymbolCol = findColumn(headerMap, 'nav symbol', 'nav_symbol', 'navsym', 'nav sym', 'nav ticker', 'navticker', 'nav');
+    let navSymbolCol = findColumn(headerMap, 'nav symbol', 'nav_symbol', 'navsym', 'nav sym', 'nav ticker', 'navticker');
     const descCol = findColumn(headerMap, 'desc', 'description');
     const openDateCol = findColumn(headerMap, 'open', 'open date', 'opening date');
+    const divHistoryCol = findColumn(headerMap, 'div history', 'dividend history', 'div_history', 'dividend_history');
     const ipoPriceCol = findColumn(headerMap, 'ipo price', 'ipo_price', 'ipo');
     const mpCol = findColumn(headerMap, 'mp', 'market price', 'price');
+    
     let navCol = findColumn(headerMap, 'net asset value', 'nav value', 'nav_value');
-    if (!navCol && navSymbolCol !== 'nav' && navSymbolCol !== 'NAV') {
-      navCol = findColumn(headerMap, 'nav');
+    if (!navCol) {
+      const navColCandidate = findColumn(headerMap, 'nav');
+      if (navColCandidate) {
+        const firstRow = rawData.find(r => r && r[symbolCol]);
+        if (firstRow && firstRow[navColCandidate]) {
+          const testValue = String(firstRow[navColCandidate]).trim();
+          const numericTest = parseNumeric(testValue);
+          if (numericTest !== null) {
+            navCol = navColCandidate;
+          } else if (testValue.length <= 6 && !navSymbolCol) {
+            navSymbolCol = navColCandidate;
+          }
+        }
+      }
+    }
+    
+    if (!navCol && navSymbolCol) {
+      const navColCandidate = findColumn(headerMap, 'nav');
+      if (navColCandidate && navColCandidate !== navSymbolCol) {
+        navCol = navColCandidate;
+      }
     }
     const lastDivCol = findColumn(headerMap, 'last div', 'last_dividend', 'last dividend', 'lastdiv');
     const numPayCol = findColumn(headerMap, '#', 'payments', 'payments_per_year', '# payments', 'num payments');
     const yrlyDivCol = findColumn(headerMap, 'yrly div', 'yearly dividend', 'annual dividend', 'annual_div', 'yrlydiv');
     const fYieldCol = findColumn(headerMap, 'f yield', 'forward yield', 'fyield', 'forward_yield');
     const premDiscCol = findColumn(headerMap, 'prem /disc', 'prem/disc', 'premium/discount', 'premium discount', 'premdisc');
-    const zScoreCol = findColumn(headerMap, '5 yr z-score', '5yr z-score', '5 year z-score', 'z-score', 'z score', '5y z-score', '5y z score');
+    const avePDCol = findColumn(headerMap, 'ave p/d', 'ave p/d', 'average p/d', 'average premium/discount', 'avg p/d', 'avg prem/disc');
+    const zScoreCol = findColumn(headerMap, '5 yr z-score', '5yr z-score', '5 year z-score', 'z-score', 'z score', '5y z-score', '5y z score', 'n - 5y z-score');
     const navTrend6MCol = findColumn(headerMap, '6m nav trend', '6m nav trend %', '6 month nav trend', 'nav trend 6m', 'nav trend 6 month', '6mo nav trend');
     const navTrend12MCol = findColumn(headerMap, '12m nav return', '12m nav return %', '12 month nav return', 'nav return 12m', 'nav return 12 month', '12mo nav return', '12m nav trend', 'q - 12m nav return');
     const valueHealthScoreCol = findColumn(headerMap, 'value/health score', 'value health score', 'value health', 'health score', 'p - value/health score');
@@ -274,7 +296,17 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
         logger.info('CEF Upload', `${ticker}: Setting nav_symbol = ${navSymbol}`);
       }
       if (descCol && row[descCol]) {
-        updateData.description = String(row[descCol]).trim();
+        const descValue = String(row[descCol]).trim();
+        if (descValue && descValue.toLowerCase() !== 'null') {
+          updateData.description = descValue;
+          logger.info('CEF Upload', `${ticker}: Setting description = ${descValue}`);
+        }
+      }
+      if (divHistoryCol && row[divHistoryCol]) {
+        const divHistValue = String(row[divHistoryCol]).trim();
+        if (divHistValue && divHistValue.toLowerCase() !== 'null') {
+          updateData.dividend_history = divHistValue;
+        }
       }
       if (openDateCol && row[openDateCol]) {
         const openDate = String(row[openDateCol]).trim();
@@ -287,6 +319,12 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       if (mp !== null) updateData.price = mp;
       if (nav !== null) updateData.nav = nav;
       if (premiumDiscount !== null) updateData.premium_discount = premiumDiscount;
+      if (avePDCol && row[avePDCol]) {
+        const avePD = parseNumeric(row[avePDCol]);
+        if (avePD !== null) {
+          updateData.average_premium_discount = avePD;
+        }
+      }
       if (lastDivCol && row[lastDivCol]) {
         const lastDiv = parseNumeric(row[lastDivCol]);
         if (lastDiv !== null) updateData.last_dividend = lastDiv;
