@@ -209,26 +209,26 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       
       logger.info('CEF Upload', `Processing ${ticker}`);
 
-      const navSymbolCol = findColumn(headerMap, 'nav symbol', 'nav_symbol', 'navsym', 'navsym symbol');
-      const descCol = findColumn(headerMap, 'description', 'desc');
-      const openDateCol = findColumn(headerMap, 'open', 'open date', 'opening date');
-      const ipoPriceCol = findColumn(headerMap, 'ipo price', 'ipo_price', 'ipo');
-      const mpCol = findColumn(headerMap, 'mp', 'market price', 'price', 'marketprice');
-      const navCol = findColumn(headerMap, 'nav', 'net asset value', 'nav value');
-      const lastDivCol = findColumn(headerMap, 'last div', 'last_dividend', 'last dividend');
-      const numPayCol = findColumn(headerMap, '#', 'payments', 'payments_per_year', '# payments');
-      const yrlyDivCol = findColumn(headerMap, 'yrly div', 'yearly dividend', 'annual dividend', 'annual_div');
-      const fYieldCol = findColumn(headerMap, 'f yield', 'forward yield', 'forward_yield');
-      const premDiscCol = findColumn(headerMap, 'prem/disc', 'premium/discount', 'premium_discount');
-      const dviCol = findColumn(headerMap, 'dvi');
-      const return10YrCol = findColumn(headerMap, '10 yr', '10yr', '10 yr annizd', '10yr annizd');
-      const return5YrCol = findColumn(headerMap, '5 yr', '5yr', '5 yr annizd', '5yr annizd');
-      const return3YrCol = findColumn(headerMap, '3 yr', '3yr', '3 yr annizd', '3yr annizd');
-      const return12MoCol = findColumn(headerMap, '12 month', '12m', '12 mo', '12mo');
-      const return6MoCol = findColumn(headerMap, '6 month', '6m', '6 mo', '6mo');
-      const return3MoCol = findColumn(headerMap, '3 month', '3m', '3 mo', '3mo');
-      const return1MoCol = findColumn(headerMap, '1 month', '1m', '1 mo', '1mo');
-      const return1WkCol = findColumn(headerMap, '1 week', '1w', '1 wk', '1wk');
+    const navSymbolCol = findColumn(headerMap, 'nav');
+    const descCol = findColumn(headerMap, 'desc', 'description');
+    const openDateCol = findColumn(headerMap, 'open');
+    const ipoPriceCol = findColumn(headerMap, 'ipo price', 'ipo_price');
+    const mpCol = findColumn(headerMap, 'mp');
+    const navCol = findColumn(headerMap, 'nav');
+    const lastDivCol = findColumn(headerMap, 'last div', 'last_dividend');
+    const numPayCol = findColumn(headerMap, '#');
+    const yrlyDivCol = findColumn(headerMap, 'yrly div', 'yearly dividend', 'annual dividend', 'annual_div');
+    const fYieldCol = findColumn(headerMap, 'f yield', 'forward yield');
+    const premDiscCol = findColumn(headerMap, 'prem /disc', 'prem/disc', 'premium/discount');
+    const dviCol = findColumn(headerMap, 'dvi');
+    const return10YrCol = findColumn(headerMap, '10 yr annlzd', '10 yr', '10yr');
+    const return5YrCol = findColumn(headerMap, '5 yr annlzd', '5 yr', '5yr');
+    const return3YrCol = findColumn(headerMap, '3 yr annlzd', '3 yr', '3yr');
+    const return12MoCol = findColumn(headerMap, '12 month', '12m', '12 mo');
+    const return6MoCol = findColumn(headerMap, '6 month', '6m', '6 mo');
+    const return3MoCol = findColumn(headerMap, '3 month', '3m', '3 mo');
+    const return1MoCol = findColumn(headerMap, '1 month', '1m', '1 mo');
+    const return1WkCol = findColumn(headerMap, '1 week', '1w', '1 wk');
 
       const navSymbol = navSymbolCol && row[navSymbolCol] ? String(row[navSymbolCol]).trim().toUpperCase() : null;
       const mp = mpCol ? parseNumeric(row[mpCol]) : null;

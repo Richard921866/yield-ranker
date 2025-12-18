@@ -29,11 +29,23 @@ export function useFavorites(category: FavoriteCategory = 'etf') {
     if (!user?.id) return;
 
     try {
-      const { data: currentDbFavorites } = await supabase
+      let query = supabase
         .from('favorites')
         .select('symbol')
-        .eq('user_id', user.id)
-        .eq('category', category);
+        .eq('user_id', user.id);
+      
+      try {
+        query = query.eq('category', category);
+      } catch (e) {
+        console.warn('Category column may not exist, syncing all favorites');
+      }
+      
+      const { data: currentDbFavorites, error: queryError } = await query;
+      
+      if (queryError && (queryError.message?.includes('category') || queryError.code === '42703')) {
+        console.warn('Category column does not exist, skipping category-specific sync');
+        return;
+      }
 
       const dbSymbols = currentDbFavorites ? new Set(currentDbFavorites.map(row => row.symbol)) : new Set<string>();
       const symbolsToAdd = symbols.filter(s => !dbSymbols.has(s));
@@ -56,12 +68,19 @@ export function useFavorites(category: FavoriteCategory = 'etf') {
       }
 
       if (symbolsToRemove.length > 0) {
-        const { error: deleteError } = await supabase
+        let deleteQuery = supabase
           .from('favorites')
           .delete()
           .eq('user_id', user.id)
-          .eq('category', category)
           .in('symbol', symbolsToRemove);
+        
+        try {
+          deleteQuery = deleteQuery.eq('category', category);
+        } catch (e) {
+          console.warn('Category column may not exist for delete');
+        }
+        
+        const { error: deleteError } = await deleteQuery;
 
         if (deleteError) {
           console.error('Failed to remove favorites from database:', deleteError);
@@ -81,14 +100,32 @@ export function useFavorites(category: FavoriteCategory = 'etf') {
         let dbFavorites: string[] = [];
         
         if (user?.id) {
-          const { data, error } = await supabase
+          let query = supabase
             .from('favorites')
             .select('symbol')
-            .eq('user_id', user.id)
-            .eq('category', category);
+            .eq('user_id', user.id);
+          
+          try {
+            query = query.eq('category', category);
+          } catch (e) {
+            console.warn('Category column may not exist, using old favorites format');
+          }
+          
+          const { data, error } = await query;
           
           if (error) {
-            console.error('Failed to load favorites from database:', error);
+            if (error.message?.includes('category') || error.code === '42703') {
+              console.warn('Category column does not exist yet, loading all favorites');
+              const { data: allData } = await supabase
+                .from('favorites')
+                .select('symbol')
+                .eq('user_id', user.id);
+              if (allData) {
+                dbFavorites = allData.map(row => row.symbol);
+              }
+            } else {
+              console.error('Failed to load favorites from database:', error);
+            }
           } else if (data) {
             dbFavorites = data.map(row => row.symbol);
           }
