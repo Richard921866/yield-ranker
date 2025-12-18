@@ -190,12 +190,15 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     let updated = 0;
     let skipped = 0;
 
-    const navSymbolCol = findColumn(headerMap, 'nav');
+    const navSymbolCol = findColumn(headerMap, 'nav symbol', 'nav_symbol', 'navsym', 'nav sym', 'nav ticker', 'navticker', 'nav');
     const descCol = findColumn(headerMap, 'desc', 'description');
     const openDateCol = findColumn(headerMap, 'open', 'open date', 'opening date');
     const ipoPriceCol = findColumn(headerMap, 'ipo price', 'ipo_price', 'ipo');
     const mpCol = findColumn(headerMap, 'mp', 'market price', 'price');
-    const navCol = findColumn(headerMap, 'nav', 'net asset value');
+    let navCol = findColumn(headerMap, 'net asset value', 'nav value', 'nav_value');
+    if (!navCol && navSymbolCol !== 'nav' && navSymbolCol !== 'NAV') {
+      navCol = findColumn(headerMap, 'nav');
+    }
     const lastDivCol = findColumn(headerMap, 'last div', 'last_dividend', 'last dividend', 'lastdiv');
     const numPayCol = findColumn(headerMap, '#', 'payments', 'payments_per_year', '# payments', 'num payments');
     const yrlyDivCol = findColumn(headerMap, 'yrly div', 'yearly dividend', 'annual dividend', 'annual_div', 'yrlydiv');
