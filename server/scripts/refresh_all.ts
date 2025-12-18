@@ -351,6 +351,12 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
       };
 
       if (navSymbol) {
+        const { data: existingCEF } = await supabase
+          .from('etf_static')
+          .select('nav, premium_discount')
+          .eq('ticker', ticker.toUpperCase())
+          .maybeSingle();
+
         const { data: navPriceData } = await supabase
           .from('prices_daily')
           .select('close')
@@ -360,10 +366,14 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
           .maybeSingle();
 
         if (navPriceData?.close) {
-          updateData.nav = navPriceData.close;
+          if (!existingCEF?.nav || existingCEF.nav === null || existingCEF.nav === undefined) {
+            updateData.nav = navPriceData.close;
+          }
           
           if (metrics.currentPrice && navPriceData.close) {
-            updateData.premium_discount = ((metrics.currentPrice - navPriceData.close) / navPriceData.close) * 100;
+            if (!existingCEF?.premium_discount || existingCEF.premium_discount === null || existingCEF.premium_discount === undefined) {
+              updateData.premium_discount = ((metrics.currentPrice - navPriceData.close) / navPriceData.close) * 100;
+            }
           }
         }
       }
