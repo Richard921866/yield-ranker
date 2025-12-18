@@ -182,8 +182,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     }
     
     logger.info('CEF Upload', `Found SYMBOL column: ${symbolCol}, Total headers: ${headers.length}`);
-
-    const allowedCEFs = ['DNP', 'FOF', 'GOF', 'UTF', 'UTG', 'CSQ', 'PCN', 'GAB', 'FFA', 'BTO', 'IGR', 'BME'];
+    logger.info('CEF Upload', `Available columns: ${headers.join(', ')}`);
     
     const supabase = getSupabase();
     const now = new Date().toISOString();
@@ -193,26 +192,27 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 
     const navSymbolCol = findColumn(headerMap, 'nav');
     const descCol = findColumn(headerMap, 'desc', 'description');
-    const openDateCol = findColumn(headerMap, 'open');
-    const ipoPriceCol = findColumn(headerMap, 'ipo price', 'ipo_price');
-    const mpCol = findColumn(headerMap, 'mp');
-    const navCol = findColumn(headerMap, 'nav');
-    const lastDivCol = findColumn(headerMap, 'last div', 'last_dividend');
-    const numPayCol = findColumn(headerMap, '#');
-    const yrlyDivCol = findColumn(headerMap, 'yrly div', 'yearly dividend', 'annual dividend', 'annual_div');
-    const fYieldCol = findColumn(headerMap, 'f yield', 'forward yield');
-    const premDiscCol = findColumn(headerMap, 'prem /disc', 'prem/disc', 'premium/discount');
-    const dviCol = findColumn(headerMap, 'dvi');
-    const return10YrCol = findColumn(headerMap, '10 yr annlzd', '10 yr', '10yr');
-    const return5YrCol = findColumn(headerMap, '5 yr annlzd', '5 yr', '5yr');
-    const return3YrCol = findColumn(headerMap, '3 yr annlzd', '3 yr', '3yr');
-    const return12MoCol = findColumn(headerMap, '12 month', '12m', '12 mo');
-    const return6MoCol = findColumn(headerMap, '6 month', '6m', '6 mo');
-    const return3MoCol = findColumn(headerMap, '3 month', '3m', '3 mo');
-    const return1MoCol = findColumn(headerMap, '1 month', '1m', '1 mo');
-    const return1WkCol = findColumn(headerMap, '1 week', '1w', '1 wk');
+    const openDateCol = findColumn(headerMap, 'open', 'open date', 'opening date');
+    const ipoPriceCol = findColumn(headerMap, 'ipo price', 'ipo_price', 'ipo');
+    const mpCol = findColumn(headerMap, 'mp', 'market price', 'price');
+    const navCol = findColumn(headerMap, 'nav', 'net asset value');
+    const lastDivCol = findColumn(headerMap, 'last div', 'last_dividend', 'last dividend', 'lastdiv');
+    const numPayCol = findColumn(headerMap, '#', 'payments', 'payments_per_year', '# payments', 'num payments');
+    const yrlyDivCol = findColumn(headerMap, 'yrly div', 'yearly dividend', 'annual dividend', 'annual_div', 'yrlydiv');
+    const fYieldCol = findColumn(headerMap, 'f yield', 'forward yield', 'fyield', 'forward_yield');
+    const premDiscCol = findColumn(headerMap, 'prem /disc', 'prem/disc', 'premium/discount', 'premium discount', 'premdisc');
+    const dviCol = findColumn(headerMap, 'dvi', 'dividend volatility index');
+    const return10YrCol = findColumn(headerMap, '10 yr annlzd', '10 yr annizd', '10 yr', '10yr', '10 year', '10year');
+    const return5YrCol = findColumn(headerMap, '5 yr annlzd', '5 yr annizd', '5 yr', '5yr', '5 year', '5year');
+    const return3YrCol = findColumn(headerMap, '3 yr annlzd', '3 yr annizd', '3 yr', '3yr', '3 year', '3year');
+    const return12MoCol = findColumn(headerMap, '12 month', '12m', '12 mo', '12mo', '12 month return');
+    const return6MoCol = findColumn(headerMap, '6 month', '6m', '6 mo', '6mo', '6 month return');
+    const return3MoCol = findColumn(headerMap, '3 month', '3m', '3 mo', '3mo', '3 month return');
+    const return1MoCol = findColumn(headerMap, '1 month', '1m', '1 mo', '1mo', '1 month return');
+    const return1WkCol = findColumn(headerMap, '1 week', '1w', '1 wk', '1wk', '1 week return');
 
-    logger.info('CEF Upload', `Processing ${rawData.length} rows, symbol column: ${symbolCol}, allowed symbols: ${allowedCEFs.join(', ')}`);
+    logger.info('CEF Upload', `Processing ${rawData.length} rows, symbol column: ${symbolCol}`);
+    logger.info('CEF Upload', `Column mappings - NAV Symbol: ${navSymbolCol}, MP: ${mpCol}, NAV: ${navCol}, Last Div: ${lastDivCol}`);
 
     for (const row of rawData) {
       const symbolValue = row[symbolCol];
@@ -222,8 +222,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       }
 
       const ticker = String(symbolValue).trim().toUpperCase();
-      if (!allowedCEFs.includes(ticker)) {
-        logger.warn('CEF Upload', `Skipping symbol "${ticker}" - not in allowed list`);
+      if (!ticker || ticker.length === 0) {
         skipped++;
         continue;
       }
@@ -290,8 +289,10 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
         
         if (error) {
           logger.error('CEF Upload', `Failed to update ${ticker}: ${error.message}`);
+          logger.error('CEF Upload', `Update data: ${JSON.stringify(updateData)}`);
         } else {
           updated++;
+          logger.info('CEF Upload', `Successfully updated ${ticker}`);
         }
       } else {
         updateData.issuer = null;
@@ -302,8 +303,10 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
         
         if (error) {
           logger.error('CEF Upload', `Failed to insert ${ticker}: ${error.message}`);
+          logger.error('CEF Upload', `Insert data: ${JSON.stringify(updateData)}`);
         } else {
           added++;
+          logger.info('CEF Upload', `Successfully added ${ticker}`);
         }
       }
 
@@ -366,6 +369,7 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     const staticResult = await supabase
       .from('etf_static')
       .select('*')
+      .not('nav_symbol', 'is', null)
       .order('ticker', { ascending: true })
       .limit(10000);
 
@@ -376,7 +380,7 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     }
 
     const staticData = staticResult.data || [];
-    logger.info('Routes', `Fetched ${staticData.length} CEFs from database`);
+    logger.info('Routes', `Fetched ${staticData.length} CEFs from database (filtered by nav_symbol)`);
 
     const cefsWithDividendHistory = await Promise.all(
       staticData.map(async (cef: any) => {
