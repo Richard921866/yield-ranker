@@ -367,7 +367,7 @@ async function upsertDividends(
     .from('dividends_detail')
     .select('*')
     .eq('ticker', ticker)
-    .or('is_manual.eq.true,description.ilike.%Manual upload%,description.ilike.%Early announcement%');
+    .or('description.ilike.%Manual upload%,description.ilike.%Early announcement%');
 
   (allManualUploadsNotInTiingo || []).forEach(existing => {
     const exDate = existing.ex_date.split('T')[0];

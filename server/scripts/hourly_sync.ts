@@ -205,9 +205,9 @@ async function upsertDividends(
 
     const { data: allManualUploads } = await supabase
         .from('dividends_detail')
-        .select('ex_date, description, div_cash, adj_amount, pay_date, record_date, declare_date, scaled_amount, split_factor, is_manual')
+        .select('ex_date, description, div_cash, adj_amount, pay_date, record_date, declare_date, scaled_amount, split_factor')
         .eq('ticker', ticker)
-        .or('is_manual.eq.true,description.ilike.%Manual upload%,description.ilike.%Early announcement%');
+        .or('description.ilike.%Manual upload%,description.ilike.%Early announcement%');
 
     const manualUploadsMap = new Map<string, { divCash: number; adjAmount: number | null; payDate: string | null; recordDate: string | null; declareDate: string | null; scaledAmount: number | null; splitFactor: number }>();
     (allManualUploads || []).forEach(d => {
@@ -328,7 +328,7 @@ async function upsertDividends(
         .from('dividends_detail')
         .select('*')
         .eq('ticker', ticker)
-        .or('is_manual.eq.true,description.ilike.%Manual upload%,description.ilike.%Early announcement%');
+        .or('description.ilike.%Manual upload%,description.ilike.%Early announcement%');
 
     (allManualUploadsNotInTiingo || []).forEach(existing => {
         const exDate = existing.ex_date.split('T')[0];

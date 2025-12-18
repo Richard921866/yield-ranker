@@ -8,6 +8,9 @@ const dataCache = new Map<string, { data: ETF; timestamp: number }>();
 // Frontend fetches once and keeps cached data until manually refreshed or cache expires
 const CACHE_DURATION = 86400000;
 
+// Track when cache was last manually cleared - used for cache-busting
+let lastCacheClear = 0;
+
 /**
  * Check if ETF data is cached without triggering a fetch
  * Used to determine if we should show loading state
@@ -188,8 +191,13 @@ export const fetchETFDataWithMetadata = async (): Promise<ETFDataResponse> => {
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/etfs`, {
-      signal: AbortSignal.timeout(30000)  // 30 seconds timeout
+    // Add cache-busting param if cache was recently cleared (within 5 seconds)
+    const cacheBuster = lastCacheClear > 0 && (Date.now() - lastCacheClear) < 5000
+      ? `?_t=${lastCacheClear}`
+      : '';
+    const response = await fetch(`${API_BASE_URL}/api/etfs${cacheBuster}`, {
+      signal: AbortSignal.timeout(30000),  // 30 seconds timeout
+      cache: lastCacheClear > 0 && (Date.now() - lastCacheClear) < 5000 ? 'no-store' : 'default'
     });
     if (!response.ok) {
       throw new Error("Failed to fetch ETF data");
@@ -237,6 +245,8 @@ export const fetchSingleETF = async (symbol: string): Promise<ETF | null> => {
 
 export const clearETFCache = () => {
   dataCache.clear();
+  lastCacheClear = Date.now();
+  console.log('[ETF Data] Cache cleared, next fetch will bypass browser cache');
 };
 
 export type ComparisonTimeframe =
