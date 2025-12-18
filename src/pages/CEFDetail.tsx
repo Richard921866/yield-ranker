@@ -18,7 +18,7 @@ import {
   Legend,
 } from "recharts";
 
-type Timeframe = "1Y" | "3Y" | "5Y" | "10Y" | "20Y" | "MAX";
+type Timeframe = "1M" | "3M" | "6M" | "1Y" | "3Y" | "5Y" | "10Y" | "20Y" | "MAX";
 
 const CEFDetail = () => {
   const { symbol } = useParams<{ symbol: string }>();
@@ -170,7 +170,7 @@ const CEFDetail = () => {
     );
   }
 
-  const timeframes: Timeframe[] = ["1Y", "3Y", "5Y", "10Y", "20Y", "MAX"];
+  const timeframes: Timeframe[] = ["1M", "3M", "6M", "1Y", "3Y", "5Y", "10Y", "20Y", "MAX"];
 
   // Calculate price and NAV ranges for chart
   const priceValues = chartData.map(d => d.price).filter(v => v !== null) as number[];

@@ -610,6 +610,15 @@ router.get('/:symbol/price-nav', async (req: Request, res: Response): Promise<vo
     const endDate = new Date();
     const startDate = new Date();
     switch (period) {
+      case '1M':
+        startDate.setMonth(endDate.getMonth() - 1);
+        break;
+      case '3M':
+        startDate.setMonth(endDate.getMonth() - 3);
+        break;
+      case '6M':
+        startDate.setMonth(endDate.getMonth() - 6);
+        break;
       case '1Y':
         startDate.setFullYear(endDate.getFullYear() - 1);
         break;

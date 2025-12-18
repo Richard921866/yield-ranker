@@ -285,11 +285,32 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
     console.log(`  Prices: ${priceStartDate} to today`);
     console.log(`  Dividends: ${dividendStartDate} to today`);
 
+    // Check if this is a CEF and fetch NAV symbol
+    const { data: staticData } = await supabase
+      .from('etf_static')
+      .select('nav_symbol')
+      .eq('ticker', ticker.toUpperCase())
+      .maybeSingle();
+
+    const navSymbol = staticData?.nav_symbol;
+
     // Fetch and upsert prices
-    console.log(`  Fetching prices...`);
+    console.log(`  Fetching market prices...`);
     const prices = await fetchPriceHistory(ticker, priceStartDate);
     const pricesAdded = await upsertPrices(ticker, prices, dryRun);
     console.log(`  ✓ Added/updated ${pricesAdded} price records`);
+
+    // If CEF, also fetch NAV prices using nav_symbol
+    if (navSymbol && navSymbol.trim()) {
+      console.log(`  Fetching NAV prices for ${navSymbol}...`);
+      try {
+        const navPrices = await fetchPriceHistory(navSymbol.toUpperCase(), priceStartDate);
+        const navPricesAdded = await upsertPrices(navSymbol.toUpperCase(), navPrices, dryRun);
+        console.log(`  ✓ Added/updated ${navPricesAdded} NAV price records`);
+      } catch (navError) {
+        console.warn(`  ⚠ Could not fetch NAV prices for ${navSymbol}: ${(navError as Error).message}`);
+      }
+    }
 
     // Fetch and upsert dividends (extended history for split adjustments)
     console.log(`  Fetching dividends (with split adjustments)...`);
