@@ -191,24 +191,6 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     let updated = 0;
     let skipped = 0;
 
-    logger.info('CEF Upload', `Processing ${rawData.length} rows, symbol column: ${symbolCol}, allowed symbols: ${allowedCEFs.join(', ')}`);
-
-    for (const row of rawData) {
-      const symbolValue = row[symbolCol];
-      if (!symbolValue || String(symbolValue).trim() === '' || String(symbolValue).trim().toLowerCase() === 'null') {
-        skipped++;
-        continue;
-      }
-
-      const ticker = String(symbolValue).trim().toUpperCase();
-      if (!allowedCEFs.includes(ticker)) {
-        logger.warn('CEF Upload', `Skipping symbol "${ticker}" - not in allowed list`);
-        skipped++;
-        continue;
-      }
-      
-      logger.info('CEF Upload', `Processing ${ticker}`);
-
     const navSymbolCol = findColumn(headerMap, 'nav');
     const descCol = findColumn(headerMap, 'desc', 'description');
     const openDateCol = findColumn(headerMap, 'open');
@@ -229,6 +211,24 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     const return3MoCol = findColumn(headerMap, '3 month', '3m', '3 mo');
     const return1MoCol = findColumn(headerMap, '1 month', '1m', '1 mo');
     const return1WkCol = findColumn(headerMap, '1 week', '1w', '1 wk');
+
+    logger.info('CEF Upload', `Processing ${rawData.length} rows, symbol column: ${symbolCol}, allowed symbols: ${allowedCEFs.join(', ')}`);
+
+    for (const row of rawData) {
+      const symbolValue = row[symbolCol];
+      if (!symbolValue || String(symbolValue).trim() === '' || String(symbolValue).trim().toLowerCase() === 'null') {
+        skipped++;
+        continue;
+      }
+
+      const ticker = String(symbolValue).trim().toUpperCase();
+      if (!allowedCEFs.includes(ticker)) {
+        logger.warn('CEF Upload', `Skipping symbol "${ticker}" - not in allowed list`);
+        skipped++;
+        continue;
+      }
+      
+      logger.info('CEF Upload', `Processing ${ticker}`);
 
       const navSymbol = navSymbolCol && row[navSymbolCol] ? String(row[navSymbolCol]).trim().toUpperCase() : null;
       const mp = mpCol ? parseNumeric(row[mpCol]) : null;
