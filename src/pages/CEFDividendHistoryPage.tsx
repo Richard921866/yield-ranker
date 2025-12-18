@@ -140,6 +140,7 @@ const CEFDividendHistoryPage = () => {
               annualDividend={cef?.yearlyDividend || null}
               dvi={cef?.dividendCVPercent || null}
               forwardYield={cef?.forwardYield || null}
+              numPayments={cef?.numPayments || null}
             />
           </div>
         )}

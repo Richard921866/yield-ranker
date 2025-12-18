@@ -221,6 +221,8 @@ export interface ETFMetrics {
     '6M': number | null;
     '1Y': number | null;
     '3Y': number | null;
+    '5Y': number | null;
+    '10Y': number | null;
   };
 
   // Price Return (non-DRIP, using unadjusted close)
@@ -231,6 +233,8 @@ export interface ETFMetrics {
     '6M': number | null;
     '1Y': number | null;
     '3Y': number | null;
+    '5Y': number | null;
+    '10Y': number | null;
   };
 
   // Optional: Total Return WITHOUT DRIP
@@ -241,6 +245,8 @@ export interface ETFMetrics {
     '6M': number | null;
     '1Y': number | null;
     '3Y': number | null;
+    '5Y': number | null;
+    '10Y': number | null;
   } | null;
 
   // Legacy combined returns for backward compatibility
@@ -251,6 +257,8 @@ export interface ETFMetrics {
     '6M': ReturnData;
     '1Y': ReturnData;
     '3Y': ReturnData;
+    '5Y': ReturnData;
+    '10Y': ReturnData;
   };
 
   calculatedAt: string;

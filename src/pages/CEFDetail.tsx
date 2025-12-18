@@ -103,18 +103,20 @@ const CEFDetail = () => {
         return dateA - dateB;
       });
 
-      const formattedData = sortedData.map(d => {
-        const dateStr = typeof d.date === 'string' ? d.date : d.date.toString();
-        const priceValue = d.price !== null && d.price !== undefined ? Number(d.price) : null;
-        const navValue = d.nav !== null && d.nav !== undefined ? Number(d.nav) : null;
-        
-        return {
-          date: new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          fullDate: dateStr,
-          price: priceValue,
-          nav: navValue,
-        };
-      });
+      const formattedData = sortedData
+        .map(d => {
+          const dateStr = typeof d.date === 'string' ? d.date : d.date.toString();
+          const priceValue = d.price !== null && d.price !== undefined ? Number(d.price) : null;
+          const navValue = d.nav !== null && d.nav !== undefined ? Number(d.nav) : null;
+          
+          return {
+            date: new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            fullDate: dateStr,
+            price: priceValue,
+            nav: navValue,
+          };
+        })
+        .filter(d => d.price !== null || d.nav !== null);
 
       setChartData(formattedData);
     } catch (error) {
@@ -289,52 +291,78 @@ const CEFDetail = () => {
                 <p>{chartError}</p>
               </div>
             ) : chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={450}>
+              <ResponsiveContainer width="100%" height={400}>
                 <LineChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis 
                     dataKey="date" 
-                    stroke="#666"
-                    style={{ fontSize: '11px', fontWeight: 500 }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={80}
-                    tick={{ fill: '#666' }}
+                    stroke="#94a3b8" 
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={
+                      chartData.length <= 30 ? 0 :
+                      chartData.length <= 90 ? Math.floor(chartData.length / 6) :
+                      chartData.length <= 365 ? Math.floor(chartData.length / 8) :
+                      Math.floor(chartData.length / 10)
+                    }
+                    tickFormatter={(value) => value || ''}
                   />
                   <YAxis 
                     domain={[minValue, maxValue]}
-                    stroke="#666"
-                    style={{ fontSize: '11px', fontWeight: 500 }}
-                    tickFormatter={(value) => `$${value.toFixed(2)}`}
-                    label={{ value: 'Closing Price ($)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: '12px', fill: '#666' } }}
-                    tick={{ fill: '#666' }}
+                    stroke="#94a3b8" 
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => {
+                      if (typeof value === 'number' && !isNaN(value)) {
+                        return `$${value.toFixed(2)}`;
+                      }
+                      return '';
+                    }}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: 'white',
-                      border: '1px solid #ccc',
-                      borderRadius: '4px',
-                      padding: '8px',
+                      backgroundColor: "rgba(255, 255, 255, 0.98)",
+                      border: "none",
+                      borderRadius: "12px",
+                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                      padding: "12px 16px",
+                    }}
+                    labelStyle={{ color: "#64748b", fontSize: "12px", marginBottom: "4px" }}
+                    labelFormatter={(label) => {
+                      const dataPoint = chartData.find(d => d.date === label);
+                      if (dataPoint?.fullDate) {
+                        const date = new Date(dataPoint.fullDate);
+                        return date.toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        });
+                      }
+                      return label;
                     }}
                     formatter={(value: number | null, name: string) => {
-                      if (value === null) return 'N/A';
-                      return [`$${value.toFixed(2)}`, name === 'price' ? 'Price' : 'NAV'];
+                      if (value === null || value === undefined) return 'N/A';
+                      if (typeof value === 'number' && !isNaN(value)) {
+                        return [`$${value.toFixed(2)}`, name === 'price' ? 'Price' : 'NAV'];
+                      }
+                      return ['N/A', name === 'price' ? 'Price' : 'NAV'];
                     }}
-                    labelStyle={{ fontWeight: 600, marginBottom: '4px' }}
                   />
                   <Legend 
                     verticalAlign="top"
                     align="left"
                     iconType="line"
-                    wrapperStyle={{ paddingBottom: '10px', fontSize: '12px' }}
+                    wrapperStyle={{ paddingBottom: '10px', fontSize: '12px', color: '#64748b' }}
                   />
                   <Line
                     type="monotone"
                     dataKey="price"
                     stroke="#1f2937"
-                    strokeWidth={2}
+                    strokeWidth={3}
                     dot={false}
-                    activeDot={{ r: 4 }}
+                    activeDot={{ r: 5 }}
                     name="Price"
                     connectNulls={true}
                   />
@@ -342,9 +370,9 @@ const CEFDetail = () => {
                     type="monotone"
                     dataKey="nav"
                     stroke="#3b82f6"
-                    strokeWidth={2}
+                    strokeWidth={3}
                     dot={false}
-                    activeDot={{ r: 4 }}
+                    activeDot={{ r: 5 }}
                     name="NAV"
                     connectNulls={true}
                   />

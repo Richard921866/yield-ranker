@@ -145,13 +145,13 @@ const ETFDetail = () => {
         setHasLoadedLiveChart(true);
       }
     }
-  }, [etf, isLoading]);
+  }, [etf, isLoading, buildChartData]);
 
   useEffect(() => {
     if (etf && hasLoadedLiveChart) {
       buildChartData();
     }
-  }, [comparisonETFs, chartType, selectedTimeframe]);
+  }, [comparisonETFs, chartType, selectedTimeframe, etf, hasLoadedLiveChart, buildChartData]);
 
   if (!etf) {
     return (
