@@ -96,52 +96,25 @@ const CEFDetail = () => {
         return;
       }
 
-      // Format data for chart - ensure proper date filtering and sorting
-      const endDate = new Date();
-      const startDate = new Date();
-      
-      switch (selectedTimeframe) {
-        case '1M':
-          startDate.setMonth(endDate.getMonth() - 1);
-          break;
-        case '3M':
-          startDate.setMonth(endDate.getMonth() - 3);
-          break;
-        case '6M':
-          startDate.setMonth(endDate.getMonth() - 6);
-          break;
-        case '1Y':
-          startDate.setFullYear(endDate.getFullYear() - 1);
-          break;
-        case '3Y':
-          startDate.setFullYear(endDate.getFullYear() - 3);
-          break;
-        case '5Y':
-          startDate.setFullYear(endDate.getFullYear() - 5);
-          break;
-        case '10Y':
-          startDate.setFullYear(endDate.getFullYear() - 10);
-          break;
-        case '20Y':
-          startDate.setFullYear(endDate.getFullYear() - 20);
-          break;
-        default:
-          startDate.setFullYear(endDate.getFullYear() - 1);
-      }
+      // Backend already filters by timeframe, so we just need to format and sort
+      const sortedData = [...(data.data || [])].sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        return dateA - dateB;
+      });
 
-      const filteredData = data.data
-        .filter(d => {
-          const dataDate = new Date(d.date);
-          return dataDate >= startDate && dataDate <= endDate;
-        })
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-      const formattedData = filteredData.map(d => ({
-        date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        fullDate: d.date,
-        price: d.price !== null && d.price !== undefined ? Number(d.price) : null,
-        nav: d.nav !== null && d.nav !== undefined ? Number(d.nav) : null,
-      }));
+      const formattedData = sortedData.map(d => {
+        const dateStr = typeof d.date === 'string' ? d.date : d.date.toString();
+        const priceValue = d.price !== null && d.price !== undefined ? Number(d.price) : null;
+        const navValue = d.nav !== null && d.nav !== undefined ? Number(d.nav) : null;
+        
+        return {
+          date: new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          fullDate: dateStr,
+          price: priceValue,
+          nav: navValue,
+        };
+      });
 
       setChartData(formattedData);
     } catch (error) {

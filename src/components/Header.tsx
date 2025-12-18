@@ -76,7 +76,7 @@ export const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-2">
-            {/* Categories Dropdown */}
+            {/* Filter/Categories Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -84,7 +84,7 @@ export const Header = () => {
                   className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md flex items-center gap-1"
                 >
                   <LayoutGrid className="w-4 h-4" />
-                  <span>Categories</span>
+                  <span>Filter</span>
                   <ChevronDown className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -111,13 +111,17 @@ export const Header = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* My Focus */}
+            {/* Closed-End Funds - Direct Link */}
             <Button
               variant="ghost"
-              className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
-              onClick={() => go("/focus")}
+              className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                location.pathname.startsWith("/cef")
+                  ? "bg-slate-100 text-primary font-semibold"
+                  : "text-foreground hover:bg-slate-100 hover:text-foreground"
+              }`}
+              onClick={() => go("/cef")}
             >
-              My Focus
+              Closed-End Funds
             </Button>
 
             {/* Resources Dropdown */}
@@ -150,13 +154,6 @@ export const Header = () => {
                   <FileText className="w-4 h-4 mr-2" />
                   <span>Resources</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem 
-                  className="cursor-pointer"
-                  onClick={() => go("/contact")}
-                >
-                  <Mail className="w-4 h-4 mr-2" />
-                  <span>Contact Us</span>
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -168,6 +165,16 @@ export const Header = () => {
             >
               <CreditCard className="w-4 h-4 mr-1.5" />
               Plans
+            </Button>
+
+            {/* Contact Us */}
+            <Button
+              variant="ghost"
+              className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
+              onClick={() => go("/contact")}
+            >
+              <Mail className="w-4 h-4 mr-1.5" />
+              Contact Us
             </Button>
 
             {isAuthenticated ? (
@@ -249,7 +256,7 @@ export const Header = () => {
         <div className="md:hidden border-t bg-background">
           <nav className="w-full px-6 flex flex-col py-2">
             <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">
-              Categories
+              Filter
             </div>
             <Button
               variant="ghost"

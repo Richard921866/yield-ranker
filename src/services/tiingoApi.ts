@@ -268,7 +268,7 @@ export async function fetchLatestPrice(ticker: string): Promise<LatestPrice> {
  */
 export async function fetchDividends(
   ticker: string,
-  years: number = 5
+  years: number = 15
 ): Promise<DividendData> {
   const response = await fetch(
     `${API_BASE_URL}/api/tiingo/dividends/${ticker}?years=${years}`
