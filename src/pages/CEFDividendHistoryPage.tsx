@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { ArrowLeft, Loader2, Clock } from "lucide-react";
+import { ArrowLeft, Loader2, Clock, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Header } from "@/components/Header";
@@ -106,33 +106,150 @@ const CEFDividendHistoryPage = () => {
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="space-y-6">
+          <>
             {cef && (
-              <Card className="p-6">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                  <div>
-                    <h1 className="text-3xl font-bold text-foreground mb-2">
-                      {cef.symbol} Dividend History
-                    </h1>
-                    {cef.name && (
-                      <p className="text-muted-foreground">{cef.name}</p>
-                    )}
+              <>
+                <div className="mb-4 sm:mb-6 animate-in fade-in slide-in-from-bottom-4 duration-400 delay-100">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-xl sm:text-2xl font-bold">DIVIDEND HISTORY CHART</h2>
+                    <Button
+                      variant="default"
+                      onClick={() => navigate(`/cef/${cef.symbol}`)}
+                      className="gap-2 font-bold text-base bg-accent text-white hover:bg-accent/90"
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      View Price/NAV Chart
+                    </Button>
                   </div>
-                  {lastUpdated && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mt-4 md:mt-0">
-                      <Clock className="h-4 w-4" />
-                      <span>Last updated: {lastUpdated}</span>
+                  {cef.symbol && (
+                    <div className="mb-2">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl sm:text-3xl font-bold">{cef.symbol}</span>
+                        <span className="text-base sm:text-lg text-muted-foreground">{cef.name || cef.description}</span>
+                      </div>
+                      {(cef.marketPrice != null || cef.nav != null) && (
+                        <div className="text-xl sm:text-2xl font-bold mt-1">
+                          ${cef.marketPrice != null ? cef.marketPrice.toFixed(2) : (cef.nav != null ? cef.nav.toFixed(2) : 'N/A')}
+                        </div>
+                      )}
+                      {lastUpdated && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                          <Clock className="h-3 w-3" />
+                          <span>Last updated {lastUpdated}</span>
+                          <span className="text-primary font-medium">Source: Tiingo</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-                {cef.dividendHistory && (
-                  <div className="mb-4">
-                    <p className="text-sm text-muted-foreground">
-                      Dividend Changes: <span className="font-semibold text-foreground">{cef.dividendHistory}</span>
-                    </p>
-                  </div>
-                )}
-              </Card>
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 delay-150 mb-4">
+                  <Card className="p-4">
+                    <div className="flex flex-wrap gap-4 items-center justify-between">
+                      <div className="flex flex-wrap gap-4 text-sm">
+                        <span className="font-semibold text-foreground">Total Return:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">15 Yr:</span>
+                          <span className={`font-semibold ${
+                            cef.return15Yr != null && cef.return15Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {cef.return15Yr != null ? `${cef.return15Yr >= 0 ? '+' : ''}${cef.return15Yr.toFixed(1)}%` : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">10 Yr:</span>
+                          <span className={`font-semibold ${
+                            cef.return10Yr != null && cef.return10Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {cef.return10Yr != null ? `${cef.return10Yr >= 0 ? '+' : ''}${cef.return10Yr.toFixed(1)}%` : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">5 Yr:</span>
+                          <span className={`font-semibold ${
+                            cef.return5Yr != null && cef.return5Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {cef.return5Yr != null ? `${cef.return5Yr >= 0 ? '+' : ''}${cef.return5Yr.toFixed(1)}%` : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">3 Yr:</span>
+                          <span className={`font-semibold ${
+                            cef.return3Yr != null && cef.return3Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {cef.return3Yr != null ? `${cef.return3Yr >= 0 ? '+' : ''}${cef.return3Yr.toFixed(1)}%` : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">12 Mo:</span>
+                          <span className={`font-semibold ${
+                            cef.return12Mo != null && cef.return12Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {cef.return12Mo != null ? `${cef.return12Mo >= 0 ? '+' : ''}${cef.return12Mo.toFixed(1)}%` : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">6 Mo:</span>
+                          <span className={`font-semibold ${
+                            cef.return6Mo != null && cef.return6Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {cef.return6Mo != null ? `${cef.return6Mo >= 0 ? '+' : ''}${cef.return6Mo.toFixed(1)}%` : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">3 Mo:</span>
+                          <span className={`font-semibold ${
+                            cef.return3Mo != null && cef.return3Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {cef.return3Mo != null ? `${cef.return3Mo >= 0 ? '+' : ''}${cef.return3Mo.toFixed(1)}%` : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">1 Mo:</span>
+                          <span className={`font-semibold ${
+                            cef.return1Mo != null && cef.return1Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {cef.return1Mo != null ? `${cef.return1Mo >= 0 ? '+' : ''}${cef.return1Mo.toFixed(1)}%` : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">1 Wk:</span>
+                          <span className={`font-semibold ${
+                            cef.return1Wk != null && cef.return1Wk >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {cef.return1Wk != null ? `${cef.return1Wk >= 0 ? '+' : ''}${cef.return1Wk.toFixed(1)}%` : 'N/A'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm flex-wrap">
+                        <div>
+                          <span className="text-muted-foreground font-bold">Annual Div: </span>
+                          <span className="font-bold text-green-600">${cef.yearlyDividend?.toFixed(2) ?? 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground font-bold">Fwd Yield: </span>
+                          <span className="font-bold text-primary">{cef.forwardYield?.toFixed(2) ?? 'N/A'}%</span>
+                        </div>
+                        {cef.week52Low != null && cef.week52High != null && (
+                          <div>
+                            <span className="text-muted-foreground font-bold">52 Wk Range: </span>
+                            <span className="font-semibold">${cef.week52Low.toFixed(2)} - ${cef.week52High.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {(cef.dividendCVPercent != null || cef.dividendVolatilityIndex) && (
+                          <div>
+                            <span className="text-muted-foreground font-bold">Div Volatility: </span>
+                            <span className="font-semibold">
+                              {cef.dividendCVPercent != null && cef.dividendCVPercent > 0 
+                                ? `${cef.dividendCVPercent.toFixed(1)}%` 
+                                : (cef.dividendVolatilityIndex || 'N/A')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </>
             )}
 
             <DividendHistory
@@ -142,7 +259,7 @@ const CEFDividendHistoryPage = () => {
               forwardYield={cef?.forwardYield || null}
               numPayments={cef?.numPayments || null}
             />
-          </div>
+          </>
         )}
       </main>
       <Footer />
@@ -151,4 +268,3 @@ const CEFDividendHistoryPage = () => {
 };
 
 export default CEFDividendHistoryPage;
-

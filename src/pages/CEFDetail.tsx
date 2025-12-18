@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, Clock, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowLeft, Loader2, Clock, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { fetchSingleCEF, fetchCEFDataWithMetadata, fetchCEFPriceNAV, PriceNAVData } from "@/services/cefData";
 import { CEF } from "@/types/cef";
@@ -25,62 +25,11 @@ const CEFDetail = () => {
   const navigate = useNavigate();
   const [cef, setCef] = useState<CEF | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>("1Y");
-  const [chartData, setChartData] = useState<PriceNAVData[]>([]);
+  const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>("6M");
+  const [chartData, setChartData] = useState<any[]>([]);
   const [isChartLoading, setIsChartLoading] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const loadData = async () => {
-      if (!symbol) return;
-      
-      try {
-        setIsLoading(true);
-        const [singleData, metadata] = await Promise.all([
-          fetchSingleCEF(symbol),
-          fetchCEFDataWithMetadata()
-        ]);
-        
-        if (singleData) {
-          setCef(singleData);
-        }
-        
-        if (metadata.lastUpdatedTimestamp) {
-          const date = new Date(metadata.lastUpdatedTimestamp);
-          const formatted = date.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-          });
-          setLastUpdated(formatted);
-        } else if (metadata.lastUpdated) {
-          setLastUpdated(metadata.lastUpdated);
-        }
-      } catch (error) {
-        console.error("[CEFDetail] Error fetching CEF data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
-
-    const handleCEFDataUpdated = () => {
-      loadData();
-      if (cef) {
-        buildChartData();
-      }
-    };
-
-    window.addEventListener('cefDataUpdated', handleCEFDataUpdated);
-    return () => {
-      window.removeEventListener('cefDataUpdated', handleCEFDataUpdated);
-    };
-  }, [symbol]);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   const buildChartData = useCallback(async () => {
     if (!symbol) return;
@@ -127,6 +76,45 @@ const CEFDetail = () => {
       setIsChartLoading(false);
     }
   }, [symbol, selectedTimeframe]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (!symbol) return;
+      
+      setIsLoading(true);
+      try {
+        const [singleData, metadata] = await Promise.all([
+          fetchSingleCEF(symbol),
+          fetchCEFDataWithMetadata()
+        ]);
+        
+        if (singleData) {
+          setCef(singleData);
+        }
+        
+        if (metadata.lastUpdatedTimestamp) {
+          const date = new Date(metadata.lastUpdatedTimestamp);
+          const formatted = date.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          });
+          setLastUpdated(formatted);
+        } else if (metadata.lastUpdated) {
+          setLastUpdated(metadata.lastUpdated);
+        }
+      } catch (error) {
+        console.error("Error loading CEF:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [symbol]);
 
   useEffect(() => {
     if (cef) {
@@ -186,6 +174,10 @@ const CEFDetail = () => {
 
   const timeframes: Timeframe[] = ["1M", "3M", "6M", "1Y", "3Y", "5Y", "10Y", "20Y", "MAX"];
 
+  // Calculate current return for display (using 12 Mo return as default)
+  const currentReturn = cef.return12Mo;
+  const isPositive = currentReturn != null && currentReturn >= 0;
+
   // Calculate price and NAV ranges for chart
   const priceValues = chartData.map(d => d.price).filter(v => v !== null) as number[];
   const navValues = chartData.map(d => d.nav).filter(v => v !== null) as number[];
@@ -196,91 +188,212 @@ const CEFDetail = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/cef")}
-          className="mb-6"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to CEFs
-        </Button>
 
-        <div className="space-y-6">
-          <Card className="p-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">{cef.symbol}</h1>
-                <p className="text-muted-foreground">{cef.name || cef.description}</p>
-                {cef.issuer && <p className="text-sm text-muted-foreground mt-1">Issuer: {cef.issuer}</p>}
+      <main className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="animate-in fade-in slide-in-from-left-4 duration-300">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/cef")}
+            className="mb-6 hover:bg-slate-100 hover:text-foreground"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to CEFs
+          </Button>
+        </div>
+
+        {/* Header with symbol, price, and return indicator */}
+        <div className="mb-4 sm:mb-6 animate-in fade-in slide-in-from-bottom-4 duration-400 delay-100">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl sm:text-2xl font-bold">
+              PRICE/NAV CHART
+            </h2>
+            <Button
+              variant="default"
+              onClick={() => navigate(`/cef/${cef.symbol}/dividends`)}
+              className="gap-2 font-bold text-base bg-accent text-white hover:bg-accent/90"
+            >
+              View Dividend History
+            </Button>
+          </div>
+          {cef.symbol && (
+            <div className="mb-2">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-bold">{cef.symbol}</span>
+                <span className="text-base sm:text-lg text-muted-foreground">{cef.name || cef.description}</span>
+              </div>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-xl sm:text-2xl font-bold">
+                  {cef.marketPrice != null ? `$${cef.marketPrice.toFixed(2)}` : (cef.nav != null ? `$${cef.nav.toFixed(2)}` : 'N/A')}
+                </span>
+                {currentReturn != null && (
+                  <span className={`text-lg font-semibold flex items-center ${
+                    isPositive ? "text-green-600" : "text-red-600"
+                  }`}>
+                    {isPositive ? <TrendingUp className="w-5 h-5 mr-1" /> : <TrendingDown className="w-5 h-5 mr-1" />}
+                    {`${currentReturn >= 0 ? '+' : ''}${currentReturn.toFixed(2)}%`}
+                  </span>
+                )}
               </div>
               {lastUpdated && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-4 md:mt-0">
-                  <Clock className="h-4 w-4" />
-                  <span>Last updated: {lastUpdated}</span>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                  <Clock className="h-3 w-3" />
+                  <span>Last updated {lastUpdated}</span>
+                  <span className="text-primary font-medium">Source: Tiingo</span>
                 </div>
               )}
             </div>
+          )}
+        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-muted-foreground">Market Price</h3>
-                <p className="text-2xl font-bold">{cef.marketPrice != null ? `$${cef.marketPrice.toFixed(2)}` : 'N/A'}</p>
+        {/* Top Metrics Bar */}
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 delay-150">
+          <Card className="p-4 mb-4">
+            <div className="flex flex-wrap gap-4 items-center justify-between">
+              <div className="flex flex-wrap gap-4 text-sm">
+                <span className="font-semibold text-foreground">Total Return:</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground">15 Yr:</span>
+                  <span className={`font-semibold ${
+                    cef.return15Yr != null && cef.return15Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {cef.return15Yr != null ? `${cef.return15Yr >= 0 ? '+' : ''}${cef.return15Yr.toFixed(1)}%` : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground">10 Yr:</span>
+                  <span className={`font-semibold ${
+                    cef.return10Yr != null && cef.return10Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {cef.return10Yr != null ? `${cef.return10Yr >= 0 ? '+' : ''}${cef.return10Yr.toFixed(1)}%` : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground">5 Yr:</span>
+                  <span className={`font-semibold ${
+                    cef.return5Yr != null && cef.return5Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {cef.return5Yr != null ? `${cef.return5Yr >= 0 ? '+' : ''}${cef.return5Yr.toFixed(1)}%` : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground">3 Yr:</span>
+                  <span className={`font-semibold ${
+                    cef.return3Yr != null && cef.return3Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {cef.return3Yr != null ? `${cef.return3Yr >= 0 ? '+' : ''}${cef.return3Yr.toFixed(1)}%` : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground">12 Mo:</span>
+                  <span className={`font-semibold ${
+                    cef.return12Mo != null && cef.return12Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {cef.return12Mo != null ? `${cef.return12Mo >= 0 ? '+' : ''}${cef.return12Mo.toFixed(1)}%` : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground">6 Mo:</span>
+                  <span className={`font-semibold ${
+                    cef.return6Mo != null && cef.return6Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {cef.return6Mo != null ? `${cef.return6Mo >= 0 ? '+' : ''}${cef.return6Mo.toFixed(1)}%` : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground">3 Mo:</span>
+                  <span className={`font-semibold ${
+                    cef.return3Mo != null && cef.return3Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {cef.return3Mo != null ? `${cef.return3Mo >= 0 ? '+' : ''}${cef.return3Mo.toFixed(1)}%` : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground">1 Mo:</span>
+                  <span className={`font-semibold ${
+                    cef.return1Mo != null && cef.return1Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {cef.return1Mo != null ? `${cef.return1Mo >= 0 ? '+' : ''}${cef.return1Mo.toFixed(1)}%` : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground">1 Wk:</span>
+                  <span className={`font-semibold ${
+                    cef.return1Wk != null && cef.return1Wk >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {cef.return1Wk != null ? `${cef.return1Wk >= 0 ? '+' : ''}${cef.return1Wk.toFixed(1)}%` : 'N/A'}
+                  </span>
+                </div>
               </div>
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-muted-foreground">NAV</h3>
-                <p className="text-2xl font-bold">{cef.nav != null ? `$${cef.nav.toFixed(2)}` : 'N/A'}</p>
+              <div className="flex items-center gap-4 text-sm flex-wrap">
+                <div>
+                  <span className="text-muted-foreground font-bold">Annual Div: </span>
+                  <span className="font-bold text-green-600">${cef.yearlyDividend?.toFixed(2) ?? 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-bold">Fwd Yield: </span>
+                  <span className="font-bold text-primary">{cef.forwardYield?.toFixed(2) ?? 'N/A'}%</span>
+                </div>
+                {cef.week52Low != null && cef.week52High != null && (
+                  <div>
+                    <span className="text-muted-foreground font-bold">52 Wk Range: </span>
+                    <span className="font-semibold">${cef.week52Low.toFixed(2)} - ${cef.week52High.toFixed(2)}</span>
+                  </div>
+                )}
+                {(cef.dividendCVPercent != null || cef.dividendVolatilityIndex) && (
+                  <div>
+                    <span className="text-muted-foreground font-bold">Div Volatility: </span>
+                    <span className="font-semibold">
+                      {cef.dividendCVPercent != null && cef.dividendCVPercent > 0 
+                        ? `${cef.dividendCVPercent.toFixed(1)}%` 
+                        : (cef.dividendVolatilityIndex || 'N/A')}
+                    </span>
+                  </div>
+                )}
               </div>
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-muted-foreground">Premium/Discount</h3>
-                <p className={`text-2xl font-bold ${cef.premiumDiscount != null && cef.premiumDiscount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {cef.premiumDiscount != null ? `${cef.premiumDiscount >= 0 ? '+' : ''}${cef.premiumDiscount.toFixed(2)}%` : 'N/A'}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-muted-foreground">Last Dividend</h3>
-                <p className="text-2xl font-bold">{cef.lastDividend != null ? `$${cef.lastDividend.toFixed(4)}` : 'N/A'}</p>
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-muted-foreground">Forward Yield</h3>
-                <p className="text-2xl font-bold text-primary">{cef.forwardYield != null ? `${cef.forwardYield.toFixed(2)}%` : 'N/A'}</p>
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-muted-foreground">Dividend History</h3>
-                <p className="text-2xl font-bold">{cef.dividendHistory || 'N/A'}</p>
-              </div>
-            </div>
-
-            <div className="mt-6 pt-6 border-t">
-              <Button
-                onClick={() => navigate(`/cef/${cef.symbol}/dividends`)}
-                className="w-full md:w-auto"
-              >
-                View Dividend History
-              </Button>
             </div>
           </Card>
+        </div>
 
-          {/* Price/NAV Chart */}
-          <Card className="p-6">
-            <div className="mb-4">
-              <h2 className="text-xl font-bold mb-4">Price & NAV Chart</h2>
-              
-              {/* Timeframe selector */}
-              <div className="flex flex-wrap gap-2 mb-4">
+        {/* Chart Section */}
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 delay-200 relative z-0">
+          <Card className="p-6 mb-8 relative z-0">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg sm:text-xl font-bold">
+                PRICE/NAV CHART
+              </h2>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 relative z-0">
+              <div className="flex gap-1 flex-wrap">
                 {timeframes.map((tf) => (
                   <Button
                     key={tf}
                     variant={selectedTimeframe === tf ? "default" : "outline"}
                     size="sm"
                     onClick={() => setSelectedTimeframe(tf)}
-                    className={selectedTimeframe === tf ? "bg-primary" : ""}
+                    className="h-9 px-3 text-xs"
                   >
                     {tf}
                   </Button>
                 ))}
               </div>
             </div>
+
+            {chartError && (
+              <div className="mb-4 rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                {chartError}
+              </div>
+            )}
+
+            {/* Show actual date range when data is available */}
+            {chartData && chartData.length > 0 && (
+              <div className="mb-2 text-xs text-muted-foreground">
+                Showing data from{' '}
+                {chartData[0]?.fullDate ? new Date(chartData[0].fullDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : chartData[0]?.date}
+                {' '}to{' '}
+                {chartData[chartData.length - 1]?.fullDate ? new Date(chartData[chartData.length - 1].fullDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : chartData[chartData.length - 1]?.date}
+                {' '}({chartData.length} data points)
+              </div>
+            )}
 
             {isChartLoading ? (
               <div className="flex items-center justify-center h-96">
