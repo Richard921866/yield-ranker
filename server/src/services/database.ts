@@ -202,8 +202,6 @@ export async function updateETFMetricsPreservingCEFFields(
 
   const cefFieldsToPreserve = [
     'nav_symbol',
-    'nav',
-    'premium_discount',
     'five_year_z_score',
     'nav_trend_6m',
     'nav_trend_12m',
@@ -217,7 +215,7 @@ export async function updateETFMetricsPreservingCEFFields(
 
   const { data: existing } = await db
     .from('etf_static')
-    .select(cefFieldsToPreserve.join(','))
+    .select('*')
     .eq('ticker', ticker.toUpperCase())
     .maybeSingle();
 
@@ -235,6 +233,18 @@ export async function updateETFMetricsPreservingCEFFields(
         }
       }
     });
+
+    if (existing.premium_discount !== null && existing.premium_discount !== undefined && existing.premium_discount !== '') {
+      if (!('premium_discount' in updateData)) {
+        updateData.premium_discount = existing.premium_discount;
+      }
+    }
+
+    if (existing.nav !== null && existing.nav !== undefined && existing.nav !== '') {
+      if (!('nav' in updateData)) {
+        updateData.nav = existing.nav;
+      }
+    }
   }
 
   const { error } = await db
