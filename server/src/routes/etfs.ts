@@ -1156,7 +1156,13 @@ router.get('/export', async (_req: Request, res: Response): Promise<void> => {
       logger.error('Routes', `Error fetching etfs: ${legacyResult.error.message}`);
     }
 
-    const staticData = staticResult.data || [];
+    const allStaticData = staticResult.data || [];
+    // Filter out CEFs from export - only include ETFs
+    const staticData = allStaticData.filter((item: any) => {
+      const hasNavSymbol = item.nav_symbol !== null && item.nav_symbol !== undefined && item.nav_symbol !== '';
+      const hasNav = item.nav !== null && item.nav !== undefined && item.nav !== '';
+      return !hasNavSymbol && !hasNav;
+    });
     const legacyData = legacyResult.data || [];
 
     const preferValue = (a: any, b: any): any => {
