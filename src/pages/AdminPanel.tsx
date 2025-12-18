@@ -1204,7 +1204,7 @@ const AdminPanel = () => {
                         Upload CEF Spreadsheet
                       </h2>
                       <p className="text-sm text-muted-foreground mb-4">
-                        Upload CEF data from Excel file. Only accepts these symbols: DNP, FOF, GOF, UTF, UTG, CSQ, PCN, GAB, FFA, BTO, IGR, BME. File should have columns: SYMBOL, NAV, Description, OPEN, DIV HISTORY, IPO PRICE, MP, NAV, Last Div, #, Yrly Div, F Yield, Prem/Disc, DVI, 10 YR Annizd, 5 YR Annizd, 3 YR Annizd, 12 Month, 6 Month, 3 Month, 1 Month, 1 Week.
+                        Upload CEF data from Excel file. File should have a SYMBOL column and columns: NAV Symbol, Description, OPEN, DIV HISTORY, IPO PRICE, MP, NAV, Last Div, #, Yrly Div, F Yield, Prem/Disc, DVI, 10 YR Annlzd, 5 YR Annlzd, 3 YR Annlzd, 12 Month, 6 Month, 3 Month, 1 Month, 1 Week. All symbols in the SYMBOL column will be processed and added to the CEF section.
                       </p>
                     </div>
 
@@ -1275,57 +1275,183 @@ const AdminPanel = () => {
 
                   <div className="border-t pt-6">
                     <h3 className="text-sm font-semibold text-foreground mb-3">
-                      Delete ETF
+                      Delete ETF(s)
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Remove an ETF from the system by selecting its ticker symbol.
+                      Select one or more ETFs to delete. Scroll to see all available tickers.
                     </p>
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-                      <div className="flex-1">
-                        <Select
-                          value={deleteTicker || undefined}
-                          onValueChange={(value) => {
-                            setDeleteTicker(value);
-                          }}
-                          disabled={loadingTickers || deletingETF}
-                        >
-                          <SelectTrigger className="w-full border-2">
-                            <SelectValue placeholder={loadingTickers ? "Loading tickers..." : "Select ticker symbol to delete"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableTickers.length > 0 ? (
-                              availableTickers.map((ticker) => (
-                                <SelectItem key={ticker} value={ticker}>
-                                  {ticker}
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                                No ETFs available
-                              </div>
-                            )}
-                          </SelectContent>
-                        </Select>
+                    
+                    {/* Search filter */}
+                    <div className="mb-3">
+                      <Input
+                        placeholder="Search tickers..."
+                        value={deleteTickerSearch}
+                        onChange={(e) => setDeleteTickerSearch(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Scrollable multi-select checkbox list */}
+                    <div className="mb-4 max-h-96 overflow-y-auto border-2 rounded-lg p-4 bg-slate-50">
+                      <div className="flex items-center justify-between mb-3 sticky top-0 bg-slate-50 pb-2 border-b">
+                        <span className="text-sm font-medium text-foreground">
+                          {selectedTickers.size} of {availableTickers.length} selected
+                        </span>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const filtered = availableTickers.filter(t => 
+                                !deleteTickerSearch || 
+                                t.toLowerCase().includes(deleteTickerSearch.toLowerCase())
+                              );
+                              if (selectedTickers.size === filtered.length) {
+                                setSelectedTickers(new Set());
+                              } else {
+                                const newSelected = new Set(selectedTickers);
+                                filtered.forEach(t => newSelected.add(t));
+                                setSelectedTickers(newSelected);
+                              }
+                            }}
+                            className="h-7 text-xs"
+                            disabled={deletingETF || deletingMultiple}
+                          >
+                            {(() => {
+                              const filtered = availableTickers.filter(t => 
+                                !deleteTickerSearch || 
+                                t.toLowerCase().includes(deleteTickerSearch.toLowerCase())
+                              );
+                              const allSelected = filtered.every(t => selectedTickers.has(t));
+                              return allSelected ? "Deselect Filtered" : "Select Filtered";
+                            })()}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedTickers(new Set())}
+                            className="h-7 text-xs"
+                            disabled={selectedTickers.size === 0 || deletingETF || deletingMultiple}
+                          >
+                            Clear All
+                          </Button>
+                        </div>
                       </div>
+                      <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
+                        {availableTickers
+                          .filter(ticker => 
+                            !deleteTickerSearch || 
+                            ticker.toLowerCase().includes(deleteTickerSearch.toLowerCase())
+                          )
+                          .map((ticker) => (
+                            <label
+                              key={ticker}
+                              className="flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 p-2 rounded border border-transparent hover:border-slate-300 transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedTickers.has(ticker)}
+                                onChange={(e) => {
+                                  const newSelected = new Set(selectedTickers);
+                                  if (e.target.checked) {
+                                    newSelected.add(ticker);
+                                  } else {
+                                    newSelected.delete(ticker);
+                                  }
+                                  setSelectedTickers(newSelected);
+                                }}
+                                disabled={deletingETF || deletingMultiple}
+                                className="w-4 h-4 cursor-pointer"
+                              />
+                              <span className="text-xs font-mono font-medium">{ticker}</span>
+                            </label>
+                          ))}
+                        {availableTickers.filter(ticker => 
+                          !deleteTickerSearch || 
+                          ticker.toLowerCase().includes(deleteTickerSearch.toLowerCase())
+                        ).length === 0 && (
+                          <div className="col-span-full text-center py-4 text-sm text-muted-foreground">
+                            No tickers found matching "{deleteTickerSearch}"
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Delete buttons */}
+                    <div className="flex flex-col sm:flex-row gap-3">
                       <Button
-                        onClick={handleDeleteETF}
-                        disabled={!deleteTicker || deletingETF || !availableTickers.includes(deleteTicker)}
+                        onClick={async () => {
+                          if (selectedTickers.size === 0) {
+                            setDeleteETFStatus("Error: Please select at least one ticker to delete");
+                            return;
+                          }
+                          setDeletingMultiple(true);
+                          setDeleteETFStatus("");
+                          const tickersToDelete = Array.from(selectedTickers);
+                          let successCount = 0;
+                          let failCount = 0;
+                          const errors: string[] = [];
+
+                          for (const ticker of tickersToDelete) {
+                            try {
+                              const apiUrl = import.meta.env.VITE_API_URL || "";
+                              const response = await fetch(`${apiUrl}/api/etfs/${ticker}`, {
+                                method: "DELETE",
+                              });
+                              const result = await response.json();
+                              if (response.ok) {
+                                successCount++;
+                              } else {
+                                failCount++;
+                                errors.push(`${ticker}: ${result.error || result.details || "Delete failed"}`);
+                              }
+                            } catch (error) {
+                              failCount++;
+                              errors.push(`${ticker}: ${error instanceof Error ? error.message : "Delete failed"}`);
+                            }
+                          }
+
+                          clearETFCache();
+                          window.dispatchEvent(new CustomEvent('etfDataUpdated'));
+                          loadAvailableTickers();
+
+                          if (successCount > 0) {
+                            setDeleteETFStatus(`Successfully deleted ${successCount} ETF(s)`);
+                            toast({
+                              title: "ETFs deleted",
+                              description: `Deleted ${successCount} ETF(s)${failCount > 0 ? `, ${failCount} failed` : ""}`,
+                            });
+                          }
+                          if (failCount > 0) {
+                            setDeleteETFStatus(`Error: ${failCount} deletion(s) failed. ${errors.slice(0, 3).join("; ")}`);
+                            toast({
+                              variant: "destructive",
+                              title: "Some deletions failed",
+                              description: errors.slice(0, 3).join("; "),
+                            });
+                          }
+                          setSelectedTickers(new Set());
+                          setDeleteTickerSearch("");
+                          setDeletingMultiple(false);
+                        }}
+                        disabled={selectedTickers.size === 0 || deletingETF || deletingMultiple}
                         variant="destructive"
-                        className="w-full sm:w-auto"
+                        className="flex-1"
                       >
-                        {deletingETF ? (
+                        {deletingMultiple ? (
                           <>
                             <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                            Deleting...
+                            Deleting {selectedTickers.size} ETF(s)...
                           </>
                         ) : (
                           <>
                             <Trash2 className="w-4 h-4 mr-2" />
-                            Delete ETF
+                            Delete {selectedTickers.size} Selected
                           </>
                         )}
                       </Button>
                     </div>
+
                     {deleteETFStatus && (
                       <Card
                         className={`p-4 mt-4 ${deleteETFStatus.startsWith("Error")

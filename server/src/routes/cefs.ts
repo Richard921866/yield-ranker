@@ -10,7 +10,7 @@ import path from 'path';
 import fs from 'fs';
 import XLSX from 'xlsx';
 import { getSupabase } from '../services/database.js';
-import { getCached, setCached, CACHE_KEYS, CACHE_TTL } from '../services/redis.js';
+import { getCached, setCached, CACHE_KEYS, CACHE_TTL, getRedis } from '../services/redis.js';
 import { logger, parseNumeric } from '../utils/index.js';
 import { getDividendHistory, getPriceHistory } from '../services/database.js';
 import type { DividendRecord } from '../types/index.js';
@@ -400,6 +400,17 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     }
 
     cleanupFile(filePath);
+
+    // Clear CEF cache immediately
+    const redis = getRedis();
+    if (redis) {
+      try {
+        await redis.del('cef_list');
+        logger.info('CEF Upload', 'Cleared CEF list cache after upload');
+      } catch (cacheError) {
+        logger.warn('CEF Upload', `Failed to clear cache: ${(cacheError as Error).message}`);
+      }
+    }
 
     res.json({
       success: true,

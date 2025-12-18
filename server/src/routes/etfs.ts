@@ -1561,6 +1561,15 @@ router.delete('/:ticker', async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
+    // Clear cache immediately after deletion
+    try {
+      const { clearCache } = await import('../services/redis.js');
+      await clearCache(CACHE_KEYS.ETF_LIST);
+      logger.info('Routes', `Cleared ETF list cache after deleting ${upperTicker}`);
+    } catch (cacheError) {
+      logger.warn('Routes', `Failed to clear cache: ${(cacheError as Error).message}`);
+    }
+
     const { error: deleteLegacyError } = await supabase
       .from('etfs')
       .delete()
