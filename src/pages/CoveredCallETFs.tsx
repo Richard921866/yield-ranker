@@ -2,7 +2,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Card } from "@/components/ui/card";
 
-export default function CoveredCallETFs() {
+function CoveredCallETFs() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
@@ -136,3 +136,4 @@ export default function CoveredCallETFs() {
   );
 }
 
+export default CoveredCallETFs;
