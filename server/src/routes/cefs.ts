@@ -230,13 +230,13 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       logger.info('CEF Upload', `Processing ${ticker}`);
 
       const navSymbol = navSymbolCol && row[navSymbolCol] ? String(row[navSymbolCol]).trim().toUpperCase() : null;
-      const mp = mpCol ? parseNumeric(row[mpCol]) : null;
-      const nav = navCol ? parseNumeric(row[navCol]) : null;
+      const mp = mpCol && row[mpCol] ? parseNumeric(row[mpCol]) : null;
+      const nav = navCol && row[navCol] ? parseNumeric(row[navCol]) : null;
       
       let premiumDiscount: number | null = null;
       if (premDiscCol && row[premDiscCol]) {
         premiumDiscount = parseNumeric(row[premDiscCol]);
-      } else if (mp && nav) {
+      } else if (mp !== null && nav !== null) {
         premiumDiscount = ((mp - nav) / nav) * 100;
       }
 
@@ -245,35 +245,82 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
         updated_at: now,
       };
 
-      if (navSymbolCol && navSymbol) updateData.nav_symbol = navSymbol;
-      if (descCol && row[descCol]) updateData.description = String(row[descCol]).trim();
+      if (navSymbolCol && navSymbol) {
+        updateData.nav_symbol = navSymbol;
+        logger.info('CEF Upload', `${ticker}: Setting nav_symbol = ${navSymbol}`);
+      }
+      if (descCol && row[descCol]) {
+        updateData.description = String(row[descCol]).trim();
+      }
       if (openDateCol && row[openDateCol]) {
         const openDate = String(row[openDateCol]).trim();
-        updateData.open_date = openDate;
+        if (openDate) updateData.open_date = openDate;
       }
-      if (ipoPriceCol) updateData.ipo_price = parseNumeric(row[ipoPriceCol]);
+      if (ipoPriceCol && row[ipoPriceCol]) {
+        const ipoPrice = parseNumeric(row[ipoPriceCol]);
+        if (ipoPrice !== null) updateData.ipo_price = ipoPrice;
+      }
       if (mp !== null) updateData.price = mp;
       if (nav !== null) updateData.nav = nav;
       if (premiumDiscount !== null) updateData.premium_discount = premiumDiscount;
-      if (lastDivCol) updateData.last_dividend = parseNumeric(row[lastDivCol]);
-      if (numPayCol) updateData.payments_per_year = parseNumeric(row[numPayCol]);
-      if (yrlyDivCol) updateData.annual_dividend = parseNumeric(row[yrlyDivCol]);
-      if (fYieldCol) updateData.forward_yield = parseNumeric(row[fYieldCol]);
-      if (dviCol) {
+      if (lastDivCol && row[lastDivCol]) {
+        const lastDiv = parseNumeric(row[lastDivCol]);
+        if (lastDiv !== null) updateData.last_dividend = lastDiv;
+      }
+      if (numPayCol && row[numPayCol]) {
+        const numPay = parseNumeric(row[numPayCol]);
+        if (numPay !== null) updateData.payments_per_year = numPay;
+      }
+      if (yrlyDivCol && row[yrlyDivCol]) {
+        const yrlyDiv = parseNumeric(row[yrlyDivCol]);
+        if (yrlyDiv !== null) updateData.annual_dividend = yrlyDiv;
+      }
+      if (fYieldCol && row[fYieldCol]) {
+        const fYield = parseNumeric(row[fYieldCol]);
+        if (fYield !== null) updateData.forward_yield = fYield;
+      }
+      if (dviCol && row[dviCol]) {
         const dvi = parseNumeric(row[dviCol]);
         if (dvi !== null && dvi !== 0) {
           updateData.dividend_cv_percent = dvi * 100;
         }
       }
-      const return10Yr = return10YrCol ? parseNumeric(row[return10YrCol]) : null;
-      const return5Yr = return5YrCol ? parseNumeric(row[return5YrCol]) : null;
-      const return3Yr = return3YrCol ? parseNumeric(row[return3YrCol]) : null;
-      if (return3Yr !== null) updateData.tr_drip_3y = return3Yr;
-      if (return12MoCol) updateData.tr_drip_12m = parseNumeric(row[return12MoCol]);
-      if (return6MoCol) updateData.tr_drip_6m = parseNumeric(row[return6MoCol]);
-      if (return3MoCol) updateData.tr_drip_3m = parseNumeric(row[return3MoCol]);
-      if (return1MoCol) updateData.tr_drip_1m = parseNumeric(row[return1MoCol]);
-      if (return1WkCol) updateData.tr_drip_1w = parseNumeric(row[return1WkCol]);
+      if (return10YrCol && row[return10YrCol]) {
+        const return10Yr = parseNumeric(row[return10YrCol]);
+        if (return10Yr !== null) {
+          updateData.tr_drip_3y = return10Yr;
+        }
+      }
+      if (return5YrCol && row[return5YrCol]) {
+        const return5Yr = parseNumeric(row[return5YrCol]);
+        if (return5Yr !== null) {
+          updateData.tr_drip_3y = return5Yr;
+        }
+      }
+      if (return3YrCol && row[return3YrCol]) {
+        const return3Yr = parseNumeric(row[return3YrCol]);
+        if (return3Yr !== null) updateData.tr_drip_3y = return3Yr;
+      }
+      if (return12MoCol && row[return12MoCol]) {
+        const return12Mo = parseNumeric(row[return12MoCol]);
+        if (return12Mo !== null) updateData.tr_drip_12m = return12Mo;
+      }
+      if (return6MoCol && row[return6MoCol]) {
+        const return6Mo = parseNumeric(row[return6MoCol]);
+        if (return6Mo !== null) updateData.tr_drip_6m = return6Mo;
+      }
+      if (return3MoCol && row[return3MoCol]) {
+        const return3Mo = parseNumeric(row[return3MoCol]);
+        if (return3Mo !== null) updateData.tr_drip_3m = return3Mo;
+      }
+      if (return1MoCol && row[return1MoCol]) {
+        const return1Mo = parseNumeric(row[return1MoCol]);
+        if (return1Mo !== null) updateData.tr_drip_1m = return1Mo;
+      }
+      if (return1WkCol && row[return1WkCol]) {
+        const return1Wk = parseNumeric(row[return1WkCol]);
+        if (return1Wk !== null) updateData.tr_drip_1w = return1Wk;
+      }
 
       const { data: existing } = await supabase
         .from('etf_static')
