@@ -137,19 +137,21 @@ const ETFDetail = () => {
     }
   }, [etf, comparisonETFs, chartType, selectedTimeframe]);
 
-  // Load chart on mount
+  // Load chart when ETF is loaded
   useEffect(() => {
-    if (!hasLoadedLiveChart && etf) {
+    if (etf && !isLoading) {
       buildChartData();
-      setHasLoadedLiveChart(true);
+      if (!hasLoadedLiveChart) {
+        setHasLoadedLiveChart(true);
+      }
     }
-  }, [etf, hasLoadedLiveChart]);
+  }, [etf, isLoading]);
 
   useEffect(() => {
-    if (hasLoadedLiveChart) {
+    if (etf && hasLoadedLiveChart) {
       buildChartData();
     }
-  }, [comparisonETFs, chartType, selectedTimeframe, buildChartData]);
+  }, [comparisonETFs, chartType, selectedTimeframe]);
 
   if (!etf) {
     return (

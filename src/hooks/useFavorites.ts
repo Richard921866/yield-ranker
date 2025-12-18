@@ -249,17 +249,6 @@ export function useFavorites(category: FavoriteCategory = 'etf') {
 
     setFavorites(prev => {
       const newFavorites = new Set<string>();
-      prev.forEach(fav => {
-        const upper = fav.toUpperCase();
-        if (validMap.has(upper)) {
-          newFavorites.add(validMap.get(upper)!);
-        }
-      });
-      return newFavorites;
-    });
-
-    setFavorites(prev => {
-      const normalized = new Set<string>();
       let hasChanges = false;
 
       prev.forEach(favSymbol => {
@@ -267,17 +256,17 @@ export function useFavorites(category: FavoriteCategory = 'etf') {
         const matchedSymbol = validMap.get(upperFav);
         if (matchedSymbol) {
           if (favSymbol !== matchedSymbol) {
-            normalized.add(matchedSymbol);
+            newFavorites.add(matchedSymbol);
             hasChanges = true;
           } else {
-            normalized.add(favSymbol);
+            newFavorites.add(favSymbol);
           }
         } else {
-          normalized.add(favSymbol);
+          hasChanges = true;
         }
       });
 
-      return hasChanges ? normalized : prev;
+      return hasChanges ? newFavorites : prev;
     });
   }, []);
 
