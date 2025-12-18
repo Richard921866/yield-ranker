@@ -149,6 +149,69 @@ export const loadRankingWeights = async (
   return preferences?.ranking_weights || null;
 };
 
+export const loadCEFRankingWeights = async (
+  userId: string
+): Promise<RankingWeights | null> => {
+  const preferences = await loadUserPreferences(userId);
+  return preferences?.cef_ranking_weights || null;
+};
+
+export const saveCEFRankingWeights = async (
+  userId: string,
+  weights: RankingWeights
+): Promise<void> => {
+  const existing = await loadUserPreferences(userId);
+  const updated: UserPreferences = {
+    ...existing,
+    cef_ranking_weights: weights,
+  };
+  await saveUserPreferences(userId, updated);
+};
+
+export const loadCEFRankingPresets = async (
+  userId: string
+): Promise<RankingPreset[] | null> => {
+  const preferences = await loadUserPreferences(userId);
+  return preferences?.cef_ranking_presets || null;
+};
+
+export const saveCEFRankingPreset = async (
+  userId: string,
+  presetName: string,
+  weights: RankingWeights
+): Promise<void> => {
+  const existing = await loadUserPreferences(userId) || {};
+  const existingPresets = Array.isArray(existing?.cef_ranking_presets) ? existing.cef_ranking_presets : [];
+  
+  const filteredPresets = existingPresets.filter(p => p.name !== presetName);
+  const newPreset: RankingPreset = {
+    name: presetName,
+    weights,
+    createdAt: new Date().toISOString(),
+  };
+  
+  const updated: UserPreferences = {
+    ...existing,
+    cef_ranking_presets: [...filteredPresets, newPreset],
+  };
+  await saveUserPreferences(userId, updated);
+};
+
+export const deleteCEFRankingPreset = async (
+  userId: string,
+  presetName: string
+): Promise<void> => {
+  const existing = await loadUserPreferences(userId) || {};
+  const existingPresets = Array.isArray(existing?.cef_ranking_presets) ? existing.cef_ranking_presets : [];
+  const filteredPresets = existingPresets.filter(p => p.name !== presetName);
+  
+  const updated: UserPreferences = {
+    ...existing,
+    cef_ranking_presets: filteredPresets,
+  };
+  await saveUserPreferences(userId, updated);
+};
+
 /**
  * Save a new ranking preset
  */

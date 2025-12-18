@@ -684,14 +684,27 @@ router.get('/:symbol/price-nav', async (req: Request, res: Response): Promise<vo
     });
 
     const allDates = new Set([...priceMap.keys(), ...navMap.keys()]);
-    const combinedData = Array.from(allDates)
-      .sort()
-      .map(date => ({
+    const sortedDates = Array.from(allDates).sort();
+    
+    // Fill in missing NAV data points by forward-filling from previous value
+    // This ensures the NAV line is continuous like the Price line
+    let lastNavValue: number | null = null;
+    const combinedData = sortedDates.map(date => {
+      const price = priceMap.get(date)?.close || null;
+      const nav = navMap.get(date)?.close || null;
+      
+      // Forward-fill NAV if missing (use last known NAV value)
+      const navToUse = nav !== null ? nav : lastNavValue;
+      if (navToUse !== null) {
+        lastNavValue = navToUse;
+      }
+      
+      return {
         date,
-        price: priceMap.get(date)?.close || null,
-        nav: navMap.get(date)?.close || null,
-      }))
-      .filter(d => d.price !== null || d.nav !== null);
+        price,
+        nav: navToUse,
+      };
+    }).filter(d => d.price !== null || d.nav !== null);
 
     res.json({
       symbol: ticker,
