@@ -543,12 +543,16 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
 
         if (recentDividends && recentDividends.length > 0) {
           const latestDiv = recentDividends[0];
-          // Update only div_cash and adj_amount, keep all other Tiingo data
+          // Update div_cash, adj_amount, and mark as manual to preserve during Tiingo sync
           const { error: updateError } = await supabase
             .from('dividends_detail')
             .update({
               div_cash: divAmount,
               adj_amount: divAmount, // Use same amount as adj_amount for manual updates
+              is_manual: true,
+              description: latestDiv.description?.includes('Manual upload')
+                ? latestDiv.description
+                : 'Manual upload - DTR spreadsheet update',
             })
             .eq('ticker', ticker)
             .eq('ex_date', latestDiv.ex_date);
@@ -556,11 +560,52 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
           if (!updateError) {
             dividendsUpdated++;
             tickersToRecalc.add(ticker);
-            logger.info('Upload', `Updated dividend amount for ${ticker}: $${divAmount} (kept Tiingo dates)`);
+            logger.info('Upload', `Updated dividend amount for ${ticker}: $${divAmount} (marked as manual)`);
           }
         } else {
-          // No existing dividend found, skip (Tiingo will add it later)
-          logger.warn('Upload', `No existing dividend found for ${ticker}, skipping div update`);
+          // No existing dividend found - create a new manual dividend record
+          // Use today's date as declaration, estimate ex-date based on payment frequency
+          const now = new Date();
+          const declareDate = now.toISOString().split('T')[0];
+
+          // Get payment frequency to estimate ex-date
+          const { data: staticData } = await supabase
+            .from('etf_static')
+            .select('payments_per_year')
+            .eq('ticker', ticker)
+            .single();
+
+          const paymentsPerYear = staticData?.payments_per_year ?? 12;
+          const daysUntilExDate = Math.ceil(365 / paymentsPerYear);
+
+          const exDateObj = new Date(now);
+          exDateObj.setDate(exDateObj.getDate() + daysUntilExDate);
+          const exDate = exDateObj.toISOString().split('T')[0];
+
+          const { error: insertError } = await supabase
+            .from('dividends_detail')
+            .upsert({
+              ticker,
+              ex_date: exDate,
+              declare_date: declareDate,
+              div_cash: divAmount,
+              adj_amount: divAmount,
+              split_factor: 1,
+              description: 'Manual upload - DTR spreadsheet',
+              is_manual: true,
+              currency: 'USD',
+            }, {
+              onConflict: 'ticker,ex_date',
+              ignoreDuplicates: false,
+            });
+
+          if (!insertError) {
+            dividendsUpdated++;
+            tickersToRecalc.add(ticker);
+            logger.info('Upload', `Created new manual dividend for ${ticker}: $${divAmount} (ex-date: ${exDate})`);
+          } else {
+            logger.warn('Upload', `Failed to create dividend for ${ticker}: ${insertError.message}`);
+          }
         }
       }
     }
@@ -1011,14 +1056,14 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     }
 
     const allData = staticResult.data || [];
-    
+
     // Filter out CEFs: exclude records that have nav_symbol or nav set
     const staticData = allData.filter((item: any) => {
       const hasNavSymbol = item.nav_symbol !== null && item.nav_symbol !== undefined && item.nav_symbol !== '';
       const hasNav = item.nav !== null && item.nav !== undefined && item.nav !== '';
       return !hasNavSymbol && !hasNav;
     });
-    
+
     logger.info('Routes', `Fetched ${allData.length} total records, ${staticData.length} ETFs (excluded ${allData.length - staticData.length} CEFs)`);
 
     // Map to frontend format
