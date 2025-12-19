@@ -1209,7 +1209,7 @@ const AdminPanel = () => {
                         Upload CEF Spreadsheet
                       </h2>
                       <p className="text-sm text-muted-foreground mb-4">
-                        Upload CEF data from Excel file. File should have a SYMBOL column and columns: NAV Symbol, Description, OPEN, DIV HISTORY, IPO PRICE, MP, NAV, Last Div, #, Yrly Div, F Yield, Prem/Disc, DVI, 10 YR Annlzd, 5 YR Annlzd, 3 YR Annlzd, 12 Month, 6 Month, 3 Month, 1 Month, 1 Week. <strong>Required:</strong> SYMBOL, Last Div. <strong>Optional:</strong> NAV Symbol, MP, NAV (Premium/Discount will be calculated from MP and NAV if provided). All symbols in the SYMBOL column will be processed and added to the CEF section.
+                        Upload CEF data from Excel file. <strong>Required:</strong> SYMBOL, Last Div. <strong>Optional:</strong> NAV Symbol, Description, OPEN (Open Date), DIV HISTORY, IPO PRICE, # (# Payments). Premium/Discount will be calculated automatically from Price and NAV (fetched from Tiingo). DVI, Total Returns, Forward Yield, and Annual Dividend are computed automatically using the same formulas as Covered Call Option ETFs (not from Tiingo). All symbols in the SYMBOL column will be processed and added to the CEF section.
                       </p>
                     </div>
 
