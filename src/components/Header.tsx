@@ -111,18 +111,24 @@ export const Header = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Closed-End Funds - Direct Link */}
-            <Button
-              variant="ghost"
-              className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
-                location.pathname.startsWith("/cef")
-                  ? "bg-slate-100 text-primary font-semibold"
-                  : "text-foreground hover:bg-slate-100 hover:text-foreground"
-              }`}
-              onClick={() => go("/cef")}
-            >
-              Closed-End Funds
-            </Button>
+            {/* Context-Aware Category Link - Shows opposite category */}
+            {location.pathname.startsWith("/cef") ? (
+              <Button
+                variant="ghost"
+                className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
+                onClick={() => go("/")}
+              >
+                Covered Call Option ETFs
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
+                onClick={() => go("/cef")}
+              >
+                Closed-End Funds
+              </Button>
+            )}
 
             {/* Resources Dropdown */}
             <DropdownMenu>
@@ -269,17 +275,24 @@ export const Header = () => {
             >
               Covered Call Option ETFs
             </Button>
-            <Button
-              variant="ghost"
-              className={`justify-start px-4 py-3 text-base font-semibold hover:bg-slate-100 rounded-md ${
-                location.pathname.startsWith("/cef")
-                  ? "text-primary bg-primary/5"
-                  : "text-foreground"
-              }`}
-              onClick={() => go("/cef")}
-            >
-              Closed-End Funds
-            </Button>
+            {/* Context-Aware Category Link in Mobile - Shows opposite category */}
+            {location.pathname.startsWith("/cef") ? (
+              <Button
+                variant="ghost"
+                className="justify-start px-4 py-3 text-base font-semibold text-foreground hover:bg-slate-100 rounded-md"
+                onClick={() => go("/")}
+              >
+                Covered Call Option ETFs
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                className="justify-start px-4 py-3 text-base font-semibold text-foreground hover:bg-slate-100 rounded-md"
+                onClick={() => go("/cef")}
+              >
+                Closed-End Funds
+              </Button>
+            )}
             
             <div className="border-t my-2"></div>
             
