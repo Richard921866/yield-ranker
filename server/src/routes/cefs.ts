@@ -1061,9 +1061,13 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
         }
 
         // Calculate metrics using the same system as ETFs for accuracy
+        // This calculates ALL periods including 15Y, 10Y, 5Y, 3Y in real-time
         let metrics: any = null;
         try {
           metrics = await calculateMetrics(cef.ticker);
+          if (!metrics) {
+            logger.warn("Routes", `calculateMetrics returned null for ${cef.ticker}`);
+          }
         } catch (error) {
           logger.warn(
             "Routes",
@@ -1433,10 +1437,14 @@ router.get("/:symbol", async (req: Request, res: Response): Promise<void> => {
     const cef = staticResult.data;
 
     // Calculate metrics for accurate yearly returns
+    // This calculates ALL periods including 15Y, 10Y, 5Y, 3Y in real-time
     let metrics = null;
     try {
       const { calculateMetrics } = await import("../services/metrics.js");
       metrics = await calculateMetrics(ticker);
+      if (!metrics) {
+        logger.warn("Routes", `calculateMetrics returned null for ${ticker}`);
+      }
     } catch (error) {
       logger.warn(
         "Routes",
