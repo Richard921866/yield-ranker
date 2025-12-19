@@ -398,14 +398,36 @@ export const CEFTable = ({
                 </SortButton>
               </th>
               <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                <SortButton
-                  field={null}
-                  sortField={sortField}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                >
-                  Signal
-                </SortButton>
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <SortButton
+                        field="signal"
+                        sortField={sortField}
+                        sortDirection={sortDirection}
+                        onSort={handleSort}
+                      >
+                        Signal
+                      </SortButton>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    sideOffset={8}
+                    className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg max-w-[350px]"
+                  >
+                    <p className="font-semibold mb-2">Signal Rating (-2 to +3):</p>
+                    <ul className="space-y-1 text-left">
+                      <li><span className="font-bold text-green-400">+3:</span> Optimal - Deeply undervalued with perfect health</li>
+                      <li><span className="font-bold text-green-400">+2:</span> Good Value - Cheap with positive momentum</li>
+                      <li><span className="font-bold text-blue-400">+1:</span> Healthy - Growing assets, fair price</li>
+                      <li><span className="font-bold text-gray-400">0:</span> Neutral - No clear signal</li>
+                      <li><span className="font-bold text-orange-400">-1:</span> Value Trap - Looks cheap but shrinking</li>
+                      <li><span className="font-bold text-red-400">-2:</span> Overvalued - Statistically expensive</li>
+                    </ul>
+                    <p className="mt-2 text-xs text-slate-300">N/A = Insufficient history (&lt;2 years)</p>
+                  </TooltipContent>
+                </Tooltip>
               </th>
               <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
                 <Tooltip delayDuration={200}>
@@ -600,8 +622,28 @@ export const CEFTable = ({
                     ? formatPercentage(cef.navTrend12M)
                     : "N/A"}
                 </td>
-                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs text-muted-foreground">
-                  N/A
+                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold">
+                  {cef.signal != null ? (
+                    <span
+                      className={
+                        cef.signal === 3
+                          ? "text-green-700 bg-green-50 px-2 py-0.5 rounded"
+                          : cef.signal === 2
+                          ? "text-green-600 bg-green-50/50 px-2 py-0.5 rounded"
+                          : cef.signal === 1
+                          ? "text-blue-600"
+                          : cef.signal === 0
+                          ? "text-gray-500"
+                          : cef.signal === -1
+                          ? "text-orange-600"
+                          : "text-red-600"
+                      }
+                    >
+                      {cef.signal > 0 ? `+${cef.signal}` : cef.signal}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">N/A</span>
+                  )}
                 </td>
                 <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs text-muted-foreground">
                   {cef.dividendCVPercent != null

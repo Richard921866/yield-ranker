@@ -134,8 +134,9 @@ async function calculateCEFZScore(
 
 /**
  * Calculate 6-Month NAV Trend (percentage change using adjusted close)
- * Formula: ((NAV_end / NAV_start) - 1) * 100
- * Uses the first available price on/after startDate and last available price on/before endDate
+ * Formula: ((Current NAV / NAV 126 days ago) - 1) * 100
+ * Uses exactly 126 trading days (not calendar months)
+ * Requires adjusted NAV from Tiingo (adj_close) which accounts for distributions
  */
 async function calculateNAVTrend6M(
   navSymbol: string | null
@@ -143,9 +144,10 @@ async function calculateNAVTrend6M(
   if (!navSymbol) return null;
 
   try {
+    // Get enough history: need at least 126 days + buffer
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setMonth(endDate.getMonth() - 6);
+    startDate.setDate(endDate.getDate() - 200); // Get ~200 days to ensure we have 126 trading days
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(endDate);
 
@@ -154,27 +156,28 @@ async function calculateNAVTrend6M(
       startDateStr,
       endDateStr
     );
-    if (navData.length < 2) return null;
+    
+    // Need at least 127 records (126 days back + current day)
+    if (navData.length < 127) return null;
 
-    // Find first available price on/after start date and last on/before end date
-    const startRecord = navData.find((p) => p.date >= startDateStr);
-    const validEndPrices = navData.filter((p) => p.date <= endDateStr);
-    const endRecord =
-      validEndPrices.length > 0
-        ? validEndPrices[validEndPrices.length - 1]
-        : null;
+    // Sort by date ascending (oldest first)
+    navData.sort((a, b) => a.date.localeCompare(b.date));
 
-    if (!startRecord || !endRecord) return null;
+    // Get current NAV (last record)
+    const currentRecord = navData[navData.length - 1];
+    // Get NAV from 126 trading days ago
+    const past126Record = navData[navData.length - 1 - 126];
 
-    // Use adjusted close for accuracy (handles splits/dividends)
-    const startNav = startRecord.adj_close ?? startRecord.close;
-    const endNav = endRecord.adj_close ?? endRecord.close;
+    if (!currentRecord || !past126Record) return null;
 
-    if (!startNav || !endNav || startNav <= 0) return null;
-    if (startRecord.date > endRecord.date) return null;
+    // Use adjusted close for accuracy (handles splits/dividends/distributions)
+    const currentNav = currentRecord.adj_close ?? currentRecord.close;
+    const past126Nav = past126Record.adj_close ?? past126Record.close;
 
-    // Calculate percentage change: ((End / Start) - 1) * 100
-    const trend = (endNav / startNav - 1) * 100;
+    if (!currentNav || !past126Nav || past126Nav <= 0) return null;
+
+    // Calculate percentage change: ((Current / Past) - 1) * 100
+    const trend = (currentNav / past126Nav - 1) * 100;
 
     // Sanity check
     if (!isFinite(trend) || trend < -99 || trend > 10000) return null;
@@ -190,9 +193,10 @@ async function calculateNAVTrend6M(
 }
 
 /**
- * Calculate 12-Month NAV Return (percentage change using adjusted close)
- * Formula: ((NAV_end / NAV_start) - 1) * 100
- * Uses the first available price on/after startDate and last available price on/before endDate
+ * Calculate 12-Month NAV Trend (percentage change using adjusted close)
+ * Formula: ((Current NAV / NAV 252 days ago) - 1) * 100
+ * Uses exactly 252 trading days (not calendar year)
+ * Requires adjusted NAV from Tiingo (adj_close) which accounts for distributions
  */
 async function calculateNAVReturn12M(
   navSymbol: string | null
@@ -200,9 +204,10 @@ async function calculateNAVReturn12M(
   if (!navSymbol) return null;
 
   try {
+    // Get enough history: need at least 252 days + buffer
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setFullYear(endDate.getFullYear() - 1);
+    startDate.setDate(endDate.getDate() - 400); // Get ~400 days to ensure we have 252 trading days
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(endDate);
 
@@ -211,37 +216,119 @@ async function calculateNAVReturn12M(
       startDateStr,
       endDateStr
     );
-    if (navData.length < 2) return null;
+    
+    // Need at least 253 records (252 days back + current day)
+    if (navData.length < 253) return null;
 
-    // Find first available price on/after start date and last on/before end date
-    const startRecord = navData.find((p) => p.date >= startDateStr);
-    const validEndPrices = navData.filter((p) => p.date <= endDateStr);
-    const endRecord =
-      validEndPrices.length > 0
-        ? validEndPrices[validEndPrices.length - 1]
-        : null;
+    // Sort by date ascending (oldest first)
+    navData.sort((a, b) => a.date.localeCompare(b.date));
 
-    if (!startRecord || !endRecord) return null;
+    // Get current NAV (last record)
+    const currentRecord = navData[navData.length - 1];
+    // Get NAV from 252 trading days ago
+    const past252Record = navData[navData.length - 1 - 252];
 
-    // Use adjusted close for accuracy (handles splits/dividends)
-    const startNav = startRecord.adj_close ?? startRecord.close;
-    const endNav = endRecord.adj_close ?? endRecord.close;
+    if (!currentRecord || !past252Record) return null;
 
-    if (!startNav || !endNav || startNav <= 0) return null;
-    if (startRecord.date > endRecord.date) return null;
+    // Use adjusted close for accuracy (handles splits/dividends/distributions)
+    const currentNav = currentRecord.adj_close ?? currentRecord.close;
+    const past252Nav = past252Record.adj_close ?? past252Record.close;
 
-    // Calculate percentage return: ((End / Start) - 1) * 100
-    const return_12M = (endNav / startNav - 1) * 100;
+    if (!currentNav || !past252Nav || past252Nav <= 0) return null;
+
+    // Calculate percentage change: ((Current / Past) - 1) * 100
+    const trend = (currentNav / past252Nav - 1) * 100;
 
     // Sanity check
-    if (!isFinite(return_12M) || return_12M < -99 || return_12M > 10000)
-      return null;
+    if (!isFinite(trend) || trend < -99 || trend > 10000) return null;
 
-    return return_12M;
+    return trend;
   } catch (error) {
     logger.warn(
       "CEF Metrics",
-      `Failed to calculate NAV Return 12M for ${navSymbol}: ${error}`
+      `Failed to calculate NAV Trend 12M for ${navSymbol}: ${error}`
+    );
+    return null;
+  }
+}
+
+/**
+ * Calculate Signal Rating (Column Q)
+ * Purpose: The "Brain" - combines Z-Score with NAV trends to give a sortable action rank from -2 to +3
+ * Constraint: Returns null (N/A) if fund history is < 2 years (504 trading days)
+ * 
+ * Score Rating Logic:
+ * +3: Optimal - Z < -1.5 AND 6M Trend > 0 AND 12M Trend > 0
+ * +2: Good Value - Z < -1.5 AND 6M Trend > 0
+ * +1: Healthy - Z > -1.5 AND 6M Trend > 0
+ *  0: Neutral - Default
+ * -1: Value Trap - Z < -1.5 AND 6M Trend < 0
+ * -2: Overvalued - Z > 1.5
+ */
+async function calculateSignal(
+  ticker: string,
+  navSymbol: string | null,
+  zScore: number | null,
+  navTrend6M: number | null,
+  navTrend12M: number | null
+): Promise<number | null> {
+  // Need at least 2 years (504 trading days) for reliable Z-Score
+  if (!navSymbol || zScore === null || navTrend6M === null || navTrend12M === null) {
+    return null;
+  }
+
+  try {
+    // Check if we have enough history (504 trading days = 2 years)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - 600); // Get ~600 days to ensure we have 504 trading days
+    const startDateStr = formatDate(startDate);
+    const endDateStr = formatDate(endDate);
+
+    const navData = await getPriceHistory(
+      navSymbol.toUpperCase(),
+      startDateStr,
+      endDateStr
+    );
+
+    // Need at least 504 trading days of history
+    if (navData.length < 504) {
+      return null; // N/A - insufficient history
+    }
+
+    const z = zScore;
+    const t6 = navTrend6M;
+    const t12 = navTrend12M;
+
+    // Logic Gate Scoring
+    // +3: Optimal (Cheap + 6mo Health + 12mo Health)
+    if (z < -1.5 && t6 > 0 && t12 > 0) {
+      return 3;
+    }
+    // +2: Good Value (Cheap + 6mo Health)
+    else if (z < -1.5 && t6 > 0) {
+      return 2;
+    }
+    // +1: Healthy (Not cheap, but growing assets)
+    else if (z > -1.5 && t6 > 0) {
+      return 1;
+    }
+    // -1: Value Trap (Looks cheap, but assets are shrinking)
+    else if (z < -1.5 && t6 < 0) {
+      return -1;
+    }
+    // -2: Overvalued (Statistically expensive)
+    else if (z > 1.5) {
+      return -2;
+    }
+    // 0: Neutral
+    else {
+      return 0;
+    }
+  } catch (error) {
+    logger.warn(
+      "CEF Metrics",
+      `Failed to calculate Signal for ${ticker}: ${error}`
     );
     return null;
   }
@@ -1186,6 +1273,24 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
           navTrend12M = cef.nav_trend_12m ?? null;
         }
 
+        // Calculate Signal (Column Q)
+        let signal: number | null = null;
+        try {
+          signal = await calculateSignal(
+            cef.ticker,
+            cef.nav_symbol,
+            fiveYearZScore,
+            navTrend6M,
+            navTrend12M
+          );
+        } catch (error) {
+          logger.warn(
+            "Routes",
+            `Failed to calculate Signal for ${cef.ticker}: ${error}`
+          );
+          signal = null;
+        }
+
         return {
           symbol: cef.ticker,
           name: cef.description || cef.ticker,
@@ -1200,6 +1305,7 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
           fiveYearZScore: fiveYearZScore,
           navTrend6M: navTrend6M,
           navTrend12M: navTrend12M,
+          signal: signal,
           valueHealthScore: cef.value_health_score || null,
           lastDividend: metrics?.lastDividend ?? cef.last_dividend ?? null,
           numPayments: metrics?.paymentsPerYear ?? cef.payments_per_year ?? 12,
@@ -1574,6 +1680,24 @@ router.get("/:symbol", async (req: Request, res: Response): Promise<void> => {
       navTrend12M = cef.nav_trend_12m ?? null;
     }
 
+    // Calculate Signal (Column Q)
+    let signal: number | null = null;
+    try {
+      signal = await calculateSignal(
+        ticker,
+        cef.nav_symbol,
+        fiveYearZScore,
+        navTrend6M,
+        navTrend12M
+      );
+    } catch (error) {
+      logger.warn(
+        "Routes",
+        `Failed to calculate Signal for ${ticker}: ${error}`
+      );
+      signal = null;
+    }
+
     const response = {
       symbol: cef.ticker,
       name: cef.description || cef.ticker,
@@ -1588,6 +1712,7 @@ router.get("/:symbol", async (req: Request, res: Response): Promise<void> => {
       fiveYearZScore: fiveYearZScore,
       navTrend6M: navTrend6M,
       navTrend12M: navTrend12M,
+      signal: signal,
       valueHealthScore: cef.value_health_score || null,
       lastDividend: cef.last_dividend || null,
       numPayments: cef.payments_per_year || 12,
