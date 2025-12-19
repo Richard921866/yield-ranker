@@ -17,7 +17,12 @@ import {
   CACHE_TTL,
   getRedis,
 } from "../services/redis.js";
-import { logger, parseNumeric, getDateYearsAgo, formatDate } from "../utils/index.js";
+import {
+  logger,
+  parseNumeric,
+  getDateYearsAgo,
+  formatDate,
+} from "../utils/index.js";
 import {
   getDividendHistory,
   getPriceHistory,
@@ -85,7 +90,7 @@ async function calculateCEFZScore(
       const price = priceMap.get(date);
       const nav = navMap.get(date);
       if (price && nav && nav > 0) {
-        discounts.push((price / nav) - 1.0);
+        discounts.push(price / nav - 1.0);
       }
     }
 
@@ -102,7 +107,9 @@ async function calculateCEFZScore(
     // Calculate stats
     const currentDiscount = history[history.length - 1];
     const avgDiscount = history.reduce((sum, d) => sum + d, 0) / history.length;
-    const variance = history.reduce((sum, d) => sum + Math.pow(d - avgDiscount, 2), 0) / history.length;
+    const variance =
+      history.reduce((sum, d) => sum + Math.pow(d - avgDiscount, 2), 0) /
+      history.length;
     const stdDev = Math.sqrt(variance);
 
     if (stdDev === 0) return 0.0;
@@ -112,7 +119,10 @@ async function calculateCEFZScore(
 
     return zScore;
   } catch (error) {
-    logger.warn("CEF Metrics", `Failed to calculate Z-Score for ${ticker}: ${error}`);
+    logger.warn(
+      "CEF Metrics",
+      `Failed to calculate Z-Score for ${ticker}: ${error}`
+    );
     return null;
   }
 }
@@ -132,7 +142,11 @@ async function calculateNAVTrend6M(
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(endDate);
 
-    const navData = await getPriceHistory(navSymbol.toUpperCase(), startDateStr, endDateStr);
+    const navData = await getPriceHistory(
+      navSymbol.toUpperCase(),
+      startDateStr,
+      endDateStr
+    );
     if (navData.length < 2) return null;
 
     // Get first and last NAV values
@@ -145,7 +159,10 @@ async function calculateNAVTrend6M(
     const trend = ((lastNav - firstNav) / firstNav) * 100;
     return trend;
   } catch (error) {
-    logger.warn("CEF Metrics", `Failed to calculate NAV Trend 6M for ${navSymbol}: ${error}`);
+    logger.warn(
+      "CEF Metrics",
+      `Failed to calculate NAV Trend 6M for ${navSymbol}: ${error}`
+    );
     return null;
   }
 }
@@ -165,7 +182,11 @@ async function calculateNAVReturn12M(
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(endDate);
 
-    const navData = await getPriceHistory(navSymbol.toUpperCase(), startDateStr, endDateStr);
+    const navData = await getPriceHistory(
+      navSymbol.toUpperCase(),
+      startDateStr,
+      endDateStr
+    );
     if (navData.length < 2) return null;
 
     // Get first and last NAV values
@@ -178,7 +199,10 @@ async function calculateNAVReturn12M(
     const return_12M = ((lastNav - firstNav) / firstNav) * 100;
     return return_12M;
   } catch (error) {
-    logger.warn("CEF Metrics", `Failed to calculate NAV Return 12M for ${navSymbol}: ${error}`);
+    logger.warn(
+      "CEF Metrics",
+      `Failed to calculate NAV Return 12M for ${navSymbol}: ${error}`
+    );
     return null;
   }
 }
@@ -1034,7 +1058,7 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
         ) {
           const price = metrics?.currentPrice ?? cef.price;
           if (price && currentNav) {
-            premiumDiscount = ((price - currentNav) / currentNav) * 100;
+            premiumDiscount = (price / currentNav - 1) * 100;
           }
         }
 
@@ -1067,7 +1091,8 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
             metrics?.dividendVolatilityIndex ??
             cef.dividend_volatility_index ??
             null,
-          return15Yr: metrics?.totalReturnDrip?.["15Y"] ?? cef.tr_drip_15y ?? null,
+          return15Yr:
+            metrics?.totalReturnDrip?.["15Y"] ?? cef.tr_drip_15y ?? null,
           return10Yr:
             metrics?.totalReturnDrip?.["10Y"] ?? cef.tr_drip_10y ?? null,
           return5Yr: metrics?.totalReturnDrip?.["5Y"] ?? cef.tr_drip_5y ?? null,
@@ -1342,7 +1367,7 @@ router.get("/:symbol", async (req: Request, res: Response): Promise<void> => {
     ) {
       const price = metrics?.currentPrice ?? cef.price;
       if (price && currentNav) {
-        premiumDiscount = ((price / currentNav) - 1) * 100;
+        premiumDiscount = (price / currentNav - 1) * 100;
       }
     }
 
