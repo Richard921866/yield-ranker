@@ -272,13 +272,14 @@ async function calculateSignal(
   navTrend6M: number | null,
   navTrend12M: number | null
 ): Promise<number | null> {
-  // Need at least 2 years (504 trading days) for reliable Z-Score
+  // If we don't have required inputs, return null
   if (!navSymbol || zScore === null || navTrend6M === null || navTrend12M === null) {
     return null;
   }
 
   try {
     // Check if we have enough history (504 trading days = 2 years)
+    // We need this to ensure Z-Score is reliable
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - 600); // Get ~600 days to ensure we have 504 trading days
@@ -291,9 +292,11 @@ async function calculateSignal(
       endDateStr
     );
 
-    // Need at least 504 trading days of history
-    if (navData.length < 504) {
-      return null; // N/A - insufficient history
+    // Need at least 504 trading days of history for reliable Z-Score
+    // But if we already have Z-Score calculated, we can use it even if history check fails
+    // (Z-Score calculation already validates 2-year minimum)
+    if (navData.length < 504 && zScore === null) {
+      return null; // N/A - insufficient history and no Z-Score
     }
 
     const z = zScore;

@@ -377,7 +377,7 @@ export const CEFTable = ({
                   onSort={handleSort}
                 >
                   <div className="whitespace-normal leading-tight">
-                    12 Mo
+                    6 Mo
                     <br />
                     NAV Trend
                   </div>
@@ -391,9 +391,9 @@ export const CEFTable = ({
                   onSort={handleSort}
                 >
                   <div className="whitespace-normal leading-tight">
-                    12M NAV
+                    12 Mo
                     <br />
-                    Return
+                    NAV Trend
                   </div>
                 </SortButton>
               </th>
@@ -416,16 +416,38 @@ export const CEFTable = ({
                     sideOffset={8}
                     className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg max-w-[350px]"
                   >
-                    <p className="font-semibold mb-2">Signal Rating (-2 to +3):</p>
+                    <p className="font-semibold mb-2">
+                      Signal Rating (-2 to +3):
+                    </p>
                     <ul className="space-y-1 text-left">
-                      <li><span className="font-bold text-green-400">+3:</span> Optimal - Deeply undervalued with perfect health</li>
-                      <li><span className="font-bold text-green-400">+2:</span> Good Value - Cheap with positive momentum</li>
-                      <li><span className="font-bold text-blue-400">+1:</span> Healthy - Growing assets, fair price</li>
-                      <li><span className="font-bold text-gray-400">0:</span> Neutral - No clear signal</li>
-                      <li><span className="font-bold text-orange-400">-1:</span> Value Trap - Looks cheap but shrinking</li>
-                      <li><span className="font-bold text-red-400">-2:</span> Overvalued - Statistically expensive</li>
+                      <li>
+                        <span className="font-bold text-green-400">+3:</span>{" "}
+                        Optimal - Deeply undervalued with perfect health
+                      </li>
+                      <li>
+                        <span className="font-bold text-green-400">+2:</span>{" "}
+                        Good Value - Cheap with positive momentum
+                      </li>
+                      <li>
+                        <span className="font-bold text-blue-400">+1:</span>{" "}
+                        Healthy - Growing assets, fair price
+                      </li>
+                      <li>
+                        <span className="font-bold text-gray-400">0:</span>{" "}
+                        Neutral - No clear signal
+                      </li>
+                      <li>
+                        <span className="font-bold text-orange-400">-1:</span>{" "}
+                        Value Trap - Looks cheap but shrinking
+                      </li>
+                      <li>
+                        <span className="font-bold text-red-400">-2:</span>{" "}
+                        Overvalued - Statistically expensive
+                      </li>
                     </ul>
-                    <p className="mt-2 text-xs text-slate-300">N/A = Insufficient history (&lt;2 years)</p>
+                    <p className="mt-2 text-xs text-slate-300">
+                      N/A = Insufficient history (&lt;2 years)
+                    </p>
                   </TooltipContent>
                 </Tooltip>
               </th>
