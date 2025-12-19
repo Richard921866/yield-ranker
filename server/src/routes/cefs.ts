@@ -1031,15 +1031,27 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
         }
 
         // Get current NAV from latest price of nav_symbol if nav_symbol exists
+        // Use same approach as chart: getPriceHistory with recent date range (has Tiingo fallback)
         let currentNav: number | null = cef.nav ?? null;
         if (!currentNav && cef.nav_symbol) {
           try {
-            const navPrices = await getLatestPrice(
+            // Get last 30 days of NAV data to find the most recent price
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - 30);
+            const startDateStr = formatDate(startDate);
+            const endDateStr = formatDate(endDate);
+            
+            const navHistory = await getPriceHistory(
               cef.nav_symbol.toUpperCase(),
-              1
+              startDateStr,
+              endDateStr
             );
-            if (navPrices.length > 0 && navPrices[0].close) {
-              currentNav = navPrices[0].close;
+            
+            // Get the most recent NAV price (last record)
+            if (navHistory.length > 0) {
+              const latestNav = navHistory[navHistory.length - 1];
+              currentNav = latestNav.close ?? latestNav.adj_close ?? null;
             }
           } catch (error) {
             logger.warn(
@@ -1342,12 +1354,27 @@ router.get("/:symbol", async (req: Request, res: Response): Promise<void> => {
     }
 
     // Get current NAV from latest price of nav_symbol if nav_symbol exists
+    // Use same approach as chart: getPriceHistory with recent date range (has Tiingo fallback)
     let currentNav: number | null = cef.nav ?? null;
     if (!currentNav && cef.nav_symbol) {
       try {
-        const navPrices = await getLatestPrice(cef.nav_symbol.toUpperCase(), 1);
-        if (navPrices.length > 0 && navPrices[0].close) {
-          currentNav = navPrices[0].close;
+        // Get last 30 days of NAV data to find the most recent price
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - 30);
+        const startDateStr = formatDate(startDate);
+        const endDateStr = formatDate(endDate);
+        
+        const navHistory = await getPriceHistory(
+          cef.nav_symbol.toUpperCase(),
+          startDateStr,
+          endDateStr
+        );
+        
+        // Get the most recent NAV price (last record)
+        if (navHistory.length > 0) {
+          const latestNav = navHistory[navHistory.length - 1];
+          currentNav = latestNav.close ?? latestNav.adj_close ?? null;
         }
       } catch (error) {
         logger.warn(
