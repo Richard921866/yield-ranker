@@ -233,20 +233,6 @@ export const Header = () => {
       {mobileMenuOpen && (
         <div className="md:hidden border-t bg-background">
           <nav className="w-full px-6 flex flex-col py-2">
-            <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">
-              Filter
-            </div>
-            <Button
-              variant="ghost"
-              className={`justify-start px-4 py-3 text-base font-semibold hover:bg-slate-100 rounded-md ${
-                location.pathname === "/" || location.pathname.startsWith("/etf/")
-                  ? "text-primary bg-primary/5"
-                  : "text-foreground"
-              }`}
-              onClick={() => go("/")}
-            >
-              Covered Call Option ETFs
-            </Button>
             {/* Context-Aware Category Link in Mobile - Shows opposite category */}
             {location.pathname.startsWith("/cef") ? (
               <Button
