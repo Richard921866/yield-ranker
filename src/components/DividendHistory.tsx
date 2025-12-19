@@ -266,11 +266,17 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
     return yearlyDividends
       .slice(0, 5)
       .reverse()
-      .map(y => ({
-        year: y.year.toString(),
-        total: Number(y.total.toFixed(4)),
-        count: y.count,
-      }));
+      .map(y => {
+        const total = typeof y.total === 'number' && !isNaN(y.total) && isFinite(y.total) && y.total > 0
+          ? Number(y.total.toFixed(4))
+          : 0;
+        return {
+          year: y.year.toString(),
+          total,
+          count: y.count,
+        };
+      })
+      .filter(y => y.total > 0); // Only include entries with valid totals
   }, [yearlyDividends]);
 
   const yoyGrowth = useMemo(() => {
@@ -591,11 +597,11 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
         </div>
       ) : null}
 
-      {yearlyDividends.length > 0 && (
+      {chartData.length > 0 && (
         <div className="mb-6 sm:mb-8">
           <h3 className="text-xs sm:text-sm font-medium mb-3 sm:mb-4">Annual Dividend Totals</h3>
           <ResponsiveContainer width="100%" height={200} className="sm:h-[250px] landscape:h-[180px] landscape:sm:h-[220px]">
-            <BarChart data={yearlyDividends}>
+            <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
               <XAxis
                 dataKey="year"
@@ -609,8 +615,18 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(value) => `$${value.toFixed(2)}`}
-                domain={[0, 'dataMax']}
+                tickFormatter={(value) => {
+                  if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
+                    return `$${value.toFixed(2)}`;
+                  }
+                  return '';
+                }}
+                domain={[0, (dataMin: number, dataMax: number) => {
+                  if (typeof dataMax !== 'number' || isNaN(dataMax) || !isFinite(dataMax) || dataMax <= 0) {
+                    return 'auto';
+                  }
+                  return Math.max(dataMax * 1.15, dataMax);
+                }]}
               />
               <RechartsTooltip
                 contentStyle={{
@@ -619,14 +635,17 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                   borderRadius: "8px",
                   boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
                 }}
-                formatter={(value: number, name: string) => [
-                  `$${value.toFixed(4)}`,
-                  'Total Dividends'
-                ]}
+                formatter={(value: number | string, name: string) => {
+                  const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+                  if (typeof numValue === 'number' && !isNaN(numValue) && isFinite(numValue)) {
+                    return [`$${numValue.toFixed(4)}`, 'Total Dividends'];
+                  }
+                  return ['N/A', 'Total Dividends'];
+                }}
                 labelFormatter={(label) => `Year ${label}`}
               />
               <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-                {yearlyDividends.map((entry, index, arr) => (
+                {chartData.map((entry, index, arr) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={index === arr.length - 1 ? '#3b82f6' : '#93c5fd'}
