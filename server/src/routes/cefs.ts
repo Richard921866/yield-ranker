@@ -695,7 +695,7 @@ router.post(
         if (premDiscCol && row[premDiscCol]) {
           premiumDiscount = parseNumeric(row[premDiscCol]);
         } else if (mp !== null && nav !== null) {
-          premiumDiscount = ((mp - nav) / nav) * 100;
+          premiumDiscount = (mp / nav - 1) * 100;
         }
 
         const updateData: any = {
