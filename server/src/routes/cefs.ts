@@ -735,8 +735,8 @@ router.post(
         if (premDiscCol && row[premDiscCol]) {
           premiumDiscount = parseNumeric(row[premDiscCol]);
         } else if (mp !== null && nav !== null && nav !== 0) {
-          // Formula: (MP / NAV - 1) as decimal (frontend will format as %)
-          premiumDiscount = mp / nav - 1;
+          // Formula: ((MP / NAV - 1) * 100) as percentage
+          premiumDiscount = (mp / nav - 1) * 100;
         }
 
         const updateData: any = {
@@ -1140,11 +1140,11 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
         }
 
         // ALWAYS calculate premium/discount from current MP and NAV
-        // Formula: (MP / NAV - 1) as decimal (frontend will format as %)
-        // Example: GAB (6.18/5.56)-1 = 0.1115 (displays as 0.11%)
+        // Formula: ((MP / NAV - 1) * 100) as percentage
+        // Example: GAB (6.18/5.56)-1 * 100 = 11.15% (displays as +11.15%)
         let premiumDiscount: number | null = null;
         if (currentNav && currentNav !== 0 && marketPrice) {
-          premiumDiscount = marketPrice / currentNav - 1;
+          premiumDiscount = (marketPrice / currentNav - 1) * 100;
         } else {
           // Fallback to database value only if we can't calculate
           premiumDiscount = cef.premium_discount ?? null;
@@ -1528,11 +1528,11 @@ router.get("/:symbol", async (req: Request, res: Response): Promise<void> => {
     }
 
     // ALWAYS calculate premium/discount from current MP and NAV
-    // Formula: (MP / NAV - 1) as decimal (frontend will format as %)
-    // Example: GAB (6.18/5.56)-1 = 0.1115 (displays as 0.11%)
+    // Formula: ((MP / NAV - 1) * 100) as percentage
+    // Example: GAB (6.18/5.56)-1 * 100 = 11.15% (displays as +11.15%)
     let premiumDiscount: number | null = null;
     if (currentNav && currentNav !== 0 && marketPrice) {
-      premiumDiscount = marketPrice / currentNav - 1;
+      premiumDiscount = (marketPrice / currentNav - 1) * 100;
     } else {
       // Fallback to database value only if we can't calculate
       premiumDiscount = cef.premium_discount ?? null;

@@ -148,7 +148,7 @@ export const CEFTable = ({
 
   const formatPercentage = (value: number | null | undefined): string => {
     if (value === null || value === undefined) return "N/A";
-    // Value is already a decimal (e.g., 0.1115 from (mp/nav)-1)
+    // Value is already a percentage (e.g., 11.15 from ((mp/nav)-1)*100)
     return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
   };
 
