@@ -443,7 +443,7 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
               : `Dividend Payments by Ex-Date`}
           </h3>
           <div className="relative">
-            <ResponsiveContainer width="100%" height={450} className="sm:h-[450px] landscape:h-[350px] landscape:sm:h-[400px]">
+            <ResponsiveContainer width="100%" height={300} className="sm:h-[450px] landscape:h-[350px] landscape:sm:h-[400px]">
               {individualChartData.frequencyChanged ? (
                 <ComposedChart
                   data={individualChartData.chartData.filter(d => d.amount > 0 && !isNaN(d.amount) && isFinite(d.amount))}
@@ -477,12 +477,7 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                       return '';
                     }}
                     width={50}
-                    domain={[0, (dataMin: number, dataMax: number) => {
-                      if (typeof dataMax !== 'number' || isNaN(dataMax) || !isFinite(dataMax) || dataMax <= 0) {
-                        return 'auto';
-                      }
-                      return Math.max(dataMax * 1.15, dataMax);
-                    }]}
+                    domain={[0, 'dataMax']}
                     allowDataOverflow={false}
                   />
                   <RechartsTooltip
@@ -572,12 +567,7 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                       return '';
                     }}
                     width={50}
-                    domain={[0, (dataMin: number, dataMax: number) => {
-                      if (typeof dataMax !== 'number' || isNaN(dataMax) || !isFinite(dataMax) || dataMax <= 0) {
-                        return 'auto';
-                      }
-                      return Math.max(dataMax * 1.15, dataMax);
-                    }]}
+                    domain={[0, 'dataMax']}
                     allowDataOverflow={false}
                   />
                   <RechartsTooltip
@@ -639,12 +629,7 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                   }
                   return '';
                 }}
-                domain={[0, (dataMin: number, dataMax: number) => {
-                  if (typeof dataMax !== 'number' || isNaN(dataMax) || !isFinite(dataMax) || dataMax <= 0) {
-                    return 'auto';
-                  }
-                  return Math.max(dataMax * 1.15, dataMax);
-                }]}
+                domain={[0, 'dataMax']}
               />
               <RechartsTooltip
                 contentStyle={{
