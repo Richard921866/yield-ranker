@@ -223,6 +223,7 @@ export interface ETFMetrics {
     '3Y': number | null;
     '5Y': number | null;
     '10Y': number | null;
+    '15Y': number | null;
   };
 
   // Price Return (non-DRIP, using unadjusted close)
@@ -261,6 +262,7 @@ export interface ETFMetrics {
     '3Y': ReturnData;
     '5Y': ReturnData;
     '10Y': ReturnData;
+    '15Y': ReturnData;
   };
 
   calculatedAt: string;
