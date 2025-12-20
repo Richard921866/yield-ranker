@@ -58,9 +58,12 @@ async function checkAPIResponse() {
     if (data.signal === null || data.signal === undefined) {
       console.log('⚠️  Signal is N/A. Reasons:');
       if (!data.navSymbol) console.log('   - Missing NAV symbol');
-      if (data.fiveYearZScore === null || data.fiveYearZScore === undefined) console.log('   - Missing Z-Score');
-      if (data.navTrend6M === null || data.navTrend6M === undefined) console.log('   - Missing 6M NAV Trend');
-      if (data.navTrend12M === null || data.navTrend12M === undefined) console.log('   - Missing 12M NAV Trend');
+      const zScore = data.fiveYearZScore ?? null;
+      if (zScore === null) console.log('   - Missing Z-Score');
+      const trend6M = data.navTrend6M ?? null;
+      if (trend6M === null) console.log('   - Missing 6M NAV Trend');
+      const trend12M = data.navTrend12M ?? null;
+      if (trend12M === null) console.log('   - Missing 12M NAV Trend');
     }
     
     const return15Yr = data.return15Yr ?? null;
@@ -73,6 +76,13 @@ async function checkAPIResponse() {
       console.log('   - NAV symbol missing or incorrect');
       console.log('   - Insufficient historical data in Tiingo');
       console.log('   - Fund is too new (< 3 years old)');
+      console.log('   - Check server logs for detailed error messages');
+    } else {
+      console.log('✅ Some long-term returns calculated:');
+      if (return15Yr !== null) console.log(`   - 15Y: ${return15Yr.toFixed(2)}%`);
+      if (return10Yr !== null) console.log(`   - 10Y: ${return10Yr.toFixed(2)}%`);
+      if (return5Yr !== null) console.log(`   - 5Y: ${return5Yr.toFixed(2)}%`);
+      if (return3Yr !== null) console.log(`   - 3Y: ${return3Yr.toFixed(2)}%`);
     }
     
     console.log('\n=== Complete ===\n');

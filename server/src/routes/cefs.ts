@@ -308,10 +308,14 @@ export async function calculateNAVReturns(
     const startDate = formatDate(startDateObj);
 
     // Fetch NAV data with a buffer to ensure we find the nearest trading day
-    // Buffer: 14 days before the target start date
+    // For longer periods, we need more buffer to account for weekends/holidays
+    // 15Y needs ~60 days buffer (to cover ~42 trading days), 10Y needs ~45, 5Y needs ~30, 3Y needs ~20
+    const bufferDays = period === '15Y' ? 60 : period === '10Y' ? 45 : period === '5Y' ? 30 : 20;
     const bufferDate = new Date(startDateObj);
-    bufferDate.setDate(bufferDate.getDate() - 14);
+    bufferDate.setDate(bufferDate.getDate() - bufferDays);
     const fetchStartDate = formatDate(bufferDate);
+    
+    logger.info("CEF Metrics", `Fetching ${period} NAV data for ${navSymbol}: ${fetchStartDate} to ${endDate} (buffer: ${bufferDays} days)`);
 
     // Use same NAV fetching method as chart endpoint
     logger.info("CEF Metrics", `Fetching ${period} NAV data for ${navSymbol}: ${fetchStartDate} to ${endDate}`);
