@@ -33,8 +33,9 @@ import type { TiingoPriceData } from '../src/types/index.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const LOOKBACK_DAYS = 15 * 365; // 15 years of price history (5475 days) - needed for 15Y return calculations
-const DIVIDEND_LOOKBACK_DAYS = 15 * 365; // 15 years of dividend history (5475 days)
+// CRITICAL: Must be 15 years (5475 days) for CEF metrics (15Y returns, 5Y Z-Score, Signal)
+const LOOKBACK_DAYS = 5475; // 15 years = 15 * 365 = 5475 days - needed for 15Y return calculations
+const DIVIDEND_LOOKBACK_DAYS = 5475; // 15 years = 15 * 365 = 5475 days
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
