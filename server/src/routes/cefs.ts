@@ -590,11 +590,7 @@ function calculateDividendHistory(dividends: DividendRecord[]): string {
     return dividends.length === 1 ? "1 DIV+" : "0+ 0-";
   }
 
-<<<<<<< HEAD
-  const regularDivs = (dividends as any[])
-=======
   const regularDivs = dividends
->>>>>>> a70d87f304c6727e4fb80a561482c9c739387fe7
     .filter((d) => {
       if (!d.div_type) return true;
       const dtype = d.div_type.toLowerCase();
@@ -605,15 +601,9 @@ function calculateDividendHistory(dividends: DividendRecord[]): string {
         !dtype.includes("special")
       );
     })
-<<<<<<< HEAD
-    .sort((a: any, b: any) => {
-      const aManual = a['is_manual'] === true ? 1 : 0;
-      const bManual = b['is_manual'] === true ? 1 : 0;
-=======
     .sort((a, b) => {
       const aManual = a.is_manual === true ? 1 : 0;
       const bManual = b.is_manual === true ? 1 : 0;
->>>>>>> a70d87f304c6727e4fb80a561482c9c739387fe7
       if (aManual !== bManual) {
         return bManual - aManual;
       }
