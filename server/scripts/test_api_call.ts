@@ -39,19 +39,19 @@ async function testAPI() {
     
     console.log('✅ API Response received\n');
     console.log('=== KEY METRICS ===');
-    console.log(`Symbol: ${data.symbol}`);
+    console.log(`Symbol: ${data.symbol || 'N/A'}`);
     console.log(`NAV Symbol: ${data.navSymbol || 'N/A'}`);
-    console.log(`Z-Score: ${data.fiveYearZScore !== null ? data.fiveYearZScore.toFixed(2) : 'N/A'}`);
-    console.log(`6M NAV Trend: ${data.navTrend6M !== null ? `${data.navTrend6M.toFixed(2)}%` : 'N/A'}`);
-    console.log(`12M NAV Trend: ${data.navTrend12M !== null ? `${data.navTrend12M.toFixed(2)}%` : 'N/A'}`);
-    console.log(`Signal: ${data.signal !== null ? data.signal : 'N/A'}`);
+    console.log(`Z-Score: ${(data.fiveYearZScore !== null && data.fiveYearZScore !== undefined) ? data.fiveYearZScore.toFixed(2) : 'N/A'}`);
+    console.log(`6M NAV Trend: ${(data.navTrend6M !== null && data.navTrend6M !== undefined) ? `${data.navTrend6M.toFixed(2)}%` : 'N/A'}`);
+    console.log(`12M NAV Trend: ${(data.navTrend12M !== null && data.navTrend12M !== undefined) ? `${data.navTrend12M.toFixed(2)}%` : 'N/A'}`);
+    console.log(`Signal: ${(data.signal !== null && data.signal !== undefined) ? data.signal : 'N/A'}`);
     
     console.log('\n=== TOTAL RETURNS ===');
-    console.log(`15Y Return: ${data.return15Yr !== null ? `${data.return15Yr.toFixed(2)}%` : 'N/A'}`);
-    console.log(`10Y Return: ${data.return10Yr !== null ? `${data.return10Yr.toFixed(2)}%` : 'N/A'}`);
-    console.log(`5Y Return: ${data.return5Yr !== null ? `${data.return5Yr.toFixed(2)}%` : 'N/A'}`);
-    console.log(`3Y Return: ${data.return3Yr !== null ? `${data.return3Yr.toFixed(2)}%` : 'N/A'}`);
-    console.log(`12Mo Return: ${data.return12Mo !== null ? `${data.return12Mo.toFixed(2)}%` : 'N/A'}`);
+    console.log(`15Y Return: ${(data.return15Yr !== null && data.return15Yr !== undefined) ? `${data.return15Yr.toFixed(2)}%` : 'N/A'}`);
+    console.log(`10Y Return: ${(data.return10Yr !== null && data.return10Yr !== undefined) ? `${data.return10Yr.toFixed(2)}%` : 'N/A'}`);
+    console.log(`5Y Return: ${(data.return5Yr !== null && data.return5Yr !== undefined) ? `${data.return5Yr.toFixed(2)}%` : 'N/A'}`);
+    console.log(`3Y Return: ${(data.return3Yr !== null && data.return3Yr !== undefined) ? `${data.return3Yr.toFixed(2)}%` : 'N/A'}`);
+    console.log(`12Mo Return: ${(data.return12Mo !== null && data.return12Mo !== undefined) ? `${data.return12Mo.toFixed(2)}%` : 'N/A'}`);
     
     console.log('\n=== DIAGNOSIS ===');
     if (data.signal === null || data.signal === undefined) {
