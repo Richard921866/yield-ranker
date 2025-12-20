@@ -596,13 +596,14 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
             console.warn(`    ⚠ Failed to calculate Signal: ${(error as Error).message}`);
           }
 
-          // Calculate NAV-based returns (3Y, 5Y, 10Y, 15Y)
+          // Calculate TOTAL RETURNS using NAV data (3Y, 5Y, 10Y, 15Y)
+          // For CEFs, Total Returns are calculated from NAV (not market price) because NAV represents underlying asset value
           const return3Yr = await calculateNAVReturns(navSymbol, '3Y');
           const return5Yr = await calculateNAVReturns(navSymbol, '5Y');
           const return10Yr = await calculateNAVReturns(navSymbol, '10Y');
           const return15Yr = await calculateNAVReturns(navSymbol, '15Y');
           
-          console.log(`    - NAV Returns: 3Y=${return3Yr !== null ? `${return3Yr.toFixed(2)}%` : 'N/A'}, 5Y=${return5Yr !== null ? `${return5Yr.toFixed(2)}%` : 'N/A'}, 10Y=${return10Yr !== null ? `${return10Yr.toFixed(2)}%` : 'N/A'}, 15Y=${return15Yr !== null ? `${return15Yr.toFixed(2)}%` : 'N/A'}`);
+          console.log(`    - Total Returns (NAV-based): 3Y=${return3Yr !== null ? `${return3Yr.toFixed(2)}%` : 'N/A'}, 5Y=${return5Yr !== null ? `${return5Yr.toFixed(2)}%` : 'N/A'}, 10Y=${return10Yr !== null ? `${return10Yr.toFixed(2)}%` : 'N/A'}, 15Y=${return15Yr !== null ? `${return15Yr.toFixed(2)}%` : 'N/A'}`);
 
           // Add CEF metrics to update data (only if columns exist)
           if (fiveYearZScore !== null) updateData.five_year_z_score = fiveYearZScore;
@@ -616,7 +617,7 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
               // Column doesn't exist, skip it
             }
           }
-          // Note: NAV returns are calculated in real-time, not stored in DB
+          // Note: Total Returns (NAV-based) are calculated in real-time, not stored in DB
         } catch (error) {
           console.warn(`  ⚠ Failed to calculate CEF metrics: ${(error as Error).message}`);
         }

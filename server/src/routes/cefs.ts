@@ -263,11 +263,18 @@ export async function calculateNAVReturn12M(
 }
 
 /**
- * Calculate NAV-based TOTAL RETURNS for CEFs (3Y, 5Y, 10Y, 15Y)
- * Uses the same NAV data fetching method as the chart endpoint
- * Uses adjusted close which accounts for distributions (gives total return with DRIP)
+ * Calculate TOTAL RETURNS for CEFs (3Y, 5Y, 10Y, 15Y) using NAV data
+ * 
+ * For CEFs, Total Returns are calculated using NAV (Net Asset Value) instead of market price
+ * because NAV represents the underlying asset value, while price can trade at premium/discount.
+ * 
+ * Uses adjusted close (adj_close) which accounts for distributions/dividends,
+ * giving true total return with DRIP (Dividend Reinvestment Plan).
+ * 
  * Formula: ((NAV_adj_end / NAV_adj_start) - 1) * 100
- * Same logic as calculateTotalReturnDrip but using NAV data instead of price data
+ * 
+ * This is equivalent to calculateTotalReturnDrip but uses NAV data instead of price data.
+ * These values are displayed as "TOTAL RETURNS" in the CEF table.
  */
 export async function calculateNAVReturns(
   navSymbol: string | null,
@@ -1552,8 +1559,9 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
           signal = null;
         }
 
-        // Calculate NAV-based returns for CEFs (using NAV data, not price data)
-        // Use same NAV fetching method as chart endpoint
+        // Calculate TOTAL RETURNS for CEFs using NAV data (3Y, 5Y, 10Y, 15Y)
+        // For CEFs, we use NAV instead of market price because NAV represents underlying asset value
+        // These are true total returns (with DRIP) calculated from NAV adjusted close prices
         let return3Yr: number | null = null;
         let return5Yr: number | null = null;
         let return10Yr: number | null = null;
@@ -1568,7 +1576,7 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
               calculateNAVReturns(cef.nav_symbol, '15Y'),
             ]);
           } catch (error) {
-            logger.warn("Routes", `Failed to calculate NAV returns for ${cef.ticker}: ${error}`);
+            logger.warn("Routes", `Failed to calculate Total Returns (NAV-based) for ${cef.ticker}: ${error}`);
           }
         }
 
@@ -1993,7 +2001,7 @@ router.get("/:symbol", async (req: Request, res: Response): Promise<void> => {
           calculateNAVReturns(cef.nav_symbol, '15Y'),
         ]);
       } catch (error) {
-        logger.warn("Routes", `Failed to calculate NAV returns for ${ticker}: ${error}`);
+        logger.warn("Routes", `Failed to calculate Total Returns (NAV-based) for ${ticker}: ${error}`);
       }
     }
 
