@@ -1439,12 +1439,16 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
           }
         }
 
-        // Calculate metrics - use database values first, calculate if missing
+        // Calculate metrics ONLY if database values are missing for short-term returns
+        // Use database values first to prevent timeouts
         let metrics: any = null;
-        try {
-          metrics = await calculateMetrics(cef.ticker);
-        } catch (error) {
-          logger.warn("Routes", `Failed to calculate metrics for ${cef.ticker}: ${error}`);
+        const needsMetrics = !cef.tr_drip_1w || !cef.tr_drip_1m || !cef.tr_drip_3m || !cef.tr_drip_6m || !cef.tr_drip_12m;
+        if (needsMetrics) {
+          try {
+            metrics = await calculateMetrics(cef.ticker);
+          } catch (error) {
+            logger.warn("Routes", `Failed to calculate metrics for ${cef.ticker}: ${error}`);
+          }
         }
 
         // USE DATABASE VALUES ONLY - Do not fetch prices in real-time for list endpoint
