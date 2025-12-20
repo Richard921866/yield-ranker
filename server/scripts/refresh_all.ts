@@ -545,6 +545,7 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
       }
 
       // For CEFs, calculate CEF-specific metrics (Signal, Z-Score, Total Returns 3Y/5Y/10Y/15Y)
+      console.log(`  🔍 Checking for CEF metrics: navSymbol=${navSymbol || 'NULL'}, isCEF=${isCEF}`);
       if (navSymbol && navSymbol.trim() !== '') {
         console.log(`  📊 Calculating CEF-specific metrics (requires 15 years of NAV data)...`);
         
@@ -647,6 +648,8 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
           // Even if calculation fails, try to save what we have
           // Don't throw - continue with other tickers
         }
+      } else {
+        console.log(`  ⚠ Skipping CEF metrics calculation: navSymbol is missing or empty for ${ticker}`);
       }
 
       if (navSymbol) {
