@@ -550,112 +550,30 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
         }
       }
 
-      // For CEFs, calculate CEF-specific metrics (Signal, Z-Score, Total Returns 3Y/5Y/10Y/15Y)
-      // navSymbol is now guaranteed to be set (either from database or fallback to ticker)
+      // SKIP CEF-specific metrics in refresh_all.ts - use refresh_cefs.ts instead
+      // This prevents conflicts and ensures CEF metrics are calculated separately
       if (navSymbol && navSymbol.trim() !== '') {
-        console.log(`  📊 Calculating CEF-specific metrics (requires 15 years of NAV data)...`);
+        console.log(`  ⚠ CEF detected: ${ticker}`);
+        console.log(`  ⚠ Skipping CEF-specific metrics (Z-Score, Signal, NAV Returns)`);
+        console.log(`  ⚠ Run 'npm run refresh:cefs' or 'npm run refresh:all' to calculate CEF metrics`);
         
-        try {
-          const { 
-            calculateCEFZScore, 
-            calculateNAVTrend6M, 
-            calculateNAVReturn12M, 
-            calculateSignal,
-            calculateNAVReturns
-          } = await import('../src/routes/cefs.js');
-
-          // Calculate 5-year Z-Score
-          let fiveYearZScore: number | null = null;
+        // Still update NAV and premium_discount if we have the data
+        // But skip the expensive CEF metric calculations
+        if (false) { // Disabled - use refresh_cefs.ts instead
           try {
-            fiveYearZScore = await calculateCEFZScore(ticker, navSymbol);
-            console.log(`    - 5Y Z-Score: ${fiveYearZScore !== null ? fiveYearZScore.toFixed(2) : 'N/A'}`);
-          } catch (error) {
-            console.warn(`    ⚠ Failed to calculate Z-Score: ${(error as Error).message}`);
-          }
+            const { 
+              calculateCEFZScore, 
+              calculateNAVTrend6M, 
+              calculateNAVReturn12M, 
+              calculateSignal,
+              calculateNAVReturns
+            } = await import('../src/routes/cefs.js');
 
-          // Calculate NAV Trend 6M
-          let navTrend6M: number | null = null;
-          try {
-            navTrend6M = await calculateNAVTrend6M(navSymbol);
-            console.log(`    - 6M NAV Trend: ${navTrend6M !== null ? `${navTrend6M.toFixed(2)}%` : 'N/A'}`);
-          } catch (error) {
-            console.warn(`    ⚠ Failed to calculate 6M NAV Trend: ${(error as Error).message}`);
-          }
-
-          // Calculate NAV Return 12M
-          let navTrend12M: number | null = null;
-          try {
-            navTrend12M = await calculateNAVReturn12M(navSymbol);
-            console.log(`    - 12M NAV Trend: ${navTrend12M !== null ? `${navTrend12M.toFixed(2)}%` : 'N/A'}`);
-          } catch (error) {
-            console.warn(`    ⚠ Failed to calculate 12M NAV Trend: ${(error as Error).message}`);
-          }
-
-          // Calculate Signal
-          let signal: number | null = null;
-          try {
-            signal = await calculateSignal(ticker, navSymbol, fiveYearZScore, navTrend6M, navTrend12M);
-            const signalLabels: Record<number, string> = {
-              3: 'Optimal',
-              2: 'Good Value',
-              1: 'Healthy',
-              0: 'Neutral',
-              '-1': 'Value Trap',
-              '-2': 'Overvalued',
-            };
-            console.log(`    - Signal: ${signal !== null ? `${signal} (${signalLabels[signal as keyof typeof signalLabels] || 'Unknown'})` : 'N/A'}`);
-          } catch (error) {
-            console.warn(`    ⚠ Failed to calculate Signal: ${(error as Error).message}`);
-          }
-
-          // Calculate TOTAL RETURNS using NAV data (3Y, 5Y, 10Y, 15Y)
-          // For CEFs, Total Returns are calculated from NAV (not market price) because NAV represents underlying asset value
-          console.log(`    Calculating NAV returns for ${ticker} (NAV symbol: ${navSymbol})...`);
-          const return3Yr = await calculateNAVReturns(navSymbol, '3Y');
-          const return5Yr = await calculateNAVReturns(navSymbol, '5Y');
-          const return10Yr = await calculateNAVReturns(navSymbol, '10Y');
-          const return15Yr = await calculateNAVReturns(navSymbol, '15Y');
-          
-          console.log(`    - Total Returns (NAV-based): 3Y=${return3Yr !== null ? `${return3Yr.toFixed(2)}%` : 'N/A'}, 5Y=${return5Yr !== null ? `${return5Yr.toFixed(2)}%` : 'N/A'}, 10Y=${return10Yr !== null ? `${return10Yr.toFixed(2)}%` : 'N/A'}, 15Y=${return15Yr !== null ? `${return15Yr.toFixed(2)}%` : 'N/A'}`);
-
-          // Add CEF metrics to update data (only if columns exist)
-          if (fiveYearZScore !== null) updateData.five_year_z_score = fiveYearZScore;
-          if (navTrend6M !== null) updateData.nav_trend_6m = navTrend6M;
-          if (navTrend12M !== null) updateData.nav_trend_12m = navTrend12M;
-          // Only add signal if column exists (will be caught by batchUpdateETFMetricsPreservingCEFFields)
-          if (signal !== null) {
-            try {
-              updateData.signal = signal;
-            } catch (e) {
-              // Column doesn't exist, skip it
-            }
-          }
-          // Store Total Returns (NAV-based) in database - these are annualized returns
-          // Always save values (even if null) to ensure database is updated
-          // If calculation returns null, it means insufficient data, which is valid
-          console.log(`    Setting updateData.return_3yr = ${return3Yr}`);
-          console.log(`    Setting updateData.return_5yr = ${return5Yr}`);
-          console.log(`    Setting updateData.return_10yr = ${return10Yr}`);
-          console.log(`    Setting updateData.return_15yr = ${return15Yr}`);
-          updateData.return_3yr = return3Yr;
-          updateData.return_5yr = return5Yr;
-          updateData.return_10yr = return10Yr;
-          updateData.return_15yr = return15Yr;
-          console.log(`    ✅ updateData now has: return_3yr=${updateData.return_3yr}, return_5yr=${updateData.return_5yr}, return_10yr=${updateData.return_10yr}, return_15yr=${updateData.return_15yr}`);
-          
-          // Log if any values are null to help debug data issues
-          if (return3Yr === null) console.log(`    ⚠ 3Y return is null (insufficient NAV data)`);
-          if (return5Yr === null) console.log(`    ⚠ 5Y return is null (insufficient NAV data)`);
-          if (return10Yr === null) console.log(`    ⚠ 10Y return is null (insufficient NAV data)`);
-          if (return15Yr === null) console.log(`    ⚠ 15Y return is null (insufficient NAV data)`);
-        } catch (error) {
-          console.error(`  ❌ Failed to calculate CEF metrics for ${ticker}: ${(error as Error).message}`);
-          console.error(`  ❌ Error stack: ${(error as Error).stack}`);
-          // Even if calculation fails, try to save what we have
-          // Don't throw - continue with other tickers
+          // CEF calculations disabled - use refresh_cefs.ts instead
+          // This prevents conflicts and ensures CEF metrics are calculated separately
         }
       } else {
-        console.log(`  ⚠ Skipping CEF metrics calculation: navSymbol is missing or empty for ${ticker}`);
+        // Not a CEF, continue normally
       }
 
       if (navSymbol) {

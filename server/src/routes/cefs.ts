@@ -1798,73 +1798,20 @@ router.get("/:symbol", async (req: Request, res: Response): Promise<void> => {
       }
     }
 
-    // Get current NAV from latest price of nav_symbol if nav_symbol exists
-    // Use same approach as chart: getPriceHistory with recent date range (has Tiingo fallback)
-    let currentNav: number | null = cef.nav ?? null;
-    if (!currentNav && cef.nav_symbol) {
-      try {
-        // Get last 30 days of NAV data to find the most recent price
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - 30);
-        const startDateStr = formatDate(startDate);
-        const endDateStr = formatDate(endDate);
-
-        const navHistory = await getPriceHistory(
-          cef.nav_symbol.toUpperCase(),
-          startDateStr,
-          endDateStr
-        );
-
-        // Get the most recent NAV price (last record)
-        if (navHistory.length > 0) {
-          const latestNav = navHistory[navHistory.length - 1];
-          currentNav = latestNav.close ?? latestNav.adj_close ?? null;
-        }
-      } catch (error) {
-        logger.warn(
-          "Routes",
-          `Failed to fetch NAV price for ${cef.nav_symbol}: ${error}`
-        );
-      }
-    }
-
-    // Get the market price (MP) - use latest from metrics or fetch from price history (has Tiingo fallback)
-    let marketPrice = cef.price ?? null;
-
-    // If we don't have a current price, try to get it from price history (has Tiingo fallback)
-    if (!marketPrice) {
-      try {
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - 30);
-        const startDateStr = formatDate(startDate);
-        const endDateStr = formatDate(endDate);
-
-        const priceHistory = await getPriceHistory(
-          ticker,
-          startDateStr,
-          endDateStr
-        );
-
-        if (priceHistory.length > 0) {
-          const latestPrice = priceHistory[priceHistory.length - 1];
-          marketPrice = latestPrice.close ?? latestPrice.adj_close ?? null;
-        }
-      } catch (error) {
-        logger.warn("Routes", `Failed to fetch price for ${ticker}: ${error}`);
-      }
-    }
-
-    // ALWAYS calculate premium/discount from current MP and NAV
-    // Formula: ((MP / NAV - 1) * 100) as percentage
-    // Example: GAB (6.18/5.56)-1 * 100 = 11.15% (displays as +11.15%)
+    // Use database values only - NO real-time fetches
+    // NAV and premium_discount should be updated by refresh_cefs.ts script
+    const currentNav: number | null = cef.nav ?? null;
+    const marketPrice: number | null = cef.price ?? null;
+    
+    // Calculate premium/discount from database values if both are available
+    // Otherwise use stored premium_discount value
     let premiumDiscount: number | null = null;
-    if (currentNav && currentNav !== 0 && marketPrice) {
+    if (currentNav && currentNav !== 0 && marketPrice && marketPrice > 0) {
+      // Formula: ((MP / NAV - 1) * 100) as percentage
       premiumDiscount = (marketPrice / currentNav - 1) * 100;
-    } else {
-      // Fallback to database value only if we can't calculate
-      premiumDiscount = cef.premium_discount ?? null;
+    } else if (cef.premium_discount !== null && cef.premium_discount !== undefined) {
+      // Use stored value if we can't calculate
+      premiumDiscount = cef.premium_discount;
     }
 
     // Use database values only - NO real-time calculations

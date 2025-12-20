@@ -50,7 +50,8 @@ if (!envLoaded) {
 }
 
 import { createClient } from '@supabase/supabase-js';
-import { batchUpdateETFMetricsPreservingCEFFields } from '../src/services/database.js';
+import { batchUpdateETFMetricsPreservingCEFFields, getPriceHistory } from '../src/services/database.js';
+import { formatDate } from '../src/utils/index.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -207,6 +208,71 @@ async function refreshCEF(ticker: string, dryRun: boolean): Promise<void> {
     console.log(`      - 5Y: ${return5Yr !== null ? `${return5Yr.toFixed(2)}%` : 'N/A'}`);
     console.log(`      - 10Y: ${return10Yr !== null ? `${return10Yr.toFixed(2)}%` : 'N/A'}`);
     console.log(`      - 15Y: ${return15Yr !== null ? `${return15Yr.toFixed(2)}%` : 'N/A'}`);
+
+    // 6. Update NAV and Premium/Discount from latest prices
+    console.log(`  📊 Updating NAV and Premium/Discount...`);
+    let currentNav: number | null = cef.nav ?? null;
+    let marketPrice: number | null = cef.price ?? null;
+    let premiumDiscount: number | null = cef.premium_discount ?? null;
+
+    // Get latest NAV from nav_symbol
+    if (navSymbolForCalc) {
+      try {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - 30);
+        const navHistory = await getPriceHistory(
+          navSymbolForCalc.toUpperCase(),
+          formatDate(startDate),
+          formatDate(endDate)
+        );
+        if (navHistory.length > 0) {
+          navHistory.sort((a, b) => a.date.localeCompare(b.date));
+          const latestNav = navHistory[navHistory.length - 1];
+          currentNav = latestNav.close ?? latestNav.adj_close ?? null;
+          if (currentNav !== null) {
+            updateData.nav = currentNav;
+            console.log(`    ✓ NAV: $${currentNav.toFixed(2)}`);
+          }
+        }
+      } catch (error) {
+        console.warn(`    ⚠ Failed to fetch NAV: ${(error as Error).message}`);
+      }
+    }
+
+    // Get latest market price
+    if (!marketPrice) {
+      try {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - 30);
+        const priceHistory = await getPriceHistory(
+          ticker.toUpperCase(),
+          formatDate(startDate),
+          formatDate(endDate)
+        );
+        if (priceHistory.length > 0) {
+          priceHistory.sort((a, b) => a.date.localeCompare(b.date));
+          const latestPrice = priceHistory[priceHistory.length - 1];
+          marketPrice = latestPrice.close ?? latestPrice.adj_close ?? null;
+        }
+      } catch (error) {
+        console.warn(`    ⚠ Failed to fetch market price: ${(error as Error).message}`);
+      }
+    }
+
+    // Calculate premium/discount: ((MP / NAV - 1) * 100)
+    if (currentNav && currentNav !== 0 && marketPrice && marketPrice > 0) {
+      premiumDiscount = (marketPrice / currentNav - 1) * 100;
+      updateData.premium_discount = premiumDiscount;
+      console.log(`    ✓ Premium/Discount: ${premiumDiscount >= 0 ? '+' : ''}${premiumDiscount.toFixed(2)}%`);
+    } else if (cef.premium_discount !== null && cef.premium_discount !== undefined) {
+      // Keep existing value if we can't calculate
+      premiumDiscount = cef.premium_discount;
+      console.log(`    ⚠ Premium/Discount: Using existing value ${premiumDiscount.toFixed(2)}%`);
+    } else {
+      console.log(`    ⚠ Premium/Discount: N/A (missing NAV or market price)`);
+    }
 
     // Save to database
     console.log(`  💾 Saving to database...`);
