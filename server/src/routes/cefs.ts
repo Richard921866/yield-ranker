@@ -1456,64 +1456,41 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
           );
         }
 
-        // Get current NAV from latest price of nav_symbol if nav_symbol exists
-        // Use same approach as chart: getPriceHistory with recent date range (has Tiingo fallback)
+        // USE DATABASE VALUES ONLY - prices should be updated by refresh_all.ts
+        // Only fetch if absolutely missing (shouldn't happen if refresh_all is running)
         let currentNav: number | null = cef.nav ?? null;
+        let marketPrice: number | null = cef.price ?? null;
+        
+        // Only fetch if database values are missing (rare case)
         if (!currentNav && cef.nav_symbol) {
           try {
-            // Get last 30 days of NAV data to find the most recent price
             const endDate = new Date();
             const startDate = new Date();
-            startDate.setDate(endDate.getDate() - 30);
-            const startDateStr = formatDate(startDate);
-            const endDateStr = formatDate(endDate);
-
+            startDate.setDate(endDate.getDate() - 7); // Only fetch last 7 days if needed
             const navHistory = await getPriceHistory(
               cef.nav_symbol.toUpperCase(),
-              startDateStr,
-              endDateStr
+              formatDate(startDate),
+              formatDate(endDate)
             );
-
-            // Get the most recent NAV price (last record)
             if (navHistory.length > 0) {
-              const latestNav = navHistory[navHistory.length - 1];
-              currentNav = latestNav.close ?? latestNav.adj_close ?? null;
+              currentNav = navHistory[navHistory.length - 1].close ?? navHistory[navHistory.length - 1].adj_close ?? null;
             }
           } catch (error) {
-            logger.warn(
-              "Routes",
-              `Failed to fetch NAV price for ${cef.nav_symbol}: ${error}`
-            );
+            logger.warn("Routes", `Failed to fetch NAV for ${cef.nav_symbol}: ${error}`);
           }
         }
-
-        // Get the market price (MP) - use latest from metrics or fetch from price history (has Tiingo fallback)
-        let marketPrice = metrics?.currentPrice ?? cef.price ?? null;
-
-        // If we don't have a current price, try to get it from price history (has Tiingo fallback)
+        
         if (!marketPrice) {
           try {
             const endDate = new Date();
             const startDate = new Date();
-            startDate.setDate(endDate.getDate() - 30);
-            const startDateStr = formatDate(startDate);
-            const endDateStr = formatDate(endDate);
-
-            const priceHistory = await getPriceHistory(
-              cef.ticker,
-              startDateStr,
-              endDateStr
-            );
-
+            startDate.setDate(endDate.getDate() - 7); // Only fetch last 7 days if needed
+            const priceHistory = await getPriceHistory(cef.ticker, formatDate(startDate), formatDate(endDate));
             if (priceHistory.length > 0) {
-              const latestPrice = priceHistory[priceHistory.length - 1];
-              marketPrice = latestPrice.close ?? latestPrice.adj_close ?? null;
+              marketPrice = priceHistory[priceHistory.length - 1].close ?? priceHistory[priceHistory.length - 1].adj_close ?? null;
             }
           } catch (error) {
-            logger.warn(
-              "Routes",
-              `Failed to fetch price for ${cef.ticker}: ${error}`
-            );
+            logger.warn("Routes", `Failed to fetch price for ${cef.ticker}: ${error}`);
           }
         }
 
@@ -1528,80 +1505,18 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
           premiumDiscount = cef.premium_discount ?? null;
         }
 
-        // Calculate Z-Score (2 year minimum, 5 year maximum lookback)
-        let fiveYearZScore: number | null = null;
-        try {
-          fiveYearZScore = await calculateCEFZScore(cef.ticker, cef.nav_symbol);
-        } catch (error) {
-          logger.warn(
-            "Routes",
-            `Failed to calculate Z-Score for ${cef.ticker}: ${error}`
-          );
-          fiveYearZScore = cef.five_year_z_score ?? null;
-        }
-
-        // Calculate NAV Trend 6M
-        let navTrend6M: number | null = null;
-        try {
-          navTrend6M = await calculateNAVTrend6M(cef.nav_symbol);
-        } catch (error) {
-          logger.warn(
-            "Routes",
-            `Failed to calculate NAV Trend 6M for ${cef.ticker}: ${error}`
-          );
-          navTrend6M = cef.nav_trend_6m ?? null;
-        }
-
-        // Calculate NAV Return 12M
-        let navTrend12M: number | null = null;
-        try {
-          navTrend12M = await calculateNAVReturn12M(cef.nav_symbol);
-        } catch (error) {
-          logger.warn(
-            "Routes",
-            `Failed to calculate NAV Return 12M for ${cef.ticker}: ${error}`
-          );
-          navTrend12M = cef.nav_trend_12m ?? null;
-        }
-
-        // Calculate Signal (Column Q)
-        let signal: number | null = null;
-        try {
-          signal = await calculateSignal(
-            cef.ticker,
-            cef.nav_symbol,
-            fiveYearZScore,
-            navTrend6M,
-            navTrend12M
-          );
-        } catch (error) {
-          logger.warn(
-            "Routes",
-            `Failed to calculate Signal for ${cef.ticker}: ${error}`
-          );
-          signal = null;
-        }
-
-        // Calculate TOTAL RETURNS for CEFs using NAV data (3Y, 5Y, 10Y, 15Y)
-        // For CEFs, we use NAV instead of market price because NAV represents underlying asset value
-        // These are true total returns (with DRIP) calculated from NAV adjusted close prices
-        let return3Yr: number | null = null;
-        let return5Yr: number | null = null;
-        let return10Yr: number | null = null;
-        let return15Yr: number | null = null;
+        // USE DATABASE VALUES ONLY - All metrics pre-computed by refresh_all.ts
+        // DO NOT calculate - just read from database
+        const fiveYearZScore: number | null = cef.five_year_z_score ?? null;
+        const navTrend6M: number | null = cef.nav_trend_6m ?? null;
+        const navTrend12M: number | null = cef.nav_trend_12m ?? null;
+        const signal: number | null = cef.signal ?? null;
         
-        if (cef.nav_symbol) {
-          try {
-            [return3Yr, return5Yr, return10Yr, return15Yr] = await Promise.all([
-              calculateNAVReturns(cef.nav_symbol, '3Y'),
-              calculateNAVReturns(cef.nav_symbol, '5Y'),
-              calculateNAVReturns(cef.nav_symbol, '10Y'),
-              calculateNAVReturns(cef.nav_symbol, '15Y'),
-            ]);
-          } catch (error) {
-            logger.warn("Routes", `Failed to calculate Total Returns (NAV-based) for ${cef.ticker}: ${error}`);
-          }
-        }
+        // Use pre-computed TOTAL RETURNS from database (calculated by refresh_all.ts)
+        const return3Yr: number | null = cef.return_3yr ?? cef.tr_drip_3y ?? null;
+        const return5Yr: number | null = cef.return_5yr ?? cef.tr_drip_5y ?? null;
+        const return10Yr: number | null = cef.return_10yr ?? cef.tr_drip_10y ?? null;
+        const return15Yr: number | null = cef.return_15yr ?? cef.tr_drip_15y ?? null;
 
         return {
           symbol: cef.ticker,
@@ -1875,21 +1790,9 @@ router.get("/:symbol", async (req: Request, res: Response): Promise<void> => {
 
     const cef = staticResult.data;
 
-    // Calculate metrics for accurate yearly returns
-    // This calculates ALL periods including 15Y, 10Y, 5Y, 3Y in real-time
-    let metrics = null;
-    try {
-      const { calculateMetrics } = await import("../services/metrics.js");
-      metrics = await calculateMetrics(ticker);
-      if (!metrics) {
-        logger.warn("Routes", `calculateMetrics returned null for ${ticker}`);
-      }
-    } catch (error) {
-      logger.warn(
-        "Routes",
-        `Failed to calculate metrics for ${ticker}: ${error}`
-      );
-    }
+    // USE DATABASE VALUES ONLY - metrics are pre-computed by refresh_all.ts
+    // DO NOT calculate metrics - just use database values
+    const metrics = null; // Not needed - all values come from database
 
     let dividendHistory = cef.dividend_history || null;
     if (!dividendHistory) {
@@ -1974,79 +1877,18 @@ router.get("/:symbol", async (req: Request, res: Response): Promise<void> => {
       premiumDiscount = cef.premium_discount ?? null;
     }
 
-    // Calculate Z-Score (2 year minimum, 5 year maximum lookback)
-    let fiveYearZScore: number | null = null;
-    try {
-      fiveYearZScore = await calculateCEFZScore(ticker, cef.nav_symbol);
-    } catch (error) {
-      logger.warn(
-        "Routes",
-        `Failed to calculate Z-Score for ${ticker}: ${error}`
-      );
-      fiveYearZScore = cef.five_year_z_score ?? null;
-    }
-
-    // Calculate NAV Trend 6M
-    let navTrend6M: number | null = null;
-    try {
-      navTrend6M = await calculateNAVTrend6M(cef.nav_symbol);
-    } catch (error) {
-      logger.warn(
-        "Routes",
-        `Failed to calculate NAV Trend 6M for ${ticker}: ${error}`
-      );
-      navTrend6M = cef.nav_trend_6m ?? null;
-    }
-
-    // Calculate NAV Return 12M
-    let navTrend12M: number | null = null;
-    try {
-      navTrend12M = await calculateNAVReturn12M(cef.nav_symbol);
-    } catch (error) {
-      logger.warn(
-        "Routes",
-        `Failed to calculate NAV Return 12M for ${ticker}: ${error}`
-      );
-      navTrend12M = cef.nav_trend_12m ?? null;
-    }
-
-    // Calculate Signal (Column Q)
-    let signal: number | null = null;
-    try {
-      signal = await calculateSignal(
-        ticker,
-        cef.nav_symbol,
-        fiveYearZScore,
-        navTrend6M,
-        navTrend12M
-      );
-    } catch (error) {
-      logger.warn(
-        "Routes",
-        `Failed to calculate Signal for ${ticker}: ${error}`
-      );
-      signal = null;
-    }
-
-    // Calculate NAV-based returns for CEFs (using NAV data, not price data)
-    // Use same NAV fetching method as chart endpoint
-    let return3Yr: number | null = null;
-    let return5Yr: number | null = null;
-    let return10Yr: number | null = null;
-    let return15Yr: number | null = null;
+    // USE DATABASE VALUES ONLY - All metrics pre-computed by refresh_all.ts
+    // DO NOT calculate - just read from database
+    const fiveYearZScore: number | null = cef.five_year_z_score ?? null;
+    const navTrend6M: number | null = cef.nav_trend_6m ?? null;
+    const navTrend12M: number | null = cef.nav_trend_12m ?? null;
+    const signal: number | null = cef.signal ?? null;
     
-    if (cef.nav_symbol) {
-      try {
-        [return3Yr, return5Yr, return10Yr, return15Yr] = await Promise.all([
-          calculateNAVReturns(cef.nav_symbol, '3Y'),
-          calculateNAVReturns(cef.nav_symbol, '5Y'),
-          calculateNAVReturns(cef.nav_symbol, '10Y'),
-          calculateNAVReturns(cef.nav_symbol, '15Y'),
-        ]);
-      } catch (error) {
-        logger.warn("Routes", `Failed to calculate Total Returns (NAV-based) for ${ticker}: ${error}`);
-      }
-    }
+    // Use pre-computed TOTAL RETURNS from database (calculated by refresh_all.ts)
+    const return3Yr: number | null = cef.return_3yr ?? cef.tr_drip_3y ?? null;
+    const return5Yr: number | null = cef.return_5yr ?? cef.tr_drip_5y ?? null;
+    const return10Yr: number | null = cef.return_10yr ?? cef.tr_drip_10y ?? null;
+    const return15Yr: number | null = cef.return_15yr ?? cef.tr_drip_15y ?? null;
 
     const response = {
       symbol: cef.ticker,
@@ -2073,15 +1915,15 @@ router.get("/:symbol", async (req: Request, res: Response): Promise<void> => {
       dividendCV: cef.dividend_cv || null,
       dividendCVPercent: cef.dividend_cv_percent || null,
       dividendVolatilityIndex: cef.dividend_volatility_index || null,
-      return15Yr: return15Yr ?? cef.tr_drip_15y ?? null,
-      return10Yr: return10Yr ?? cef.tr_drip_10y ?? null,
-      return5Yr: return5Yr ?? cef.tr_drip_5y ?? null,
-      return3Yr: return3Yr ?? cef.tr_drip_3y ?? null,
-      return12Mo: metrics?.totalReturnDrip?.["1Y"] ?? cef.tr_drip_12m ?? null,
-      return6Mo: metrics?.totalReturnDrip?.["6M"] ?? cef.tr_drip_6m ?? null,
-      return3Mo: metrics?.totalReturnDrip?.["3M"] ?? cef.tr_drip_3m ?? null,
-      return1Mo: metrics?.totalReturnDrip?.["1M"] ?? cef.tr_drip_1m ?? null,
-      return1Wk: metrics?.totalReturnDrip?.["1W"] ?? cef.tr_drip_1w ?? null,
+      return15Yr: return15Yr,
+      return10Yr: return10Yr,
+      return5Yr: return5Yr,
+      return3Yr: return3Yr,
+      return12Mo: cef.return_12mo ?? cef.tr_drip_12m ?? null,
+      return6Mo: cef.return_6mo ?? cef.tr_drip_6m ?? null,
+      return3Mo: cef.return_3mo ?? cef.tr_drip_3m ?? null,
+      return1Mo: cef.return_1mo ?? cef.tr_drip_1m ?? null,
+      return1Wk: cef.return_1wk ?? cef.tr_drip_1w ?? null,
       weightedRank: cef.weighted_rank || null,
       week52Low: cef.week_52_low || null,
       week52High: cef.week_52_high || null,
