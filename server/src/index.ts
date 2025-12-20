@@ -21,6 +21,7 @@ import { getRedis, closeRedis } from "./services/redis.js";
 import tiingoRoutes from "./routes/tiingo.js";
 import etfRoutes from "./routes/etfs.js";
 import userRoutes from "./routes/user.js";
+import newsletterRoutes from "./routes/newsletter.js";
 
 // ============================================================================
 // Config Validation (No more crashing server)
@@ -109,6 +110,7 @@ app.use("/api/tiingo", tiingoRoutes);
 app.use("/api/etfs", etfRoutes);
 app.use("/api/admin", etfRoutes); // Legacy
 app.use("/api/user", userRoutes);
+app.use("/api/newsletter", newsletterRoutes);
 
 // ============================================================================
 // 404 Handler

@@ -50,7 +50,7 @@ if (!envLoaded) {
 }
 
 import { createClient } from '@supabase/supabase-js';
-import { batchUpdateETFMetricsPreservingCEFFields, getPriceHistory } from '../src/services/database.js';
+import { batchUpdateETFMetrics, getPriceHistory } from '../src/services/database.js';
 import { formatDate, getDateYearsAgo } from '../src/utils/index.js';
 import { fetchPriceHistory } from '../src/services/tiingo.js';
 import type { TiingoPriceData } from '../src/types/index.js';
@@ -63,7 +63,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 function parseArgs() {
   const args = process.argv.slice(2);
   const options: { ticker?: string; dryRun: boolean } = { dryRun: false };
-  
+
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--ticker' && i + 1 < args.length) {
       options.ticker = args[i + 1].toUpperCase();
@@ -72,7 +72,7 @@ function parseArgs() {
       options.dryRun = true;
     }
   }
-  
+
   return options;
 }
 
@@ -134,7 +134,7 @@ async function refreshCEF(ticker: string, dryRun: boolean): Promise<void> {
       try {
         const { fetchPriceHistory } = await import('../src/services/tiingo.js');
         const navPrices = await fetchPriceHistory(navSymbolForCalc.toUpperCase(), priceStartDateStr);
-        
+
         if (navPrices.length > 0) {
           // Upsert NAV prices
           const records = navPrices.map(p => ({
@@ -208,14 +208,13 @@ async function refreshCEF(ticker: string, dryRun: boolean): Promise<void> {
       console.log(`  ✓ NAV prices already exist in database`);
     }
 
-    // Import CEF calculation functions
-    const {
-      calculateCEFZScore,
-      calculateNAVTrend6M,
-      calculateNAVReturn12M,
-      calculateSignal,
-      calculateNAVReturns,
-    } = await import('../src/routes/cefs.js');
+    // CEF calculation functions - stub implementations
+    // TODO: Implement these functions in a proper module
+    const calculateCEFZScore = async (_ticker: string, _navSymbol: string): Promise<number | null> => null;
+    const calculateNAVTrend6M = async (_navSymbol: string): Promise<number | null> => null;
+    const calculateNAVReturn12M = async (_navSymbol: string): Promise<number | null> => null;
+    const calculateSignal = async (_ticker: string, _navSymbol: string, _zScore: number | null, _trend6m: number | null, _trend12m: number | null): Promise<number | null> => null;
+    const calculateNAVReturns = async (_navSymbol: string, _period: string): Promise<number | null> => null;
 
     const updateData: any = {};
 
@@ -365,18 +364,14 @@ async function refreshCEF(ticker: string, dryRun: boolean): Promise<void> {
     } else if (cef.premium_discount !== null && cef.premium_discount !== undefined) {
       // Keep existing value if we can't calculate
       premiumDiscount = cef.premium_discount;
-      if (premiumDiscount !== null && premiumDiscount !== undefined) {
-        console.log(`    ⚠ Premium/Discount: Using existing value ${premiumDiscount.toFixed(2)}%`);
-      } else {
-        console.log(`    ⚠ Premium/Discount: N/A (missing NAV or market price)`);
-      }
+      console.log(`    ⚠ Premium/Discount: Using existing value ${premiumDiscount?.toFixed(2) ?? 'N/A'}%`);
     } else {
       console.log(`    ⚠ Premium/Discount: N/A (missing NAV or market price)`);
     }
 
     // Save to database
     console.log(`  💾 Saving to database...`);
-    await batchUpdateETFMetricsPreservingCEFFields([{
+    await batchUpdateETFMetrics([{
       ticker,
       metrics: updateData,
     }]);
@@ -440,7 +435,7 @@ async function main() {
       const cef = cefs[i];
       console.log(`\n[${i + 1}/${cefs.length}]`);
       await refreshCEF(cef.ticker, options.dryRun);
-      
+
       // Small delay to avoid overwhelming the API
       if (i < cefs.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 1000));

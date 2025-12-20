@@ -2,15 +2,14 @@ name: Daily ETF Data Update
 
 on:
   schedule:
-    # Run daily at 01:05 UTC (8pm EST / 9pm EDT)
-    # Using 5 minutes past the hour to avoid peak GitHub Actions load
-    - cron: '5 1 * * *'
+    # Run at 9 PM EST (2 AM UTC next day) Monday to Friday
+    - cron: '0 2 * * 2-6'
   workflow_dispatch:  # Allow manual trigger
     inputs:
       force:
         description: 'Force full resync from last 60 days'
         required: false
-        default: 'false'
+        default: false
         type: boolean
       ticker:
         description: 'Specific ticker to update (leave empty for all)'
