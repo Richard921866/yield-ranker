@@ -53,19 +53,18 @@ export const Header = () => {
   };
 
   // Determine current category based on Filter selection (documentation pages)
-  // If on CEF docs or CEF table pages → CEF mode
-  // Otherwise → CC ETF mode
+  // Filter controls which category is active - button shows SAME category but links to TABLE
   const isOnClosedEndFundsPage = 
     location.pathname === "/closed-end-funds" ||
     location.pathname.startsWith("/closed-end-funds") ||
     location.pathname.startsWith("/cef");
 
-  // Button shows the OPPOSITE category and links to its TABLE page
-  // If Filter is set to "Closed End Funds" (docs) → Button shows "Covered Call Option ETFs" → links to / (CC table)
-  // If Filter is set to "Covered Call Option ETFs" (docs) → Button shows "Closed End Funds" → links to /cef (CEF table)
-  const switchButton = isOnClosedEndFundsPage
-    ? { label: "Covered Call Option ETFs", path: "/" }  // On CEF docs → show CC button → go to CC table
-    : { label: "Closed End Funds", path: "/cef" };      // On CC docs → show CEF button → go to CEF table
+  // Button shows the SAME category as Filter selection, but links to its TABLE page (not docs)
+  // If Filter = "Closed End Funds" (on /closed-end-funds docs) → Button shows "Closed End Funds" → links to /cef (CEF table)
+  // If Filter = "Covered Call Option ETFs" (on /covered-call-etfs docs) → Button shows "Covered Call Option ETFs" → links to / (CC table)
+  const dynamicButton = isOnClosedEndFundsPage
+    ? { label: "Closed End Funds", path: "/cef" }      // On CEF docs → show CEF button → go to CEF table
+    : { label: "Covered Call Option ETFs", path: "/" }; // On CC docs → show CC button → go to CC table
 
   return (
     <header className="sticky top-0 z-[100] w-full border-b bg-background/95 backdrop-blur-md shadow-sm">
@@ -88,13 +87,13 @@ export const Header = () => {
             {/* Filter Dropdown - CEFs and CC ETFs */}
             <CategorySelector />
 
-            {/* Switching button - Changes based on current page */}
+            {/* Dynamic button - Shows same category as Filter, links to its table page */}
             <Button
               variant="ghost"
               className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
-              onClick={() => go(switchButton.path)}
+              onClick={() => go(dynamicButton.path)}
             >
-              {switchButton.label}
+              {dynamicButton.label}
             </Button>
 
             {/* Resources - Simple link, no dropdown */}
@@ -222,9 +221,9 @@ export const Header = () => {
             <Button
               variant="ghost"
               className="justify-start px-4 py-3 text-base font-semibold text-foreground hover:bg-slate-100 rounded-md"
-              onClick={() => go(switchButton.path)}
+              onClick={() => go(dynamicButton.path)}
             >
-              {switchButton.label}
+              {dynamicButton.label}
             </Button>
             <Button
               variant="ghost"
