@@ -314,15 +314,29 @@ export async function calculateNAVReturns(
     const fetchStartDate = formatDate(bufferDate);
 
     // Use same NAV fetching method as chart endpoint
+    logger.info("CEF Metrics", `Fetching ${period} NAV data for ${navSymbol}: ${fetchStartDate} to ${endDate}`);
     const navData = await getPriceHistory(
       navSymbol.toUpperCase(),
       fetchStartDate,
       endDate
     );
 
+    logger.info("CEF Metrics", `Received ${navData.length} NAV records for ${navSymbol} (requested ${period})`);
+
     if (navData.length < 2) {
-      logger.debug("CEF Metrics", `Insufficient NAV data for ${period} return: ${navData.length} records for ${navSymbol}`);
+      logger.info("CEF Metrics", `${period} Return N/A for ${navSymbol}: insufficient data (${navData.length} < 2 records)`);
       return null;
+    }
+
+    // Log the actual date range we got
+    if (navData.length > 0) {
+      navData.sort((a, b) => a.date.localeCompare(b.date));
+      const firstDate = navData[0].date;
+      const lastDate = navData[navData.length - 1].date;
+      const firstDateObj = new Date(firstDate);
+      const lastDateObj = new Date(lastDate);
+      const actualYears = (lastDateObj.getTime() - firstDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365);
+      logger.info("CEF Metrics", `Actual date range for ${navSymbol} ${period}: ${firstDate} to ${lastDate} (${actualYears.toFixed(1)} years, ${navData.length} records)`);
     }
 
     // Convert period to approximate days for validation
