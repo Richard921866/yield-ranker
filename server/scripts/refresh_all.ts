@@ -432,55 +432,12 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
     console.log(`  Prices: ${priceStartDate} to today`);
     console.log(`  Dividends: ${dividendStartDate} to today`);
 
-    // Check if this is a CEF and fetch NAV symbol
-    const { data: staticData } = await supabase
-      .from('etf_static')
-      .select('nav_symbol, description')
-      .eq('ticker', ticker.toUpperCase())
-      .maybeSingle();
-
-    let navSymbol = staticData?.nav_symbol;
-    // FALLBACK: If nav_symbol is missing, use the ticker itself (many CEFs use their own ticker for NAV)
-    // This allows CEF metrics to be calculated even if nav_symbol wasn't manually uploaded
-    if (!navSymbol || navSymbol.trim() === '') {
-      navSymbol = ticker; // Use ticker as fallback
-      console.log(`  ⚠ nav_symbol is missing for ${ticker}, using ticker as fallback for NAV calculations`);
-    }
-    const isCEF = navSymbol && navSymbol.trim() !== '';
-    
-    if (isCEF) {
-      console.log(`  📊 CEF detected: ${ticker} (NAV Symbol: ${navSymbol})`);
-    }
-
+    // This script only processes ETFs (CEFs are excluded at query level)
     // Fetch and upsert prices
     console.log(`  Fetching market prices...`);
     const prices = await fetchPriceHistory(ticker, priceStartDate);
     const pricesAdded = await upsertPrices(ticker, prices, dryRun);
     console.log(`  ✓ Added/updated ${pricesAdded} price records`);
-
-    // If CEF, also fetch NAV prices using nav_symbol (15 years for CEF metrics)
-    if (navSymbol && navSymbol.trim()) {
-      console.log(`  Fetching NAV prices for ${navSymbol} (${LOOKBACK_DAYS} days = ${Math.round(LOOKBACK_DAYS / 365)} years)...`);
-      try {
-        const navPrices = await fetchPriceHistory(navSymbol.toUpperCase(), priceStartDate);
-        const navPricesAdded = await upsertPrices(navSymbol.toUpperCase(), navPrices, dryRun);
-        
-        // Log actual date range received
-        if (navPrices.length > 0) {
-          navPrices.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-          const firstDate = navPrices[0].date.split('T')[0];
-          const lastDate = navPrices[navPrices.length - 1].date.split('T')[0];
-          const firstDateObj = new Date(firstDate);
-          const lastDateObj = new Date(lastDate);
-          const actualYears = (lastDateObj.getTime() - firstDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365);
-          console.log(`  ✓ Added/updated ${navPricesAdded} NAV price records (${firstDate} to ${lastDate}, ${actualYears.toFixed(1)} years)`);
-        } else {
-          console.log(`  ✓ Added/updated ${navPricesAdded} NAV price records`);
-        }
-      } catch (navError) {
-        console.warn(`  ⚠ Could not fetch NAV prices for ${navSymbol}: ${(navError as Error).message}`);
-      }
-    }
 
     // Fetch and upsert dividends (extended history for split adjustments)
     console.log(`  Fetching dividends (with split adjustments)...`);
@@ -522,89 +479,16 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
         price_return_1w: metrics.priceReturn?.['1W'],
       };
 
-      if (navSymbol) {
-        const { data: existingCEF } = await supabase
-          .from('etf_static')
-          .select('nav, premium_discount')
-          .eq('ticker', ticker.toUpperCase())
-          .maybeSingle();
-
-        const { data: navPriceData } = await supabase
-          .from('prices_daily')
-          .select('close')
-          .eq('ticker', navSymbol.toUpperCase())
-          .order('date', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (navPriceData?.close) {
-          if (!existingCEF?.nav || existingCEF.nav === null || existingCEF.nav === undefined) {
-            updateData.nav = navPriceData.close;
-          }
-
-          if (metrics.currentPrice && navPriceData.close) {
-            if (!existingCEF?.premium_discount || existingCEF.premium_discount === null || existingCEF.premium_discount === undefined) {
-              updateData.premium_discount = ((metrics.currentPrice - navPriceData.close) / navPriceData.close) * 100;
-            }
-          }
-        }
-      }
-
-      // SKIP CEF-specific metrics in refresh_all.ts - use refresh_cefs.ts instead
-      // This prevents conflicts and ensures CEF metrics are calculated separately
-      if (navSymbol && navSymbol.trim() !== '') {
-        console.log(`  ⚠ CEF detected: ${ticker}`);
-        console.log(`  ⚠ Skipping CEF-specific metrics (Z-Score, Signal, NAV Returns)`);
-        console.log(`  ⚠ Run 'npm run refresh:cefs' or 'npm run refresh:all' to calculate CEF metrics`);
-        
-        // Still update NAV and premium_discount if we have the data
-        // But skip the expensive CEF metric calculations
-          // CEF calculations disabled - use refresh_cefs.ts instead
-          // This prevents conflicts and ensures CEF metrics are calculated separately
-      } else {
-        // Not a CEF, continue normally
-      }
-
-      if (navSymbol) {
-        // Log what we're about to save for debugging
-        if (updateData.return_3yr !== undefined) console.log(`    💾 Saving return_3yr = ${updateData.return_3yr}`);
-        if (updateData.return_5yr !== undefined) console.log(`    💾 Saving return_5yr = ${updateData.return_5yr}`);
-        if (updateData.return_10yr !== undefined) console.log(`    💾 Saving return_10yr = ${updateData.return_10yr}`);
-        if (updateData.return_15yr !== undefined) console.log(`    💾 Saving return_15yr = ${updateData.return_15yr}`);
-        
-        await batchUpdateETFMetricsPreservingCEFFields([{
-          ticker,
-          metrics: updateData,
-        }]);
-        
-        // Verify the save worked by reading back
-        const { data: verify } = await supabase
-          .from('etf_static')
-          .select('return_3yr, return_5yr, return_10yr, return_15yr')
-          .eq('ticker', ticker.toUpperCase())
-          .maybeSingle();
-        
-        if (verify) {
-          console.log(`    ✓ Verified saved values: 3Y=${verify.return_3yr ?? 'NULL'}, 5Y=${verify.return_5yr ?? 'NULL'}, 10Y=${verify.return_10yr ?? 'NULL'}, 15Y=${verify.return_15yr ?? 'NULL'}`);
-        } else {
-          console.warn(`    ⚠ Could not verify saved values for ${ticker}`);
-        }
-      } else {
-        await batchUpdateETFMetrics([{
-          ticker,
-          metrics: updateData,
-        }]);
-      }
+      // This script only processes ETFs (CEFs excluded at query level)
+      await batchUpdateETFMetrics([{
+        ticker,
+        metrics: updateData,
+      }]);
+      
       console.log(`  ✓ Metrics recalculated`);
       console.log(`    - Annual Dividend: ${metrics.annualizedDividend?.toFixed(2) || 'N/A'}`);
       console.log(`    - DVI: ${metrics.dividendCVPercent?.toFixed(1) || 'N/A'}%`);
       console.log(`    - Current Price: $${metrics.currentPrice?.toFixed(2) || 'N/A'}`);
-      if (navSymbol && updateData.nav) {
-        console.log(`    - NAV: $${updateData.nav.toFixed(2)}`);
-        if (updateData.premium_discount !== undefined) {
-          console.log(`    - Prem/Disc: ${updateData.premium_discount.toFixed(2)}%`);
-        }
-      }
     } else {
       console.log(`  Would recalculate metrics`);
     }
@@ -681,9 +565,11 @@ async function main() {
   if (options.ticker) {
     tickers = [options.ticker];
   } else {
+    // Fetch only ETFs (exclude CEFs with nav_symbol at query level)
     const { data, error } = await supabase
       .from('etf_static')
-      .select('ticker')
+      .select('ticker, nav_symbol')
+      .or('nav_symbol.is.null,nav_symbol.eq.')
       .order('ticker');
 
     if (error || !data) {
@@ -691,7 +577,15 @@ async function main() {
       process.exit(1);
     }
 
-    tickers = data.map(t => t.ticker);
+    // Double-check: filter out any that have nav_symbol set (safety check)
+    const filteredData = data.filter((t: any) => !t.nav_symbol || t.nav_symbol === '');
+    tickers = filteredData.map((t: any) => t.ticker);
+    
+    const excludedCount = data.length - tickers.length;
+    console.log(`\n📊 Filtered tickers:`);
+    console.log(`   - Total records from query: ${data.length}`);
+    console.log(`   - CEFs filtered out: ${excludedCount}`);
+    console.log(`   - Covered Call ETFs to process: ${tickers.length}`);
   }
 
   console.log(`\nFound ${tickers.length} ticker(s) to refresh\n`);
