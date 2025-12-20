@@ -8,31 +8,23 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 
-type Category = "covered-call-etfs" | "cef";
-
 export const CategorySelector = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const getCurrentCategory = (): Category => {
-    if (location.pathname.startsWith("/cef")) {
-      return "cef";
-    }
-    return "covered-call-etfs";
-  };
+  // Determine if we're on Closed End Funds pages
+  const isOnClosedEndFundsPage = 
+    location.pathname.startsWith("/cef") ||
+    location.pathname === "/closed-end-funds" ||
+    location.pathname.startsWith("/closed-end-funds");
 
-  const currentCategory = getCurrentCategory();
+  // Show the opposite option - if on Covered Call, show Closed End Funds, and vice versa
+  const oppositeOption = isOnClosedEndFundsPage
+    ? { label: "Covered Call Option ETFs", path: "/covered-call-etfs" }
+    : { label: "Closed End Funds", path: "/closed-end-funds" };
 
-  const categories = [
-    { id: "covered-call-etfs" as Category, label: "Covered Call Option ETFs", path: "/" },
-    { id: "cef" as Category, label: "Closed End Funds", path: "/cef" },
-  ];
-
-  const handleCategoryChange = (category: Category) => {
-    const categoryConfig = categories.find(c => c.id === category);
-    if (categoryConfig) {
-      navigate(categoryConfig.path);
-    }
+  const handleNavigation = () => {
+    navigate(oppositeOption.path);
   };
 
   return (
@@ -48,15 +40,12 @@ export const CategorySelector = () => {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
-        {categories.map((category) => (
-          <DropdownMenuItem
-            key={category.id}
-            onClick={() => handleCategoryChange(category.id)}
-            className={`cursor-pointer ${currentCategory === category.id ? "bg-primary/10 font-semibold" : ""}`}
-          >
-            {category.label}
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuItem
+          onClick={handleNavigation}
+          className="cursor-pointer"
+        >
+          {oppositeOption.label}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
