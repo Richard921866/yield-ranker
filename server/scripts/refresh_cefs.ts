@@ -130,14 +130,17 @@ async function refreshCEF(ticker: string, dryRun: boolean): Promise<void> {
     let fiveYearZScore: number | null = null;
     try {
       fiveYearZScore = await calculateCEFZScore(ticker, navSymbolForCalc);
+      // Always set Z-Score (even if null) to clear old values in database
+      updateData.five_year_z_score = fiveYearZScore;
       if (fiveYearZScore !== null) {
-        updateData.five_year_z_score = fiveYearZScore;
         console.log(`    ✓ 5Y Z-Score: ${fiveYearZScore.toFixed(2)}`);
       } else {
         console.log(`    ⚠ 5Y Z-Score: N/A (insufficient data)`);
       }
     } catch (error) {
       console.warn(`    ⚠ Failed to calculate Z-Score: ${(error as Error).message}`);
+      // Set to null on error to clear any stale values
+      updateData.five_year_z_score = null;
     }
 
     // 2. Calculate NAV Trend 6M
@@ -172,8 +175,9 @@ async function refreshCEF(ticker: string, dryRun: boolean): Promise<void> {
     let signal: number | null = null;
     try {
       signal = await calculateSignal(ticker, navSymbolForCalc, fiveYearZScore, navTrend6M, navTrend12M);
+      // Always set Signal (even if null) to clear old values in database
+      updateData.signal = signal;
       if (signal !== null) {
-        updateData.signal = signal;
         const signalLabels: Record<number, string> = {
           3: 'Optimal',
           2: 'Good Value',
@@ -188,6 +192,8 @@ async function refreshCEF(ticker: string, dryRun: boolean): Promise<void> {
       }
     } catch (error) {
       console.warn(`    ⚠ Failed to calculate Signal: ${(error as Error).message}`);
+      // Set to null on error to clear any stale values
+      updateData.signal = null;
     }
 
     // 5. Calculate TOTAL RETURNS (3Y, 5Y, 10Y, 15Y) - NAV-based annualized returns

@@ -232,11 +232,15 @@ export async function updateETFMetricsPreservingCEFFields(
 
   if (existing) {
     cefFieldsToPreserve.forEach(field => {
-      if (existing[field] !== null && existing[field] !== undefined && existing[field] !== '') {
-        if (!(field in updateData)) {
+      // Only preserve if:
+      // 1. Field is not explicitly set in updateData (including null)
+      // 2. Existing value is not null/undefined/empty
+      if (!(field in updateData)) {
+        if (existing[field] !== null && existing[field] !== undefined && existing[field] !== '') {
           updateData[field] = existing[field];
         }
       }
+      // If field IS in updateData (even if null), use the new value (don't preserve)
     });
 
     if (existing.premium_discount !== null && existing.premium_discount !== undefined && existing.premium_discount !== '') {
@@ -256,12 +260,16 @@ export async function updateETFMetricsPreservingCEFFields(
   const safeUpdateData: any = { ...updateData };
   
   // CRITICAL: Supabase doesn't update columns to NULL unless we explicitly include them
-  // Make sure return columns are explicitly set (even if null)
+  // Make sure return columns and CEF metrics are explicitly set (even if null)
   // This ensures NULL values are actually saved to the database
   if ('return_3yr' in updateData) safeUpdateData.return_3yr = updateData.return_3yr;
   if ('return_5yr' in updateData) safeUpdateData.return_5yr = updateData.return_5yr;
   if ('return_10yr' in updateData) safeUpdateData.return_10yr = updateData.return_10yr;
   if ('return_15yr' in updateData) safeUpdateData.return_15yr = updateData.return_15yr;
+  if ('five_year_z_score' in updateData) safeUpdateData.five_year_z_score = updateData.five_year_z_score;
+  if ('signal' in updateData) safeUpdateData.signal = updateData.signal;
+  if ('nav_trend_6m' in updateData) safeUpdateData.nav_trend_6m = updateData.nav_trend_6m;
+  if ('nav_trend_12m' in updateData) safeUpdateData.nav_trend_12m = updateData.nav_trend_12m;
   
   // Log what we're trying to update
   if ('return_3yr' in safeUpdateData || 'return_5yr' in safeUpdateData || 'return_10yr' in safeUpdateData || 'return_15yr' in safeUpdateData) {
