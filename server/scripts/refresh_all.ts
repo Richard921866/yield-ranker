@@ -567,10 +567,11 @@ async function main() {
     tickers = [options.ticker];
   } else {
     // Fetch only ETFs (exclude CEFs with nav_symbol at query level)
+    // Use .or() to get records where nav_symbol IS NULL OR nav_symbol is empty string
     const { data, error } = await supabase
       .from('etf_static')
-      .select('ticker')
-      .is('nav_symbol', null) // Only get records where nav_symbol is NULL
+      .select('ticker, nav_symbol')
+      .or('nav_symbol.is.null,nav_symbol.eq.')
       .order('ticker');
 
     if (error || !data) {
