@@ -1639,8 +1639,10 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
           lastUpdated: cef.last_updated || cef.updated_at,
           dataSource: "Tiingo",
         };
-      })
-    );
+        }));
+      
+      cefsWithDividendHistory.push(...batchResults);
+    }
 
     let lastUpdatedTimestamp: string | null = null;
     if (staticData.length > 0) {
