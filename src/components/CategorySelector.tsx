@@ -12,16 +12,18 @@ export const CategorySelector = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Determine if we're on Closed End Funds pages
+  // Determine if we're on Closed End Funds pages (table or breakdown)
   const isOnClosedEndFundsPage = 
     location.pathname.startsWith("/cef") ||
     location.pathname === "/closed-end-funds" ||
     location.pathname.startsWith("/closed-end-funds");
 
-  // Show the opposite option - if on Covered Call, show Closed End Funds, and vice versa
+  // Show the opposite option - links to table pages
+  // When on Covered Call pages: show "Closed End Funds" → links to /cef (table)
+  // When on Closed End Funds pages: show "Covered Call Option ETFs" → links to / (table)
   const oppositeOption = isOnClosedEndFundsPage
-    ? { label: "Covered Call Option ETFs", path: "/covered-call-etfs" }
-    : { label: "Closed End Funds", path: "/closed-end-funds" };
+    ? { label: "Covered Call Option ETFs", path: "/" }
+    : { label: "Closed End Funds", path: "/cef" };
 
   const handleNavigation = () => {
     navigate(oppositeOption.path);
