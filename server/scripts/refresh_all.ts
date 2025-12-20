@@ -693,21 +693,21 @@ async function main() {
       process.exit(1);
     }
 
-    // Filter out CEFs: exclude records with nav_symbol or nav (those are CEFs, handled by refresh_cefs.ts)
+    // Filter out CEFs: exclude records with nav_symbol (those are uploaded CEFs, handled by refresh_cefs.ts)
+    // Note: We only exclude nav_symbol, not nav, because nav might be set for some ETFs
     const allTickers = data.map(t => ({
       ticker: t.ticker,
       hasNavSymbol: t.nav_symbol !== null && t.nav_symbol !== undefined && t.nav_symbol !== '',
-      hasNav: t.nav !== null && t.nav !== undefined && t.nav !== '',
     }));
 
     tickers = allTickers
-      .filter(t => !t.hasNavSymbol && !t.hasNav) // Only ETFs (no nav_symbol, no nav)
+      .filter(t => !t.hasNavSymbol) // Only ETFs (no nav_symbol = not an uploaded CEF)
       .map(t => t.ticker);
 
     const cefCount = allTickers.length - tickers.length;
     console.log(`\n📊 Filtered tickers:`);
     console.log(`   - Total records: ${allTickers.length}`);
-    console.log(`   - CEFs excluded: ${cefCount}`);
+    console.log(`   - Uploaded CEFs excluded (have nav_symbol): ${cefCount}`);
     console.log(`   - Covered Call ETFs to process: ${tickers.length}`);
   }
 

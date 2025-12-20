@@ -1379,18 +1379,16 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
 
     const allData = staticResult.data || [];
 
-    // Only include CEFs: must have nav_symbol OR nav set
-    // CEFs are identified by having a NAV symbol or NAV value
-    // Do NOT include records with only premium_discount (that could be ETFs)
+    // Only include uploaded CEFs: must have nav_symbol set (not just nav)
+    // CEFs are identified by having nav_symbol (uploaded via Excel)
+    // Do NOT include records with only nav or premium_discount (those could be ETFs)
     const staticData = allData.filter((item: any) => {
       const hasNavSymbol =
         item.nav_symbol !== null &&
         item.nav_symbol !== undefined &&
         item.nav_symbol !== "";
-      const hasNav =
-        item.nav !== null && item.nav !== undefined && item.nav !== "";
-      // Must have nav_symbol OR nav to be considered a CEF
-      return hasNavSymbol || hasNav;
+      // Must have nav_symbol to be considered an uploaded CEF
+      return hasNavSymbol;
     });
 
     if (staticData.length === 0 && allData.length > 0) {
