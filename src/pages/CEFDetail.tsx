@@ -50,7 +50,14 @@ const CEFDetail = () => {
     setChartError(null);
 
     try {
-      const data = await fetchCEFPriceNAV(symbol, selectedTimeframe);
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Chart data fetch timeout")), 30000); // 30 second timeout
+      });
+      
+      const fetchPromise = fetchCEFPriceNAV(symbol, selectedTimeframe);
+      const data = await Promise.race([fetchPromise, timeoutPromise]) as Awaited<ReturnType<typeof fetchCEFPriceNAV>>;
+      
       if (!data.data || data.data.length === 0) {
         setChartError("Chart data is not available for this timeframe.");
         setChartData([]);
