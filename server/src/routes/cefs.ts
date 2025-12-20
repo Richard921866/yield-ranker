@@ -1500,10 +1500,10 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
         const navTrend6M: number | null = cef.nav_trend_6m ?? null;
         const navTrend12M: number | null = cef.nav_trend_12m ?? null;
         const signal: number | null = cef.signal ?? null;
-        const return3Yr: number | null = cef.return_3yr ?? cef.tr_drip_3y ?? null;
-        const return5Yr: number | null = cef.return_5yr ?? cef.tr_drip_5y ?? null;
-        const return10Yr: number | null = cef.return_10yr ?? cef.tr_drip_10y ?? null;
-        const return15Yr: number | null = cef.return_15yr ?? cef.tr_drip_15y ?? null;
+        const return3Yr: number | null = cef.return_3yr ?? null;
+        const return5Yr: number | null = cef.return_5yr ?? null;
+        const return10Yr: number | null = cef.return_10yr ?? null;
+        const return15Yr: number | null = cef.return_15yr ?? null;
         
         // NO REAL-TIME CALCULATIONS - rely entirely on database values
         // If values are missing, they will be calculated by refresh_all.ts
