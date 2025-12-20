@@ -1524,47 +1524,25 @@ const AdminPanel = () => {
                       </Card>
                     )}
                   </div>
+                </div>
+              </Card>
+            )}
 
-                  <div className="border-t pt-6">
-                    <h3 className="text-sm font-semibold text-foreground mb-3">
-                      Export Data
-                    </h3>
+            {activeTab === "favorites" && (
+              <Card className="border-2 border-slate-200">
+                <div className="p-6 space-y-6">
+                  <div>
+                    <h2 className="text-lg font-bold text-foreground mb-2">
+                      Favorites Management
+                    </h2>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Download all ETF data as an Excel file matching the dashboard table format.
+                      Manage user favorites for ETFs and CEFs. This section allows you to view and manage favorite selections across all users.
                     </p>
-                    <Button
-                      onClick={handleExportData}
-                      disabled={exporting}
-                      className="w-full sm:w-auto"
-                    >
-                      {exporting ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Exporting...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="w-4 h-4 mr-2" />
-                          Export to Excel
-                        </>
-                      )}
-                    </Button>
-                  </div>
-
-                  <div className="border-t pt-6">
-                    <h3 className="text-sm font-semibold text-foreground mb-3">
-                      Expected File Format
-                    </h3>
-                    <div className="bg-slate-50 p-4 rounded-lg text-xs text-slate-700 space-y-2 font-mono">
-                      <p>Sheet Name: Sheet1</p>
-                      <p>
-                        Row 1 (Headers): Favorites | SYMBOL | Issuer | DESC |
-                        Pay Day | IPO PRICE | Price | Price Change | Dividend |
-                        # Pmts | Annual Div | Forward Yield | Dividend
-                        Volatility Index | Weighted Rank | 3 YR Annlzd | 12
-                        Month | 6 Month | 3 Month | 1 Month | 1 Week
+                    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                      <p className="text-sm text-blue-800">
+                        <strong>Note:</strong> Favorites are managed individually by each user through the main interface. 
+                        This admin section is for viewing and managing favorites at the system level.
                       </p>
-                      <p>Row 2+: Data rows (one ETF per row)</p>
                     </div>
                   </div>
                 </div>
