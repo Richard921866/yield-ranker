@@ -365,7 +365,11 @@ async function refreshCEF(ticker: string, dryRun: boolean): Promise<void> {
     } else if (cef.premium_discount !== null && cef.premium_discount !== undefined) {
       // Keep existing value if we can't calculate
       premiumDiscount = cef.premium_discount;
-      console.log(`    ⚠ Premium/Discount: Using existing value ${premiumDiscount.toFixed(2)}%`);
+      if (premiumDiscount !== null && premiumDiscount !== undefined) {
+        console.log(`    ⚠ Premium/Discount: Using existing value ${premiumDiscount.toFixed(2)}%`);
+      } else {
+        console.log(`    ⚠ Premium/Discount: N/A (missing NAV or market price)`);
+      }
     } else {
       console.log(`    ⚠ Premium/Discount: N/A (missing NAV or market price)`);
     }
