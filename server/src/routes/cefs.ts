@@ -1435,82 +1435,35 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
           }
         }
 
-        // Use pre-computed metrics from database if available, otherwise calculate
-        // This avoids expensive real-time calculations when data is already in DB
-        let metrics: any = null;
-        try {
-          // Only calculate if we don't have pre-computed values
-          // Check if we have recent return data in the database
-          const hasPrecomputedReturns = cef.return_15yr !== null || cef.return_10yr !== null || 
-                                       cef.return_5yr !== null || cef.return_3yr !== null;
-          
-          if (!hasPrecomputedReturns) {
-            // Only calculate if missing - this is expensive
-            metrics = await calculateMetrics(cef.ticker);
-            if (!metrics) {
-              logger.warn(
-                "Routes",
-                `calculateMetrics returned null for ${cef.ticker}`
-              );
-            }
-          } else {
-            // Use database values - much faster
-            metrics = {
-              return15Yr: cef.return_15yr,
-              return10Yr: cef.return_10yr,
-              return5Yr: cef.return_5yr,
-              return3Yr: cef.return_3yr,
-              return12Mo: cef.return_12mo,
-              return6Mo: cef.return_6mo,
-              return3Mo: cef.return_3mo,
-              return1Mo: cef.return_1mo,
-              return1Wk: cef.return_1wk,
-            };
-          }
-        } catch (error) {
-          logger.warn(
-            "Routes",
-            `Failed to calculate metrics for ${cef.ticker}: ${error}`
-          );
-        }
+        // USE DATABASE VALUES ONLY - DO NOT CALCULATE METRICS
+        // All metrics should be pre-computed by refresh_all.ts
+        // This prevents timeouts by avoiding expensive real-time calculations
+        const metrics = {
+          return15Yr: cef.return_15yr,
+          return10Yr: cef.return_10yr,
+          return5Yr: cef.return_5yr,
+          return3Yr: cef.return_3yr,
+          return12Mo: cef.return_12mo ?? cef.tr_drip_12m,
+          return6Mo: cef.return_6mo ?? cef.tr_drip_6m,
+          return3Mo: cef.return_3mo ?? cef.tr_drip_3m,
+          return1Mo: cef.return_1mo ?? cef.tr_drip_1m,
+          return1Wk: cef.return_1wk ?? cef.tr_drip_1w,
+          lastDividend: cef.last_dividend,
+          annualizedDividend: cef.annual_dividend,
+          forwardYield: cef.forward_yield,
+          dividendSD: cef.dividend_sd,
+          dividendCV: cef.dividend_cv,
+          dividendCVPercent: cef.dividend_cv_percent,
+          dividendVolatilityIndex: cef.dividend_volatility_index,
+          week52Low: cef.week_52_low,
+          week52High: cef.week_52_high,
+          currentPrice: cef.price,
+        };
 
         // USE DATABASE VALUES ONLY - prices should be updated by refresh_all.ts
-        // Only fetch if absolutely missing (shouldn't happen if refresh_all is running)
-        let currentNav: number | null = cef.nav ?? null;
-        let marketPrice: number | null = cef.price ?? null;
-        
-        // Only fetch if database values are missing (rare case)
-        if (!currentNav && cef.nav_symbol) {
-          try {
-            const endDate = new Date();
-            const startDate = new Date();
-            startDate.setDate(endDate.getDate() - 7); // Only fetch last 7 days if needed
-            const navHistory = await getPriceHistory(
-              cef.nav_symbol.toUpperCase(),
-              formatDate(startDate),
-              formatDate(endDate)
-            );
-            if (navHistory.length > 0) {
-              currentNav = navHistory[navHistory.length - 1].close ?? navHistory[navHistory.length - 1].adj_close ?? null;
-            }
-          } catch (error) {
-            logger.warn("Routes", `Failed to fetch NAV for ${cef.nav_symbol}: ${error}`);
-          }
-        }
-        
-        if (!marketPrice) {
-          try {
-            const endDate = new Date();
-            const startDate = new Date();
-            startDate.setDate(endDate.getDate() - 7); // Only fetch last 7 days if needed
-            const priceHistory = await getPriceHistory(cef.ticker, formatDate(startDate), formatDate(endDate));
-            if (priceHistory.length > 0) {
-              marketPrice = priceHistory[priceHistory.length - 1].close ?? priceHistory[priceHistory.length - 1].adj_close ?? null;
-            }
-          } catch (error) {
-            logger.warn("Routes", `Failed to fetch price for ${cef.ticker}: ${error}`);
-          }
-        }
+        // DO NOT fetch prices in real-time - this causes timeouts
+        const currentNav: number | null = cef.nav ?? null;
+        const marketPrice: number | null = cef.price ?? null;
 
         // ALWAYS calculate premium/discount from current MP and NAV
         // Formula: ((MP / NAV - 1) * 100) as percentage
