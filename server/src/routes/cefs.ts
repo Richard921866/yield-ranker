@@ -1555,10 +1555,10 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
         if (cef.nav_symbol && (return3Yr === null || return5Yr === null || return10Yr === null || return15Yr === null)) {
           try {
             const calculated = await Promise.all([
-              return3Yr === null ? calculateTotalReturnsNAVBased(cef.nav_symbol, '3Y') : Promise.resolve(return3Yr),
-              return5Yr === null ? calculateTotalReturnsNAVBased(cef.nav_symbol, '5Y') : Promise.resolve(return5Yr),
-              return10Yr === null ? calculateTotalReturnsNAVBased(cef.nav_symbol, '10Y') : Promise.resolve(return10Yr),
-              return15Yr === null ? calculateTotalReturnsNAVBased(cef.nav_symbol, '15Y') : Promise.resolve(return15Yr),
+              return3Yr === null ? calculateNAVReturns(cef.nav_symbol, '3Y') : Promise.resolve(return3Yr),
+              return5Yr === null ? calculateNAVReturns(cef.nav_symbol, '5Y') : Promise.resolve(return5Yr),
+              return10Yr === null ? calculateNAVReturns(cef.nav_symbol, '10Y') : Promise.resolve(return10Yr),
+              return15Yr === null ? calculateNAVReturns(cef.nav_symbol, '15Y') : Promise.resolve(return15Yr),
             ]);
             return3Yr = calculated[0];
             return5Yr = calculated[1];
@@ -1986,10 +1986,10 @@ router.get("/:symbol", async (req: Request, res: Response): Promise<void> => {
     if (cef.nav_symbol && (return3Yr === null || return5Yr === null || return10Yr === null || return15Yr === null)) {
       try {
         const calculated = await Promise.all([
-          return3Yr === null ? calculateTotalReturnsNAVBased(cef.nav_symbol, '3Y') : Promise.resolve(return3Yr),
-          return5Yr === null ? calculateTotalReturnsNAVBased(cef.nav_symbol, '5Y') : Promise.resolve(return5Yr),
-          return10Yr === null ? calculateTotalReturnsNAVBased(cef.nav_symbol, '10Y') : Promise.resolve(return10Yr),
-          return15Yr === null ? calculateTotalReturnsNAVBased(cef.nav_symbol, '15Y') : Promise.resolve(return15Yr),
+          return3Yr === null ? calculateNAVReturns(cef.nav_symbol, '3Y') : Promise.resolve(return3Yr),
+          return5Yr === null ? calculateNAVReturns(cef.nav_symbol, '5Y') : Promise.resolve(return5Yr),
+          return10Yr === null ? calculateNAVReturns(cef.nav_symbol, '10Y') : Promise.resolve(return10Yr),
+          return15Yr === null ? calculateNAVReturns(cef.nav_symbol, '15Y') : Promise.resolve(return15Yr),
         ]);
         return3Yr = calculated[0];
         return5Yr = calculated[1];
