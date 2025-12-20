@@ -1441,22 +1441,30 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
 
         // Calculate metrics if ANY database values are missing (short-term OR long-term returns)
         // This ensures all returns work the same way - database first, then metrics fallback
-        // Check if values are missing (null or undefined) - we need metrics for fallback
+        // IMPORTANT: If database values are null (insufficient data), we still need metrics as fallback
+        // So we check if values are undefined (column missing) OR null (insufficient data)
         let metrics: any = null;
         const hasShortTerm = (cef.tr_drip_1w !== null && cef.tr_drip_1w !== undefined) &&
                             (cef.tr_drip_1m !== null && cef.tr_drip_1m !== undefined) &&
                             (cef.tr_drip_3m !== null && cef.tr_drip_3m !== undefined) &&
                             (cef.tr_drip_6m !== null && cef.tr_drip_6m !== undefined) &&
                             (cef.tr_drip_12m !== null && cef.tr_drip_12m !== undefined);
+        // For long-term, check if ANY are null/undefined - if so, we need metrics for fallback
         const hasLongTerm = (cef.return_3yr !== null && cef.return_3yr !== undefined) &&
                            (cef.return_5yr !== null && cef.return_5yr !== undefined) &&
                            (cef.return_10yr !== null && cef.return_10yr !== undefined) &&
                            (cef.return_15yr !== null && cef.return_15yr !== undefined);
         const needsMetrics = !hasShortTerm || !hasLongTerm;
         
+        // ALWAYS calculate metrics if long-term returns are missing (null or undefined)
+        // This provides fallback values when NAV data is insufficient
         if (needsMetrics) {
           try {
             metrics = await calculateMetrics(cef.ticker);
+            // DEBUG: Log metrics calculation
+            if (cef.ticker === 'GAB' || cef.ticker === 'BCX') {
+              logger.info("CEF Debug", `${cef.ticker} - Calculated metrics: 5Y=${metrics?.totalReturnDrip?.["5Y"]}, 10Y=${metrics?.totalReturnDrip?.["10Y"]}, 15Y=${metrics?.totalReturnDrip?.["15Y"]}`);
+            }
           } catch (error) {
             logger.warn("Routes", `Failed to calculate metrics for ${cef.ticker}: ${error}`);
           }
