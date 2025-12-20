@@ -312,13 +312,25 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
     const pricesAdded = await upsertPrices(ticker, prices, dryRun);
     console.log(`  ✓ Added/updated ${pricesAdded} price records`);
 
-    // If CEF, also fetch NAV prices using nav_symbol
+    // If CEF, also fetch NAV prices using nav_symbol (15 years for CEF metrics)
     if (navSymbol && navSymbol.trim()) {
-      console.log(`  Fetching NAV prices for ${navSymbol}...`);
+      console.log(`  Fetching NAV prices for ${navSymbol} (${LOOKBACK_DAYS} days = ${Math.round(LOOKBACK_DAYS / 365)} years)...`);
       try {
         const navPrices = await fetchPriceHistory(navSymbol.toUpperCase(), priceStartDate);
         const navPricesAdded = await upsertPrices(navSymbol.toUpperCase(), navPrices, dryRun);
-        console.log(`  ✓ Added/updated ${navPricesAdded} NAV price records`);
+        
+        // Log actual date range received
+        if (navPrices.length > 0) {
+          navPrices.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          const firstDate = navPrices[0].date.split('T')[0];
+          const lastDate = navPrices[navPrices.length - 1].date.split('T')[0];
+          const firstDateObj = new Date(firstDate);
+          const lastDateObj = new Date(lastDate);
+          const actualYears = (lastDateObj.getTime() - firstDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365);
+          console.log(`  ✓ Added/updated ${navPricesAdded} NAV price records (${firstDate} to ${lastDate}, ${actualYears.toFixed(1)} years)`);
+        } else {
+          console.log(`  ✓ Added/updated ${navPricesAdded} NAV price records`);
+        }
       } catch (navError) {
         console.warn(`  ⚠ Could not fetch NAV prices for ${navSymbol}: ${(navError as Error).message}`);
       }
@@ -392,6 +404,82 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
         }
       }
 
+      // For CEFs, calculate CEF-specific metrics (Signal, Z-Score, NAV returns)
+      if (navSymbol) {
+        console.log(`  Calculating CEF-specific metrics...`);
+        
+        try {
+          const { 
+            calculateCEFZScore, 
+            calculateNAVTrend6M, 
+            calculateNAVReturn12M, 
+            calculateSignal,
+            calculateNAVReturns
+          } = await import('../src/routes/cefs.js');
+
+          // Calculate 5-year Z-Score
+          let fiveYearZScore: number | null = null;
+          try {
+            fiveYearZScore = await calculateCEFZScore(ticker, navSymbol);
+            console.log(`    - 5Y Z-Score: ${fiveYearZScore !== null ? fiveYearZScore.toFixed(2) : 'N/A'}`);
+          } catch (error) {
+            console.warn(`    ⚠ Failed to calculate Z-Score: ${(error as Error).message}`);
+          }
+
+          // Calculate NAV Trend 6M
+          let navTrend6M: number | null = null;
+          try {
+            navTrend6M = await calculateNAVTrend6M(navSymbol);
+            console.log(`    - 6M NAV Trend: ${navTrend6M !== null ? `${navTrend6M.toFixed(2)}%` : 'N/A'}`);
+          } catch (error) {
+            console.warn(`    ⚠ Failed to calculate 6M NAV Trend: ${(error as Error).message}`);
+          }
+
+          // Calculate NAV Return 12M
+          let navTrend12M: number | null = null;
+          try {
+            navTrend12M = await calculateNAVReturn12M(navSymbol);
+            console.log(`    - 12M NAV Trend: ${navTrend12M !== null ? `${navTrend12M.toFixed(2)}%` : 'N/A'}`);
+          } catch (error) {
+            console.warn(`    ⚠ Failed to calculate 12M NAV Trend: ${(error as Error).message}`);
+          }
+
+          // Calculate Signal
+          let signal: number | null = null;
+          try {
+            signal = await calculateSignal(ticker, navSymbol, fiveYearZScore, navTrend6M, navTrend12M);
+            const signalLabels: Record<number, string> = {
+              3: 'Optimal',
+              2: 'Good Value',
+              1: 'Healthy',
+              0: 'Neutral',
+              '-1': 'Value Trap',
+              '-2': 'Overvalued',
+            };
+            console.log(`    - Signal: ${signal !== null ? `${signal} (${signalLabels[signal as keyof typeof signalLabels] || 'Unknown'})` : 'N/A'}`);
+          } catch (error) {
+            console.warn(`    ⚠ Failed to calculate Signal: ${(error as Error).message}`);
+          }
+
+          // Calculate NAV-based returns (3Y, 5Y, 10Y, 15Y)
+          const return3Yr = await calculateNAVReturns(navSymbol, '3Y');
+          const return5Yr = await calculateNAVReturns(navSymbol, '5Y');
+          const return10Yr = await calculateNAVReturns(navSymbol, '10Y');
+          const return15Yr = await calculateNAVReturns(navSymbol, '15Y');
+          
+          console.log(`    - NAV Returns: 3Y=${return3Yr !== null ? `${return3Yr.toFixed(2)}%` : 'N/A'}, 5Y=${return5Yr !== null ? `${return5Yr.toFixed(2)}%` : 'N/A'}, 10Y=${return10Yr !== null ? `${return10Yr.toFixed(2)}%` : 'N/A'}, 15Y=${return15Yr !== null ? `${return15Yr.toFixed(2)}%` : 'N/A'}`);
+
+          // Add CEF metrics to update data
+          if (fiveYearZScore !== null) updateData.five_year_z_score = fiveYearZScore;
+          if (navTrend6M !== null) updateData.nav_trend_6m = navTrend6M;
+          if (navTrend12M !== null) updateData.nav_trend_12m = navTrend12M;
+          if (signal !== null) updateData.signal = signal;
+          // Note: NAV returns are calculated in real-time, not stored in DB
+        } catch (error) {
+          console.warn(`  ⚠ Failed to calculate CEF metrics: ${(error as Error).message}`);
+        }
+      }
+
       if (navSymbol) {
         await batchUpdateETFMetricsPreservingCEFFields([{
           ticker,
@@ -436,7 +524,7 @@ async function main() {
   } else {
     console.log('Scope: All ETFs');
   }
-  console.log(`Lookback: ${LOOKBACK_DAYS} days`);
+  console.log(`Lookback: ${LOOKBACK_DAYS} days (${Math.round(LOOKBACK_DAYS / 365)} years)`);
   console.log('='.repeat(60));
 
   // Health check
