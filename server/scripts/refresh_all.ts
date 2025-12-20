@@ -432,55 +432,12 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
     console.log(`  Prices: ${priceStartDate} to today`);
     console.log(`  Dividends: ${dividendStartDate} to today`);
 
-    // Check if this is a CEF and fetch NAV symbol
-    const { data: staticData } = await supabase
-      .from('etf_static')
-      .select('nav_symbol, description')
-      .eq('ticker', ticker.toUpperCase())
-      .maybeSingle();
-
-    let navSymbol = staticData?.nav_symbol;
-    // FALLBACK: If nav_symbol is missing, use the ticker itself (many CEFs use their own ticker for NAV)
-    // This allows CEF metrics to be calculated even if nav_symbol wasn't manually uploaded
-    if (!navSymbol || navSymbol.trim() === '') {
-      navSymbol = ticker; // Use ticker as fallback
-      console.log(`  ⚠ nav_symbol is missing for ${ticker}, using ticker as fallback for NAV calculations`);
-    }
-    const isCEF = navSymbol && navSymbol.trim() !== '';
-    
-    if (isCEF) {
-      console.log(`  📊 CEF detected: ${ticker} (NAV Symbol: ${navSymbol})`);
-    }
-
+    // This script only processes ETFs (CEFs are excluded at query level)
     // Fetch and upsert prices
     console.log(`  Fetching market prices...`);
     const prices = await fetchPriceHistory(ticker, priceStartDate);
     const pricesAdded = await upsertPrices(ticker, prices, dryRun);
     console.log(`  ✓ Added/updated ${pricesAdded} price records`);
-
-    // If CEF, also fetch NAV prices using nav_symbol (15 years for CEF metrics)
-    if (navSymbol && navSymbol.trim()) {
-      console.log(`  Fetching NAV prices for ${navSymbol} (${LOOKBACK_DAYS} days = ${Math.round(LOOKBACK_DAYS / 365)} years)...`);
-      try {
-        const navPrices = await fetchPriceHistory(navSymbol.toUpperCase(), priceStartDate);
-        const navPricesAdded = await upsertPrices(navSymbol.toUpperCase(), navPrices, dryRun);
-        
-        // Log actual date range received
-        if (navPrices.length > 0) {
-          navPrices.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-          const firstDate = navPrices[0].date.split('T')[0];
-          const lastDate = navPrices[navPrices.length - 1].date.split('T')[0];
-          const firstDateObj = new Date(firstDate);
-          const lastDateObj = new Date(lastDate);
-          const actualYears = (lastDateObj.getTime() - firstDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365);
-          console.log(`  ✓ Added/updated ${navPricesAdded} NAV price records (${firstDate} to ${lastDate}, ${actualYears.toFixed(1)} years)`);
-        } else {
-          console.log(`  ✓ Added/updated ${navPricesAdded} NAV price records`);
-        }
-      } catch (navError) {
-        console.warn(`  ⚠ Could not fetch NAV prices for ${navSymbol}: ${(navError as Error).message}`);
-      }
-    }
 
     // Fetch and upsert dividends (extended history for split adjustments)
     console.log(`  Fetching dividends (with split adjustments)...`);
