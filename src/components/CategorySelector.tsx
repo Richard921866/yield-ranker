@@ -12,30 +12,27 @@ export const CategorySelector = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Determine current category based on route
+  // Determine current category based on route (table pages)
   const getCurrentCategory = (): "cef" | "cc" => {
-    if (
-      location.pathname === "/closed-end-funds" ||
-      location.pathname.startsWith("/closed-end-funds") ||
-      location.pathname.startsWith("/cef")
-    ) {
+    if (location.pathname.startsWith("/cef")) {
       return "cef";
     }
+    // Default to CC if on home page or CC pages
     return "cc";
   };
 
   const currentCategory = getCurrentCategory();
 
-  // Filter options - navigate to documentation pages
+  // Filter options - navigate to TABLE pages (not docs)
   const options = [
     { 
       label: "Covered Call Option ETFs", 
-      path: "/covered-call-etfs",
+      path: "/",  // Goes to CC table
       category: "cc" as const
     },
     { 
       label: "Closed End Funds", 
-      path: "/closed-end-funds",
+      path: "/cef",  // Goes to CEF table
       category: "cef" as const
     },
   ];

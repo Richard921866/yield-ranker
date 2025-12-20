@@ -52,19 +52,15 @@ export const Header = () => {
     setMobileMenuOpen(false);
   };
 
-  // Determine current category based on Filter selection (documentation pages)
-  // Filter controls which category is active - button shows SAME category but links to TABLE
-  const isOnClosedEndFundsPage = 
-    location.pathname === "/closed-end-funds" ||
-    location.pathname.startsWith("/closed-end-funds") ||
-    location.pathname.startsWith("/cef");
+  // Determine if we're on CEF table page
+  const isOnCEFTable = location.pathname.startsWith("/cef");
 
-  // Button shows the SAME category as Filter selection, but links to its TABLE page (not docs)
-  // If Filter = "Closed End Funds" (on /closed-end-funds docs) → Button shows "Closed End Funds" → links to /cef (CEF table)
-  // If Filter = "Covered Call Option ETFs" (on /covered-call-etfs docs) → Button shows "Covered Call Option ETFs" → links to / (CC table)
-  const dynamicButton = isOnClosedEndFundsPage
-    ? { label: "Closed End Funds", path: "/cef" }      // On CEF docs → show CEF button → go to CEF table
-    : { label: "Covered Call Option ETFs", path: "/" }; // On CC docs → show CC button → go to CC table
+  // Button shows OPPOSITE category and links to its DOCUMENTATION page
+  // If on CEF table (/cef) → Button shows "Covered Call Option ETFs" → links to /covered-call-etfs (CC docs)
+  // If on CC table (/) → Button shows "Closed End Funds" → links to /closed-end-funds (CEF docs)
+  const dynamicButton = isOnCEFTable
+    ? { label: "Covered Call Option ETFs", path: "/covered-call-etfs" }  // On CEF table → show CC button → go to CC docs
+    : { label: "Closed End Funds", path: "/closed-end-funds" };           // On CC table → show CEF button → go to CEF docs
 
   return (
     <header className="sticky top-0 z-[100] w-full border-b bg-background/95 backdrop-blur-md shadow-sm">
