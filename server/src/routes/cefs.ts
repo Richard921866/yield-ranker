@@ -1458,6 +1458,15 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
           week52Low: cef.week_52_low,
           week52High: cef.week_52_high,
           currentPrice: cef.price,
+          paymentsPerYear: cef.payments_per_year ?? 12,
+          totalReturnDrip: {
+            '1W': cef.return_1wk ?? cef.tr_drip_1w ?? null,
+            '1M': cef.return_1mo ?? cef.tr_drip_1m ?? null,
+            '3M': cef.return_3mo ?? cef.tr_drip_3m ?? null,
+            '6M': cef.return_6mo ?? cef.tr_drip_6m ?? null,
+            '1Y': cef.return_12mo ?? cef.tr_drip_12m ?? null,
+            '3Y': cef.return_3yr ?? cef.tr_drip_3y ?? null,
+          },
         };
 
         // USE DATABASE VALUES ONLY - prices should be updated by refresh_all.ts
