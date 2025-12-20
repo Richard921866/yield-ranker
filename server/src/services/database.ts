@@ -255,6 +255,19 @@ export async function updateETFMetricsPreservingCEFFields(
   // Try to update - return columns should exist, but handle gracefully if they don't
   const safeUpdateData: any = { ...updateData };
   
+  // CRITICAL: Supabase doesn't update columns to NULL unless we explicitly include them
+  // Make sure return columns are explicitly set (even if null)
+  // This ensures NULL values are actually saved to the database
+  if ('return_3yr' in updateData) safeUpdateData.return_3yr = updateData.return_3yr;
+  if ('return_5yr' in updateData) safeUpdateData.return_5yr = updateData.return_5yr;
+  if ('return_10yr' in updateData) safeUpdateData.return_10yr = updateData.return_10yr;
+  if ('return_15yr' in updateData) safeUpdateData.return_15yr = updateData.return_15yr;
+  
+  // Log what we're trying to update
+  if ('return_3yr' in safeUpdateData || 'return_5yr' in safeUpdateData || 'return_10yr' in safeUpdateData || 'return_15yr' in safeUpdateData) {
+    logger.debug('Database', `Updating ${ticker} returns: 3Y=${safeUpdateData.return_3yr ?? 'undefined'}, 5Y=${safeUpdateData.return_5yr ?? 'undefined'}, 10Y=${safeUpdateData.return_10yr ?? 'undefined'}, 15Y=${safeUpdateData.return_15yr ?? 'undefined'}`);
+  }
+  
   // List of columns that might not exist yet (only signal, return columns should exist)
   const optionalColumns = ['signal'];
   
