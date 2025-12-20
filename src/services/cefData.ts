@@ -65,9 +65,9 @@ export async function fetchCEFDataWithMetadata(): Promise<CEFDataResponse> {
       }
     }
 
-    // Add timeout to fetch request - increased to 60 seconds for CEF calculations
+    // Add timeout to fetch request - increased to 90 seconds to allow for database queries
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
     
     try {
       const response = await fetch(`${API_URL}/api/cefs`, {

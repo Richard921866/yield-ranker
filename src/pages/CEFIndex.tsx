@@ -67,9 +67,9 @@ const Index = () => {
         setIsLoading(true);
       }
       
-      // Add timeout to prevent infinite loading - increased to 60 seconds for CEF calculations
+      // Add timeout to prevent infinite loading - increased to 90 seconds
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Request timeout: CEF data fetch took too long")), 60000); // 60 second timeout
+        setTimeout(() => reject(new Error("Request timeout: CEF data fetch took too long")), 90000); // 90 second timeout
       });
       
       const fetchPromise = fetchCEFDataWithMetadata();

@@ -1523,75 +1523,21 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
           premiumDiscount = cef.premium_discount ?? null;
         }
 
-        // USE DATABASE VALUES FIRST - Only calculate if absolutely missing
-        // This prevents timeouts by avoiding unnecessary calculations
-        let fiveYearZScore: number | null = cef.five_year_z_score ?? null;
-        let navTrend6M: number | null = cef.nav_trend_6m ?? null;
-        let navTrend12M: number | null = cef.nav_trend_12m ?? null;
-        let signal: number | null = cef.signal ?? null;
-        let return3Yr: number | null = cef.return_3yr ?? cef.tr_drip_3y ?? null;
-        let return5Yr: number | null = cef.return_5yr ?? cef.tr_drip_5y ?? null;
-        let return10Yr: number | null = cef.return_10yr ?? cef.tr_drip_10y ?? null;
-        let return15Yr: number | null = cef.return_15yr ?? cef.tr_drip_15y ?? null;
+        // USE DATABASE VALUES ONLY - DO NOT CALCULATE IN REAL-TIME
+        // All calculations should be done by refresh_all.ts and stored in database
+        // This prevents timeouts by avoiding expensive real-time calculations
+        const fiveYearZScore: number | null = cef.five_year_z_score ?? null;
+        const navTrend6M: number | null = cef.nav_trend_6m ?? null;
+        const navTrend12M: number | null = cef.nav_trend_12m ?? null;
+        const signal: number | null = cef.signal ?? null;
+        const return3Yr: number | null = cef.return_3yr ?? cef.tr_drip_3y ?? null;
+        const return5Yr: number | null = cef.return_5yr ?? cef.tr_drip_5y ?? null;
+        const return10Yr: number | null = cef.return_10yr ?? cef.tr_drip_10y ?? null;
+        const return15Yr: number | null = cef.return_15yr ?? cef.tr_drip_15y ?? null;
         
-        // Only calculate if database values are missing AND we have nav_symbol
-        // Skip calculations to prevent timeouts - rely on refresh_all.ts to populate database
-        if (cef.nav_symbol) {
-          // Only calculate Z-Score if missing (expensive operation)
-          if (fiveYearZScore === null) {
-            try {
-              fiveYearZScore = await calculateCEFZScore(cef.ticker, cef.nav_symbol);
-            } catch (error) {
-              // Silently fail - use null value
-              logger.debug("Routes", `Z-Score calculation skipped for ${cef.ticker}`);
-            }
-          }
-          
-          // Only calculate NAV trends if missing
-          if (navTrend6M === null) {
-            try {
-              navTrend6M = await calculateNAVTrend6M(cef.nav_symbol);
-            } catch (error) {
-              logger.debug("Routes", `NAV Trend 6M calculation skipped for ${cef.ticker}`);
-            }
-          }
-          
-          if (navTrend12M === null) {
-            try {
-              navTrend12M = await calculateNAVReturn12M(cef.nav_symbol);
-            } catch (error) {
-              logger.debug("Routes", `NAV Trend 12M calculation skipped for ${cef.ticker}`);
-            }
-          }
-          
-          // Calculate Signal only if we have all required inputs
-          if (signal === null && fiveYearZScore !== null && navTrend6M !== null && navTrend12M !== null) {
-            try {
-              signal = await calculateSignal(cef.ticker, cef.nav_symbol, fiveYearZScore, navTrend6M, navTrend12M);
-            } catch (error) {
-              logger.debug("Routes", `Signal calculation skipped for ${cef.ticker}`);
-            }
-          }
-          
-          // Calculate missing returns individually - don't skip if some exist
-          // Only calculate the ones that are actually missing
-          if (return3Yr === null || return5Yr === null || return10Yr === null || return15Yr === null) {
-            try {
-              const calculated = await Promise.all([
-                return3Yr === null ? calculateNAVReturns(cef.nav_symbol, '3Y') : Promise.resolve(return3Yr),
-                return5Yr === null ? calculateNAVReturns(cef.nav_symbol, '5Y') : Promise.resolve(return5Yr),
-                return10Yr === null ? calculateNAVReturns(cef.nav_symbol, '10Y') : Promise.resolve(return10Yr),
-                return15Yr === null ? calculateNAVReturns(cef.nav_symbol, '15Y') : Promise.resolve(return15Yr),
-              ]);
-              return3Yr = calculated[0];
-              return5Yr = calculated[1];
-              return10Yr = calculated[2];
-              return15Yr = calculated[3];
-            } catch (error) {
-              logger.debug("Routes", `Total Returns calculation skipped for ${cef.ticker}`);
-            }
-          }
-        }
+        // NO REAL-TIME CALCULATIONS - rely entirely on database values
+        // If values are missing, they will be calculated by refresh_all.ts
+        // This ensures fast response times and prevents timeouts
 
         return {
           symbol: cef.ticker,
