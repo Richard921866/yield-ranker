@@ -1439,10 +1439,12 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
           }
         }
 
-        // Calculate metrics ONLY if database values are missing for short-term returns
-        // Use database values first to prevent timeouts
+        // Calculate metrics if ANY database values are missing (short-term OR long-term returns)
+        // This ensures all returns work the same way - database first, then metrics fallback
+        // Only calculate if we're missing values to prevent unnecessary timeouts
         let metrics: any = null;
-        const needsMetrics = !cef.tr_drip_1w || !cef.tr_drip_1m || !cef.tr_drip_3m || !cef.tr_drip_6m || !cef.tr_drip_12m;
+        const needsMetrics = !cef.tr_drip_1w || !cef.tr_drip_1m || !cef.tr_drip_3m || !cef.tr_drip_6m || !cef.tr_drip_12m ||
+                             !cef.return_3yr || !cef.return_5yr || !cef.return_10yr || !cef.return_15yr;
         if (needsMetrics) {
           try {
             metrics = await calculateMetrics(cef.ticker);
