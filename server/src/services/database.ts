@@ -178,17 +178,149 @@ export async function updateETFMetrics(
 ): Promise<void> {
   const db = getSupabase();
 
+  const updateData: any = {
+    ...metrics,
+    last_updated: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
   const { error } = await db
     .from('etf_static')
-    .update({
-      ...metrics,
-      last_updated: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('ticker', ticker.toUpperCase());
 
   if (error) {
     logger.error('Database', `Failed to update metrics for ${ticker}: ${error.message}`);
+  }
+}
+
+export async function updateETFMetricsPreservingCEFFields(
+  ticker: string,
+  metrics: Partial<ETFStaticRecord>
+): Promise<void> {
+  const db = getSupabase();
+
+  const cefFieldsToPreserve = [
+    'nav_symbol',
+    'five_year_z_score',
+    'nav_trend_6m',
+    'nav_trend_12m',
+    'signal',
+    'return_3yr',
+    'return_5yr',
+    'return_10yr',
+    'return_15yr',
+    'value_health_score',
+    'open_date',
+    'ipo_price',
+    'description',
+    'dividend_history',
+    'average_premium_discount',
+  ];
+
+  const { data: existing } = await db
+    .from('etf_static')
+    .select('*')
+    .eq('ticker', ticker.toUpperCase())
+    .maybeSingle();
+
+  const updateData: any = {
+    ...metrics,
+    last_updated: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (existing) {
+    cefFieldsToPreserve.forEach(field => {
+      if (existing[field] !== null && existing[field] !== undefined && existing[field] !== '') {
+        if (!(field in updateData)) {
+          updateData[field] = existing[field];
+        }
+      }
+    });
+
+    if (existing.premium_discount !== null && existing.premium_discount !== undefined && existing.premium_discount !== '') {
+      if (!('premium_discount' in updateData)) {
+        updateData.premium_discount = existing.premium_discount;
+      }
+    }
+
+    if (existing.nav !== null && existing.nav !== undefined && existing.nav !== '') {
+      if (!('nav' in updateData)) {
+        updateData.nav = existing.nav;
+      }
+    }
+  }
+
+  // Try to update - return columns should exist, but handle gracefully if they don't
+  const safeUpdateData: any = { ...updateData };
+  
+  // CRITICAL: Supabase doesn't update columns to NULL unless we explicitly include them
+  // Make sure return columns are explicitly set (even if null)
+  // This ensures NULL values are actually saved to the database
+  if ('return_3yr' in updateData) safeUpdateData.return_3yr = updateData.return_3yr;
+  if ('return_5yr' in updateData) safeUpdateData.return_5yr = updateData.return_5yr;
+  if ('return_10yr' in updateData) safeUpdateData.return_10yr = updateData.return_10yr;
+  if ('return_15yr' in updateData) safeUpdateData.return_15yr = updateData.return_15yr;
+  
+  // Log what we're trying to update
+  if ('return_3yr' in safeUpdateData || 'return_5yr' in safeUpdateData || 'return_10yr' in safeUpdateData || 'return_15yr' in safeUpdateData) {
+    logger.debug('Database', `Updating ${ticker} returns: 3Y=${safeUpdateData.return_3yr ?? 'undefined'}, 5Y=${safeUpdateData.return_5yr ?? 'undefined'}, 10Y=${safeUpdateData.return_10yr ?? 'undefined'}, 15Y=${safeUpdateData.return_15yr ?? 'undefined'}`);
+  }
+  
+  // List of columns that might not exist yet (should be empty now that all columns are added)
+  const optionalColumns: string[] = [];
+  
+  // Try to update, and if it fails due to missing column, retry without optional columns
+  let { error } = await db
+    .from('etf_static')
+    .update(safeUpdateData)
+    .eq('ticker', ticker.toUpperCase());
+
+  if (error) {
+    // Check if error is about missing columns (Supabase uses different error messages)
+    const isColumnError = error.message.includes('column') && 
+                         (error.message.includes('does not exist') || 
+                          error.message.includes('not found') ||
+                          error.message.includes('Could not find'));
+    
+    if (isColumnError) {
+      // Check if error is about return columns - these MUST exist, so log error
+      const isReturnColumnError = error.message.includes('return_3yr') || 
+                                   error.message.includes('return_5yr') || 
+                                   error.message.includes('return_10yr') || 
+                                   error.message.includes('return_15yr');
+      
+      if (isReturnColumnError) {
+        logger.error('Database', `❌ CRITICAL: Return columns do not exist in database for ${ticker}!`);
+        logger.error('Database', `❌ Missing columns: return_3yr, return_5yr, return_10yr, return_15yr`);
+        logger.error('Database', `❌ Please add these columns to etf_static table: ALTER TABLE etf_static ADD COLUMN return_3yr NUMERIC, ADD COLUMN return_5yr NUMERIC, ADD COLUMN return_10yr NUMERIC, ADD COLUMN return_15yr NUMERIC;`);
+        // Don't retry - we need these columns to exist
+        throw new Error(`Return columns do not exist in database. Please add return_3yr, return_5yr, return_10yr, return_15yr columns.`);
+      }
+      
+      // Remove optional columns (signal) and try again
+      const retryData = { ...safeUpdateData };
+      optionalColumns.forEach(col => {
+        delete retryData[col];
+      });
+      
+      logger.debug('Database', `Retrying update for ${ticker} without optional columns: ${optionalColumns.join(', ')}`);
+      const { error: retryError } = await db
+        .from('etf_static')
+        .update(retryData)
+        .eq('ticker', ticker.toUpperCase());
+      
+      if (retryError) {
+        logger.error('Database', `Failed to update metrics for ${ticker} even after removing optional columns: ${retryError.message}`);
+        // Don't throw - log and continue, as the important data (returns) may have been saved
+      } else {
+        logger.info('Database', `✅ Updated ${ticker} successfully (some optional columns skipped)`);
+      }
+    } else {
+      logger.error('Database', `Failed to update metrics for ${ticker}: ${error.message}`);
+      throw error;
+    }
   }
 }
 
@@ -203,6 +335,26 @@ export async function batchUpdateETFMetrics(
   for (const { ticker, metrics } of updates) {
     try {
       await updateETFMetrics(ticker, metrics);
+      updated++;
+    } catch (error) {
+      logger.error('Database', `Failed to update ${ticker}: ${error}`);
+    }
+  }
+
+  return updated;
+}
+
+/**
+ * Batch update metrics for multiple tickers, preserving CEF-specific fields
+ */
+export async function batchUpdateETFMetricsPreservingCEFFields(
+  updates: Array<{ ticker: string; metrics: Partial<ETFStaticRecord> }>
+): Promise<number> {
+  let updated = 0;
+
+  for (const { ticker, metrics } of updates) {
+    try {
+      await updateETFMetricsPreservingCEFFields(ticker, metrics);
       updated++;
     } catch (error) {
       logger.error('Database', `Failed to update ${ticker}: ${error}`);
@@ -242,7 +394,23 @@ export async function getPriceHistory(
         throw new Error(error.message);
       }
 
-      return (data ?? []) as PriceRecord[];
+      const records = (data ?? []) as PriceRecord[];
+
+      if (records.length === 0) {
+        logger.debug('Database', `No price data in database for ${ticker}, attempting Tiingo API fallback`);
+        try {
+          const { getPriceHistoryFromAPI } = await import('./tiingo.js');
+          const apiRecords = await getPriceHistoryFromAPI(ticker, startDate, endDate);
+          if (apiRecords.length > 0) {
+            logger.info('Database', `Fetched ${apiRecords.length} price records from Tiingo API for ${ticker}`);
+            return apiRecords;
+          }
+        } catch (apiError) {
+          logger.warn('Database', `Tiingo API fallback failed for ${ticker}: ${(apiError as Error).message}`);
+        }
+      }
+
+      return records;
     });
   } catch (error) {
     logger.error('Database', `Error fetching prices for ${ticker}: ${(error as Error).message}`);
@@ -312,12 +480,14 @@ export async function getDividendHistory(
       let query = db
         .from('dividends_detail')
         .select('*')
-        .eq('ticker', ticker.toUpperCase())
-        .order('ex_date', { ascending: false });
+        .eq('ticker', ticker.toUpperCase());
 
       if (startDate) {
         query = query.gte('ex_date', startDate);
       }
+
+      // Order by ex_date DESC (newest first) - manual priority handled in client-side sort
+      query = query.order('ex_date', { ascending: false });
 
       const { data, error } = await query;
 
@@ -325,7 +495,17 @@ export async function getDividendHistory(
         throw new Error(error.message);
       }
 
-      return (data ?? []) as DividendRecord[];
+      const dividends = (data ?? []) as DividendRecord[];
+
+      // Additional client-side sort to ensure manual always comes first
+      return dividends.sort((a, b) => {
+        const aManual = a.is_manual === true ? 1 : 0;
+        const bManual = b.is_manual === true ? 1 : 0;
+        if (aManual !== bManual) {
+          return bManual - aManual; // Manual (1) comes before non-manual (0)
+        }
+        return new Date(b.ex_date).getTime() - new Date(a.ex_date).getTime();
+      });
     });
   } catch (error) {
     logger.error('Database', `Error fetching dividends for ${ticker}: ${(error as Error).message}`);
