@@ -1400,8 +1400,14 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
     const { calculateMetrics } = await import("../services/metrics.js");
 
     // Process CEFs with optimized approach: use database values first, calculate only if missing
-    const cefsWithDividendHistory = await Promise.all(
-      staticData.map(async (cef: any) => {
+    // Process in smaller batches to prevent timeout
+    const BATCH_SIZE = 10; // Process 10 CEFs at a time
+    const cefsWithDividendHistory: any[] = [];
+    
+    for (let i = 0; i < staticData.length; i += BATCH_SIZE) {
+      const batch = staticData.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(async (cef: any) => {
         // Use cached dividend history from database if available
         let dividendHistory = cef.dividend_history || null;
         if (!dividendHistory) {
