@@ -401,16 +401,28 @@ export async function calculateNAVReturns(
     }
 
     // Calculate total return: ((End / Start) - 1) * 100
-    const returnValue = ((endNav / startNav) - 1) * 100;
+    const totalReturn = ((endNav / startNav) - 1) * 100;
 
-    // Sanity check: returns should be reasonable (between -99% and 10000%)
-    if (returnValue < -99 || returnValue > 10000 || !isFinite(returnValue)) {
-      logger.warn("CEF Metrics", `Unreasonable NAV return calculated for ${navSymbol} ${period}: ${returnValue}% (start: ${startNav}, end: ${endNav}, dates: ${startRecord.date} to ${endRecord.date})`);
+    // Annualize the return based on the period
+    // Formula: Annualized Return = ((1 + Total Return/100)^(1/years) - 1) * 100
+    const years = period === '3Y' ? 3 : period === '5Y' ? 5 : period === '10Y' ? 10 : 15;
+    let annualizedReturn: number;
+    
+    if (totalReturn <= -100) {
+      // Can't annualize a -100% or worse return
+      annualizedReturn = -100;
+    } else {
+      annualizedReturn = ((Math.pow(1 + totalReturn / 100, 1 / years)) - 1) * 100;
+    }
+
+    // Sanity check: returns should be reasonable
+    if (!isFinite(annualizedReturn) || annualizedReturn < -100 || annualizedReturn > 1000) {
+      logger.warn("CEF Metrics", `Unreasonable ${period} annualized return calculated: ${annualizedReturn}% for ${navSymbol} (total: ${totalReturn}%)`);
       return null;
     }
 
-    logger.info("CEF Metrics", `✅ Calculated ${period} NAV return for ${navSymbol}: ${returnValue.toFixed(2)}% (${navData.length} records, ${startRecord.date} to ${endRecord.date})`);
-    return returnValue;
+    logger.info("CEF Metrics", `✅ Calculated ${period} Annualized NAV return for ${navSymbol}: ${annualizedReturn.toFixed(2)}% (total: ${totalReturn.toFixed(2)}% over ${years} years, ${navData.length} records)`);
+    return annualizedReturn;
   } catch (error) {
     logger.warn(
       "CEF Metrics",
