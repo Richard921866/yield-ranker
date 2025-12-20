@@ -127,53 +127,60 @@ async function refreshCEF(ticker: string, dryRun: boolean): Promise<void> {
     console.log(`  📊 Calculating CEF metrics...`);
 
     // 1. Calculate 5-Year Z-Score
+    // ALWAYS set this field (even if null) to clear stale values
     let fiveYearZScore: number | null = null;
     try {
       fiveYearZScore = await calculateCEFZScore(ticker, navSymbolForCalc);
+      updateData.five_year_z_score = fiveYearZScore; // Always set, even if null
       if (fiveYearZScore !== null) {
-        updateData.five_year_z_score = fiveYearZScore;
         console.log(`    ✓ 5Y Z-Score: ${fiveYearZScore.toFixed(2)}`);
       } else {
-        console.log(`    ⚠ 5Y Z-Score: N/A (insufficient data)`);
+        console.log(`    ⚠ 5Y Z-Score: N/A (insufficient data) - clearing old value`);
       }
     } catch (error) {
-      console.warn(`    ⚠ Failed to calculate Z-Score: ${(error as Error).message}`);
+      updateData.five_year_z_score = null; // Clear on error
+      console.warn(`    ⚠ Failed to calculate Z-Score: ${(error as Error).message} - clearing old value`);
     }
 
     // 2. Calculate NAV Trend 6M
+    // ALWAYS set this field (even if null) to clear stale values
     let navTrend6M: number | null = null;
     try {
       navTrend6M = await calculateNAVTrend6M(navSymbolForCalc);
+      updateData.nav_trend_6m = navTrend6M; // Always set, even if null
       if (navTrend6M !== null) {
-        updateData.nav_trend_6m = navTrend6M;
         console.log(`    ✓ 6M NAV Trend: ${navTrend6M.toFixed(2)}%`);
       } else {
-        console.log(`    ⚠ 6M NAV Trend: N/A`);
+        console.log(`    ⚠ 6M NAV Trend: N/A - clearing old value`);
       }
     } catch (error) {
-      console.warn(`    ⚠ Failed to calculate 6M NAV Trend: ${(error as Error).message}`);
+      updateData.nav_trend_6m = null; // Clear on error
+      console.warn(`    ⚠ Failed to calculate 6M NAV Trend: ${(error as Error).message} - clearing old value`);
     }
 
     // 3. Calculate NAV Return 12M
+    // ALWAYS set this field (even if null) to clear stale values
     let navTrend12M: number | null = null;
     try {
       navTrend12M = await calculateNAVReturn12M(navSymbolForCalc);
+      updateData.nav_trend_12m = navTrend12M; // Always set, even if null
       if (navTrend12M !== null) {
-        updateData.nav_trend_12m = navTrend12M;
         console.log(`    ✓ 12M NAV Return: ${navTrend12M.toFixed(2)}%`);
       } else {
-        console.log(`    ⚠ 12M NAV Return: N/A`);
+        console.log(`    ⚠ 12M NAV Return: N/A - clearing old value`);
       }
     } catch (error) {
-      console.warn(`    ⚠ Failed to calculate 12M NAV Return: ${(error as Error).message}`);
+      updateData.nav_trend_12m = null; // Clear on error
+      console.warn(`    ⚠ Failed to calculate 12M NAV Return: ${(error as Error).message} - clearing old value`);
     }
 
     // 4. Calculate Signal
+    // ALWAYS set this field (even if null) to clear stale values
     let signal: number | null = null;
     try {
       signal = await calculateSignal(ticker, navSymbolForCalc, fiveYearZScore, navTrend6M, navTrend12M);
+      updateData.signal = signal; // Always set, even if null
       if (signal !== null) {
-        updateData.signal = signal;
         const signalLabels: Record<number, string> = {
           3: 'Optimal',
           2: 'Good Value',
@@ -184,13 +191,47 @@ async function refreshCEF(ticker: string, dryRun: boolean): Promise<void> {
         };
         console.log(`    ✓ Signal: ${signal} (${signalLabels[signal as keyof typeof signalLabels] || 'Unknown'})`);
       } else {
-        console.log(`    ⚠ Signal: N/A`);
+        console.log(`    ⚠ Signal: N/A - clearing old value`);
       }
     } catch (error) {
-      console.warn(`    ⚠ Failed to calculate Signal: ${(error as Error).message}`);
+      updateData.signal = null; // Clear on error
+      console.warn(`    ⚠ Failed to calculate Signal: ${(error as Error).message} - clearing old value`);
     }
 
-    // 5. Calculate TOTAL RETURNS (3Y, 5Y, 10Y, 15Y) - NAV-based annualized returns
+    // 5. Calculate DVI (Dividend Volatility Index) - same as ETFs
+    console.log(`  📊 Calculating DVI (Dividend Volatility Index)...`);
+    let dviResult: any = null;
+    try {
+      const { getDividendHistory } = await import('../src/services/database.js');
+      const { calculateDividendVolatility } = await import('../src/services/metrics.js');
+      
+      const dividends = await getDividendHistory(ticker.toUpperCase());
+      if (dividends && dividends.length > 0) {
+        dviResult = calculateDividendVolatility(dividends, 12, ticker);
+        if (dviResult) {
+          updateData.dividend_sd = dviResult.dividendSD;
+          updateData.dividend_cv = dviResult.dividendCV;
+          updateData.dividend_cv_percent = dviResult.dividendCVPercent;
+          updateData.dividend_volatility_index = dviResult.volatilityIndex;
+          updateData.annual_dividend = dviResult.annualDividend;
+          console.log(`    ✓ DVI: ${dviResult.volatilityIndex || 'N/A'} (CV: ${dviResult.dividendCVPercent?.toFixed(2) || 'N/A'}%)`);
+        }
+      } else {
+        console.log(`    ⚠ DVI: N/A (no dividend data) - clearing old values`);
+        updateData.dividend_sd = null;
+        updateData.dividend_cv = null;
+        updateData.dividend_cv_percent = null;
+        updateData.dividend_volatility_index = null;
+      }
+    } catch (error) {
+      console.warn(`    ⚠ Failed to calculate DVI: ${(error as Error).message} - clearing old values`);
+      updateData.dividend_sd = null;
+      updateData.dividend_cv = null;
+      updateData.dividend_cv_percent = null;
+      updateData.dividend_volatility_index = null;
+    }
+
+    // 6. Calculate TOTAL RETURNS (3Y, 5Y, 10Y, 15Y) - NAV-based annualized returns
     console.log(`  📊 Calculating NAV-based total returns (3Y, 5Y, 10Y, 15Y)...`);
     const return3Yr = await calculateNAVReturns(navSymbolForCalc, '3Y');
     const return5Yr = await calculateNAVReturns(navSymbolForCalc, '5Y');
@@ -341,9 +382,9 @@ async function main() {
       console.log(`\n[${i + 1}/${cefs.length}]`);
       await refreshCEF(cef.ticker, options.dryRun);
 
-      // Small delay to avoid overwhelming the API
+      // Small delay to avoid overwhelming the API (reduced from 1000ms to 500ms for faster execution)
       if (i < cefs.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
 

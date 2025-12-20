@@ -256,12 +256,24 @@ export async function updateETFMetricsPreservingCEFFields(
   const safeUpdateData: any = { ...updateData };
   
   // CRITICAL: Supabase doesn't update columns to NULL unless we explicitly include them
-  // Make sure return columns are explicitly set (even if null)
+  // Make sure return columns and CEF metrics are explicitly set (even if null)
   // This ensures NULL values are actually saved to the database
   if ('return_3yr' in updateData) safeUpdateData.return_3yr = updateData.return_3yr;
   if ('return_5yr' in updateData) safeUpdateData.return_5yr = updateData.return_5yr;
   if ('return_10yr' in updateData) safeUpdateData.return_10yr = updateData.return_10yr;
   if ('return_15yr' in updateData) safeUpdateData.return_15yr = updateData.return_15yr;
+  // CEF-specific metrics - always save (even if null) to clear stale values
+  if ('five_year_z_score' in updateData) safeUpdateData.five_year_z_score = updateData.five_year_z_score;
+  if ('signal' in updateData) safeUpdateData.signal = updateData.signal;
+  if ('nav_trend_6m' in updateData) safeUpdateData.nav_trend_6m = updateData.nav_trend_6m;
+  if ('nav_trend_12m' in updateData) safeUpdateData.nav_trend_12m = updateData.nav_trend_12m;
+  if ('premium_discount' in updateData) safeUpdateData.premium_discount = updateData.premium_discount;
+  // DVI fields - always save (even if null) to clear stale values
+  if ('dividend_sd' in updateData) safeUpdateData.dividend_sd = updateData.dividend_sd;
+  if ('dividend_cv' in updateData) safeUpdateData.dividend_cv = updateData.dividend_cv;
+  if ('dividend_cv_percent' in updateData) safeUpdateData.dividend_cv_percent = updateData.dividend_cv_percent;
+  if ('dividend_volatility_index' in updateData) safeUpdateData.dividend_volatility_index = updateData.dividend_volatility_index;
+  if ('annual_dividend' in updateData) safeUpdateData.annual_dividend = updateData.annual_dividend;
   
   // Log what we're trying to update
   if ('return_3yr' in safeUpdateData || 'return_5yr' in safeUpdateData || 'return_10yr' in safeUpdateData || 'return_15yr' in safeUpdateData) {

@@ -677,13 +677,15 @@ async function main() {
   }
 
   // Get tickers to refresh
+  // IMPORTANT: Only process Covered Call ETFs - EXCLUDE CEFs (those with nav_symbol or nav)
   let tickers: string[];
   if (options.ticker) {
     tickers = [options.ticker];
   } else {
+    // Fetch all tickers, then filter out CEFs
     const { data, error } = await supabase
       .from('etf_static')
-      .select('ticker')
+      .select('ticker, nav_symbol, nav')
       .order('ticker');
 
     if (error || !data) {
@@ -691,7 +693,22 @@ async function main() {
       process.exit(1);
     }
 
-    tickers = data.map(t => t.ticker);
+    // Filter out CEFs: exclude records with nav_symbol or nav (those are CEFs, handled by refresh_cefs.ts)
+    const allTickers = data.map(t => ({
+      ticker: t.ticker,
+      hasNavSymbol: t.nav_symbol !== null && t.nav_symbol !== undefined && t.nav_symbol !== '',
+      hasNav: t.nav !== null && t.nav !== undefined && t.nav !== '',
+    }));
+
+    tickers = allTickers
+      .filter(t => !t.hasNavSymbol && !t.hasNav) // Only ETFs (no nav_symbol, no nav)
+      .map(t => t.ticker);
+
+    const cefCount = allTickers.length - tickers.length;
+    console.log(`\n📊 Filtered tickers:`);
+    console.log(`   - Total records: ${allTickers.length}`);
+    console.log(`   - CEFs excluded: ${cefCount}`);
+    console.log(`   - Covered Call ETFs to process: ${tickers.length}`);
   }
 
   console.log(`\nFound ${tickers.length} ticker(s) to refresh\n`);
