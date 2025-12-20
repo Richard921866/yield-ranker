@@ -1662,7 +1662,6 @@ router.get(
         : endDate.toISOString().split("T")[0];
 
       // Fetch price data (with Tiingo fallback)
-<<<<<<< HEAD
       let priceData = await getPriceHistory(ticker, startDateStr, endDateStr);
       
       // Check if we have sufficient data coverage - if not, fetch from Tiingo
@@ -1700,9 +1699,6 @@ router.get(
         }
       }
       
-=======
-      const priceData = await getPriceHistory(ticker, startDateStr, endDateStr);
->>>>>>> a70d87f304c6727e4fb80a561482c9c739387fe7
       logger.info(
         "Routes",
         `Fetched ${priceData.length} price records for ${ticker} (${startDateStr} to ${endDateStr})`
@@ -1717,7 +1713,6 @@ router.get(
             startDateStr,
             endDateStr
           );
-<<<<<<< HEAD
           
           // Check if we have sufficient NAV data coverage
           if (navData.length > 0) {
@@ -1753,8 +1748,6 @@ router.get(
             }
           }
           
-=======
->>>>>>> a70d87f304c6727e4fb80a561482c9c739387fe7
           logger.info(
             "Routes",
             `Fetched ${navData.length} NAV records for ${navSymbol} (${startDateStr} to ${endDateStr})`
