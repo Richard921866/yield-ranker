@@ -1497,9 +1497,11 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
           premiumDiscount = cef.premium_discount;
         }
 
-        // Calculate CEF metrics - use database values first, calculate if missing
+        // PRIORITIZE DATABASE VALUES - Only calculate if database value is truly missing (null or undefined)
+        // Database values are pre-computed by refresh_all.ts and should be trusted
         let fiveYearZScore: number | null = cef.five_year_z_score ?? null;
-        if (fiveYearZScore === null && cef.nav_symbol) {
+        // Only calculate if database value is missing AND we have nav_symbol
+        if ((fiveYearZScore === null || fiveYearZScore === undefined) && cef.nav_symbol) {
           try {
             fiveYearZScore = await calculateCEFZScore(cef.ticker, cef.nav_symbol);
           } catch (error) {
@@ -1508,7 +1510,7 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
         }
 
         let navTrend6M: number | null = cef.nav_trend_6m ?? null;
-        if (navTrend6M === null && cef.nav_symbol) {
+        if ((navTrend6M === null || navTrend6M === undefined) && cef.nav_symbol) {
           try {
             navTrend6M = await calculateNAVTrend6M(cef.nav_symbol);
           } catch (error) {
@@ -1517,7 +1519,7 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
         }
 
         let navTrend12M: number | null = cef.nav_trend_12m ?? null;
-        if (navTrend12M === null && cef.nav_symbol) {
+        if ((navTrend12M === null || navTrend12M === undefined) && cef.nav_symbol) {
           try {
             navTrend12M = await calculateNAVReturn12M(cef.nav_symbol);
           } catch (error) {
@@ -1526,7 +1528,8 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
         }
 
         let signal: number | null = cef.signal ?? null;
-        if (signal === null && fiveYearZScore !== null && navTrend6M !== null && navTrend12M !== null && cef.nav_symbol) {
+        // Only calculate signal if database value is missing AND we have all required inputs
+        if ((signal === null || signal === undefined) && fiveYearZScore !== null && navTrend6M !== null && navTrend12M !== null && cef.nav_symbol) {
           try {
             signal = await calculateSignal(cef.ticker, cef.nav_symbol, fiveYearZScore, navTrend6M, navTrend12M);
           } catch (error) {
@@ -1534,35 +1537,37 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
           }
         }
 
-        // Calculate TOTAL RETURNS - use database values first, calculate if missing
+        // PRIORITIZE DATABASE VALUES for Total Returns - Only calculate if database value is truly missing
+        // These are pre-computed by refresh_all.ts and stored in return_3yr, return_5yr, return_10yr, return_15yr
         let return3Yr: number | null = cef.return_3yr ?? null;
         let return5Yr: number | null = cef.return_5yr ?? null;
         let return10Yr: number | null = cef.return_10yr ?? null;
         let return15Yr: number | null = cef.return_15yr ?? null;
 
+        // Only calculate if database values are missing
         if (cef.nav_symbol) {
-          if (return3Yr === null) {
+          if ((return3Yr === null || return3Yr === undefined)) {
             try {
               return3Yr = await calculateNAVReturns(cef.nav_symbol, '3Y');
             } catch (error) {
               logger.warn("Routes", `Failed to calculate 3Y return for ${cef.ticker}: ${error}`);
             }
           }
-          if (return5Yr === null) {
+          if ((return5Yr === null || return5Yr === undefined)) {
             try {
               return5Yr = await calculateNAVReturns(cef.nav_symbol, '5Y');
             } catch (error) {
               logger.warn("Routes", `Failed to calculate 5Y return for ${cef.ticker}: ${error}`);
             }
           }
-          if (return10Yr === null) {
+          if ((return10Yr === null || return10Yr === undefined)) {
             try {
               return10Yr = await calculateNAVReturns(cef.nav_symbol, '10Y');
             } catch (error) {
               logger.warn("Routes", `Failed to calculate 10Y return for ${cef.ticker}: ${error}`);
             }
           }
-          if (return15Yr === null) {
+          if ((return15Yr === null || return15Yr === undefined)) {
             try {
               return15Yr = await calculateNAVReturns(cef.nav_symbol, '15Y');
             } catch (error) {
