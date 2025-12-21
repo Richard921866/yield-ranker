@@ -11,6 +11,10 @@ export interface CEFDataResponse {
 // Cache management
 const CEF_CACHE_KEY = "cef-data-cache";
 const CEF_CACHE_TIMESTAMP_KEY = "cef-data-cache-timestamp";
+const CEF_CACHE_VERSION_KEY = "cef-data-cache-version";
+// Increment this version when cache needs to be invalidated (e.g., after data filter changes)
+// v2: Fixed CEF filter to only show 12 actual CEFs instead of 141 records with nav_symbol
+const CURRENT_CACHE_VERSION = "v2";
 // Cache duration: 24 hours - data is updated daily from backend
 // Frontend fetches once and keeps cached data until manually refreshed or cache expires
 const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours (same as ETFs)
@@ -19,8 +23,17 @@ export function isCEFDataCached(): boolean {
   try {
     const cached = localStorage.getItem(CEF_CACHE_KEY);
     const timestamp = localStorage.getItem(CEF_CACHE_TIMESTAMP_KEY);
+    const version = localStorage.getItem(CEF_CACHE_VERSION_KEY);
+
+    // Invalidate cache if version doesn't match
+    if (version !== CURRENT_CACHE_VERSION) {
+      console.log(`[CEF Cache] Version mismatch (${version} vs ${CURRENT_CACHE_VERSION}), invalidating cache`);
+      clearCEFCache();
+      return false;
+    }
+
     if (!cached || !timestamp) return false;
-    
+
     const cacheAge = Date.now() - parseInt(timestamp, 10);
     return cacheAge < CACHE_DURATION_MS;
   } catch {
@@ -32,6 +45,7 @@ export function clearCEFCache(): void {
   try {
     localStorage.removeItem(CEF_CACHE_KEY);
     localStorage.removeItem(CEF_CACHE_TIMESTAMP_KEY);
+    localStorage.removeItem(CEF_CACHE_VERSION_KEY);
   } catch (error) {
     console.error("Failed to clear CEF cache:", error);
   }
@@ -77,37 +91,38 @@ export async function fetchCEFDataWithMetadata(): Promise<CEFDataResponse> {
     // Add timeout to fetch request - increased to 90 seconds to allow for database queries
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
-    
+
     try {
       const response = await fetch(`${API_URL}/api/cefs`, {
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch CEF data: ${response.statusText}`);
       }
       const json = await response.json();
-    
+
       // Handle both array response and wrapped response (same as ETF data)
       const cefs: CEF[] = Array.isArray(json) ? json : (json.cefs || []);
       const lastUpdated = Array.isArray(json) ? null : (json.last_updated || json.lastUpdated || null);
       const lastUpdatedTimestamp = Array.isArray(json) ? null : (json.last_updated_timestamp || json.lastUpdatedTimestamp || json.last_updated || null);
-      
+
       const data: CEFDataResponse = {
         cefs,
         lastUpdated,
         lastUpdatedTimestamp,
       };
-      
-      // Cache the response
+
+      // Cache the response with version
       try {
         localStorage.setItem(CEF_CACHE_KEY, JSON.stringify(data));
         localStorage.setItem(CEF_CACHE_TIMESTAMP_KEY, Date.now().toString());
+        localStorage.setItem(CEF_CACHE_VERSION_KEY, CURRENT_CACHE_VERSION);
       } catch (cacheError) {
         console.warn("Failed to cache CEF data:", cacheError);
       }
-      
+
       return data;
     } catch (err) {
       clearTimeout(timeoutId);
@@ -122,7 +137,7 @@ export async function fetchCEFDataWithMetadata(): Promise<CEFDataResponse> {
     // If fetch failed, try to use stale cache as fallback (even if expired)
     // This matches ETF behavior - show cached data when server is down
     console.warn("[CEF Data] Failed to fetch CEF data from backend, attempting to use cached data:", error);
-    
+
     const staleCache = localStorage.getItem(CEF_CACHE_KEY);
     if (staleCache) {
       try {
@@ -137,7 +152,7 @@ export async function fetchCEFDataWithMetadata(): Promise<CEFDataResponse> {
         console.error("[CEF Data] Failed to parse stale cache:", parseError);
       }
     }
-    
+
     // No cache available, throw the original error
     throw fetchError || (error instanceof Error ? error : new Error(String(error)));
   }
