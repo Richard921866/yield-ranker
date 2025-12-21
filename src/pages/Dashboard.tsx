@@ -2570,13 +2570,13 @@ export default function Dashboard() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
-                      className="h-9 px-3 text-sm font-medium text-foreground hover:bg-slate-50 border-slate-200 flex items-center gap-1.5"
+                      className="h-9 px-3 text-sm font-medium text-foreground hover:bg-slate-50 hover:text-foreground border-slate-200 flex items-center gap-1.5 [&>span]:text-foreground"
                     >
-                      <LayoutGrid className="w-4 h-4" />
-                      <span className="hidden sm:inline">
+                      <LayoutGrid className="w-4 h-4 hover:text-primary transition-colors" />
+                      <span className="hidden sm:inline text-foreground">
                         {selectedCategory === "cef" ? "Closed End Funds" : "Covered Call Option ETFs"}
                       </span>
-                      <span className="sm:hidden">
+                      <span className="sm:hidden text-foreground">
                         {selectedCategory === "cef" ? "CEF" : "CC ETFs"}
                       </span>
                       <ChevronDown className="w-3 h-3" />
@@ -3466,10 +3466,16 @@ export default function Dashboard() {
                                     Z-Score
                                   </th>
                                   <th className="py-2 px-2 text-center text-xs font-semibold text-muted-foreground uppercase">
-                                    Forward Yield
+                                    Last Div
+                                  </th>
+                                  <th className="py-2 px-2 text-center text-xs font-semibold text-muted-foreground uppercase">
+                                    # Pmt
                                   </th>
                                   <th className="py-2 px-2 text-center text-xs font-semibold text-muted-foreground uppercase">
                                     Yearly Div
+                                  </th>
+                                  <th className="py-2 px-2 text-center text-xs font-semibold text-muted-foreground uppercase">
+                                    Forward Yield
                                   </th>
                                 </tr>
                               </thead>
@@ -3527,6 +3533,22 @@ export default function Dashboard() {
                                     <td className="py-0.5 px-1 align-middle text-center font-bold tabular-nums text-primary text-xs">
                                       {cef.forwardYield != null ? `${cef.forwardYield.toFixed(1)}%` : 'N/A'}
                                     </td>
+                                    <td className="py-0.5 px-1 align-middle text-center">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setDividendModalSymbol(cef.symbol);
+                                          setShowDividendModal(true);
+                                        }}
+                                        className="tabular-nums text-xs text-primary font-medium hover:underline cursor-pointer transition-colors"
+                                        title="Click to view dividend history"
+                                      >
+                                        {cef.lastDividend != null ? cef.lastDividend.toFixed(4) : 'N/A'}
+                                      </button>
+                                    </td>
+                                    <td className="py-0.5 px-1 align-middle text-center tabular-nums text-xs text-muted-foreground">
+                                      {cef.numPayments}
+                                    </td>
                                     <td className="py-0.5 px-1 align-middle text-center tabular-nums text-xs text-muted-foreground">
                                       {cef.yearlyDividend != null ? `$${cef.yearlyDividend.toFixed(2)}` : 'N/A'}
                                     </td>
@@ -3534,14 +3556,14 @@ export default function Dashboard() {
                                 ))}
                                 {displayedCEFs.length === 0 && !isLoadingCEFData && (
                                   <tr>
-                                    <td colSpan={10} className="py-8 text-center text-muted-foreground">
+                                    <td colSpan={12} className="py-8 text-center text-muted-foreground">
                                       No CEFs found
                                     </td>
                                   </tr>
                                 )}
                                 {isLoadingCEFData && (
                                   <tr>
-                                    <td colSpan={10} className="py-8 text-center text-muted-foreground">
+                                    <td colSpan={12} className="py-8 text-center text-muted-foreground">
                                       Loading CEFs...
                                     </td>
                                   </tr>
@@ -3830,28 +3852,52 @@ export default function Dashboard() {
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {dividendModalSymbol && (
-                  <>
-                    {dividendModalSymbol.toUpperCase()} - Dividend Yield & Payments
-                    {etfData.find(e => e.symbol === dividendModalSymbol) ? (
-                      <p className="text-sm font-normal text-muted-foreground mt-1">
-                        {etfData.find(e => e.symbol === dividendModalSymbol)?.name}
-                      </p>
-                    ) : (
-                      <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
-                        <strong>Note:</strong> This ETF is not currently in our database, but dividend history may still be available.
-                      </div>
+                    {dividendModalSymbol && (
+                      <>
+                        {dividendModalSymbol.toUpperCase()} - Dividend Yield & Payments
+                        {selectedCategory === "cc" ? (
+                          etfData.find(e => e.symbol === dividendModalSymbol) ? (
+                            <p className="text-sm font-normal text-muted-foreground mt-1">
+                              {etfData.find(e => e.symbol === dividendModalSymbol)?.name}
+                            </p>
+                          ) : (
+                            <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                              <strong>Note:</strong> This ETF is not currently in our database, but dividend history may still be available.
+                            </div>
+                          )
+                        ) : (
+                          cefData.find(c => c.symbol === dividendModalSymbol) ? (
+                            <p className="text-sm font-normal text-muted-foreground mt-1">
+                              {cefData.find(c => c.symbol === dividendModalSymbol)?.name}
+                            </p>
+                          ) : (
+                            <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                              <strong>Note:</strong> This CEF is not currently in our database, but dividend history may still be available.
+                            </div>
+                          )
+                        )}
+                      </>
                     )}
-                  </>
-                )}
               </DialogTitle>
             </DialogHeader>
             {dividendModalSymbol && (
               <DividendHistory
                 ticker={dividendModalSymbol}
-                annualDividend={etfData.find(e => e.symbol === dividendModalSymbol)?.annualDividend ?? null}
-                dvi={etfData.find(e => e.symbol === dividendModalSymbol)?.dividendCVPercent ?? null}
-                forwardYield={etfData.find(e => e.symbol === dividendModalSymbol)?.forwardYield ?? null}
+                annualDividend={
+                  selectedCategory === "cc"
+                    ? (etfData.find(e => e.symbol === dividendModalSymbol)?.annualDividend ?? null)
+                    : (cefData.find(c => c.symbol === dividendModalSymbol)?.yearlyDividend ?? null)
+                }
+                dvi={
+                  selectedCategory === "cc"
+                    ? (etfData.find(e => e.symbol === dividendModalSymbol)?.dividendCVPercent ?? null)
+                    : (cefData.find(c => c.symbol === dividendModalSymbol)?.dividendCVPercent ?? null)
+                }
+                forwardYield={
+                  selectedCategory === "cc"
+                    ? (etfData.find(e => e.symbol === dividendModalSymbol)?.forwardYield ?? null)
+                    : (cefData.find(c => c.symbol === dividendModalSymbol)?.forwardYield ?? null)
+                }
               />
             )}
           </DialogContent>
