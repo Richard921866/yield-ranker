@@ -1358,9 +1358,15 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
 
     const supabase = getSupabase();
 
+    // Filter at database level: Only get uploaded CEFs
+    // Must have nav_symbol (not null/empty) AND issuer or description (not null/empty)
+    // This excludes NAV symbol records and ETFs
     const staticResult = await supabase
       .from("etf_static")
       .select("*")
+      .not("nav_symbol", "is", null)
+      .neq("nav_symbol", "")
+      .or("issuer.not.is.null,description.not.is.null")
       .order("ticker", { ascending: true })
       .limit(10000);
 
@@ -1377,41 +1383,39 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const allData = staticResult.data || [];
+    const staticData = staticResult.data || [];
 
-    // Only include uploaded CEFs: must have nav_symbol AND issuer/description
-    // CEFs are identified by having nav_symbol (uploaded via Excel) AND issuer/description
-    // This excludes NAV symbol records (which have nav_symbol but no issuer/description)
-    // Do NOT include records with only nav or premium_discount (those could be ETFs)
-    const staticData = allData.filter((item: any) => {
+    // Additional JavaScript filter to ensure we only have actual CEFs
+    // Exclude records where ticker matches nav_symbol (those are NAV symbol records, not CEFs)
+    const filteredData = staticData.filter((item: any) => {
       const hasNavSymbol =
         item.nav_symbol !== null &&
         item.nav_symbol !== undefined &&
         item.nav_symbol !== "";
-      // Must also have issuer or description to be the actual CEF record (not NAV symbol)
       const hasContext = 
         (item.issuer !== null && item.issuer !== undefined && item.issuer !== "") ||
         (item.description !== null && item.description !== undefined && item.description !== "");
-      // Must have nav_symbol AND issuer/description to be considered an uploaded CEF
-      return hasNavSymbol && hasContext;
+      // Exclude if ticker equals nav_symbol (that's a NAV symbol record, not the CEF itself)
+      const isNavSymbolRecord = item.ticker === item.nav_symbol;
+      return hasNavSymbol && hasContext && !isNavSymbolRecord;
     });
 
-    if (staticData.length === 0 && allData.length > 0) {
-      logger.warn("Routes", `No CEFs found - checking sample record`);
-      const sample = allData[0];
+    if (filteredData.length === 0 && staticData.length > 0) {
+      logger.warn("Routes", `No CEFs found after filtering - checking sample record`);
+      const sample = staticData[0];
       logger.warn(
         "Routes",
         `Sample record keys: ${Object.keys(sample).join(", ")}`
       );
       logger.warn(
         "Routes",
-        `Sample nav_symbol: ${sample.nav_symbol}, nav: ${sample.nav}`
+        `Sample ticker: ${sample.ticker}, nav_symbol: ${sample.nav_symbol}, issuer: ${sample.issuer}, description: ${sample.description}`
       );
     }
 
     logger.info(
       "Routes",
-      `Fetched ${allData.length} total records, ${staticData.length} CEFs (filtered by nav_symbol AND issuer/description)`
+      `Fetched ${staticData.length} records from DB, ${filteredData.length} CEFs after filtering (nav_symbol AND issuer/description, excluding NAV symbol records)`
     );
 
     // NO real-time calculations - use database values only
@@ -1419,8 +1423,8 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
     const BATCH_SIZE = 10; // Process 10 CEFs at a time
     const cefsWithDividendHistory: any[] = [];
     
-    for (let i = 0; i < staticData.length; i += BATCH_SIZE) {
-      const batch = staticData.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < filteredData.length; i += BATCH_SIZE) {
+      const batch = filteredData.slice(i, i + BATCH_SIZE);
       // Use Promise.allSettled so one failure doesn't break the whole batch
       const batchResults = await Promise.allSettled(
         batch.map(async (cef: any) => {

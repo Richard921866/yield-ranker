@@ -1061,11 +1061,12 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
 
     const supabase = getSupabase();
 
-    // Fetch all data including pre-computed metrics from etf_static
-    // EXCLUDE CEFs: only return records where nav_symbol IS NULL and nav IS NULL
+    // Filter at database level: Only get ETFs (Covered Call Options)
+    // EXCLUDE CEFs: records where nav_symbol IS NULL or empty
     const staticResult = await supabase
       .from('etf_static')
       .select('*')
+      .or('nav_symbol.is.null,nav_symbol.eq.')
       .order('ticker', { ascending: true })
       .limit(10000);
 
@@ -1075,16 +1076,9 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const allData = staticResult.data || [];
+    const staticData = staticResult.data || [];
 
-    // Simple rule: If it does NOT have nav_symbol, it's an ETF → show on Covered Call Options table
-    // If it has nav_symbol, it's a CEF → show on CEF table (handled by /cefs route)
-    const staticData = allData.filter((item: any) => {
-      const hasNavSymbol = item.nav_symbol !== null && item.nav_symbol !== undefined && item.nav_symbol !== '';
-      return !hasNavSymbol; // Exclude all records with nav_symbol
-    });
-
-    logger.info('Routes', `Fetched ${allData.length} total records, ${staticData.length} ETFs (excluded ${allData.length - staticData.length} CEFs)`);
+    logger.info('Routes', `Fetched ${staticData.length} ETFs (Covered Call Options - excluded CEFs with nav_symbol)`);
 
     // Map to frontend format
     const results = staticData.map((etf: any) => ({
