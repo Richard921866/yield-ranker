@@ -364,16 +364,15 @@ async function main() {
     // Process single ticker
     await refreshCEF(options.ticker, options.dryRun);
   } else {
-    // Get only uploaded CEFs from database (those with nav_symbol AND issuer/description)
-    // Only process CEFs that were actually uploaded (have nav_symbol AND issuer/description)
-    // This excludes NAV symbol records (which have nav_symbol but no issuer/description)
-    console.log('Fetching uploaded CEFs from database...');
+    // Get only CEFs from database (those with nav_symbol set)
+    // nav_symbol is the definitive identifier for CEFs
+    // We'll filter out NAV symbol records (where ticker === nav_symbol) in the loop
+    console.log('Fetching CEFs from database...');
     const { data: cefs, error } = await supabase
       .from('etf_static')
-      .select('ticker, nav_symbol, nav, issuer, description')
+      .select('ticker, nav_symbol, nav')
       .not('nav_symbol', 'is', null)
       .neq('nav_symbol', '')
-      .or('issuer.not.is.null,description.not.is.null')
       .order('ticker', { ascending: true });
 
     if (error) {
@@ -386,22 +385,31 @@ async function main() {
       process.exit(1);
     }
 
-    console.log(`Found ${cefs.length} CEFs to process\n`);
+    // Filter out NAV symbol records (where ticker === nav_symbol)
+    // These are the NAV ticker records themselves, not the actual CEF records
+    const actualCEFs = cefs.filter(cef => cef.ticker !== cef.nav_symbol);
+
+    if (actualCEFs.length === 0) {
+      console.error(`❌ No actual CEFs found (all records are NAV symbol records)`);
+      process.exit(1);
+    }
+
+    console.log(`Found ${cefs.length} records with nav_symbol, ${actualCEFs.length} actual CEFs (excluding NAV symbol records)\n`);
 
     // Process each CEF
-    for (let i = 0; i < cefs.length; i++) {
-      const cef = cefs[i];
-      console.log(`\n[${i + 1}/${cefs.length}]`);
+    for (let i = 0; i < actualCEFs.length; i++) {
+      const cef = actualCEFs[i];
+      console.log(`\n[${i + 1}/${actualCEFs.length}]`);
       await refreshCEF(cef.ticker, options.dryRun);
 
       // Small delay to avoid overwhelming the API (reduced from 1000ms to 500ms for faster execution)
-      if (i < cefs.length - 1) {
+      if (i < actualCEFs.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
 
     console.log(`\n${'='.repeat(60)}`);
-    console.log(`✅ Completed processing ${cefs.length} CEFs`);
+    console.log(`✅ Completed processing ${actualCEFs.length} CEFs`);
     console.log(`${'='.repeat(60)}`);
   }
 }

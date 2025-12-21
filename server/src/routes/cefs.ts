@@ -1358,15 +1358,13 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
 
     const supabase = getSupabase();
 
-    // Filter at database level: Only get uploaded CEFs
-    // Must have nav_symbol (not null/empty) AND issuer or description (not null/empty)
-    // This excludes NAV symbol records and ETFs
+    // Filter at database level: Only get CEFs (those with nav_symbol set)
+    // nav_symbol is the definitive identifier for CEFs
     const staticResult = await supabase
       .from("etf_static")
       .select("*")
       .not("nav_symbol", "is", null)
       .neq("nav_symbol", "")
-      .or("issuer.not.is.null,description.not.is.null")
       .order("ticker", { ascending: true })
       .limit(10000);
 
@@ -1385,19 +1383,11 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
 
     const staticData = staticResult.data || [];
 
-    // Additional JavaScript filter to ensure we only have actual CEFs
-    // Exclude records where ticker matches nav_symbol (those are NAV symbol records, not CEFs)
+    // Filter out NAV symbol records (where ticker === nav_symbol)
+    // These are the NAV ticker records themselves, not the actual CEF records
     const filteredData = staticData.filter((item: any) => {
-      const hasNavSymbol =
-        item.nav_symbol !== null &&
-        item.nav_symbol !== undefined &&
-        item.nav_symbol !== "";
-      const hasContext = 
-        (item.issuer !== null && item.issuer !== undefined && item.issuer !== "") ||
-        (item.description !== null && item.description !== undefined && item.description !== "");
       // Exclude if ticker equals nav_symbol (that's a NAV symbol record, not the CEF itself)
-      const isNavSymbolRecord = item.ticker === item.nav_symbol;
-      return hasNavSymbol && hasContext && !isNavSymbolRecord;
+      return item.ticker !== item.nav_symbol;
     });
 
     if (filteredData.length === 0 && staticData.length > 0) {
@@ -1415,7 +1405,7 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
 
     logger.info(
       "Routes",
-      `Fetched ${staticData.length} records from DB, ${filteredData.length} CEFs after filtering (nav_symbol AND issuer/description, excluding NAV symbol records)`
+      `Fetched ${staticData.length} records with nav_symbol, ${filteredData.length} CEFs after excluding NAV symbol records (ticker !== nav_symbol)`
     );
 
     // NO real-time calculations - use database values only
