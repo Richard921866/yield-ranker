@@ -60,12 +60,15 @@ export const Header = () => {
     ? { label: "Closed End Funds Docs", path: "/closed-end-funds" }
     : { label: "Covered Call Option ETFs Docs", path: "/covered-call-etfs" };
 
+  // Logo should navigate to the appropriate table based on selected category
+  const logoPath = currentCategory === "cef" ? "/cef" : "/";
+
   return (
     <header className="sticky top-0 z-[100] w-full border-b bg-background/95 backdrop-blur-md shadow-sm">
       <div className="w-full px-6 sm:px-8 lg:px-12">
         <div className="flex h-20 items-center justify-between gap-6">
           <NavLink
-            to="/"
+            to={logoPath}
             className="group flex-shrink-0 transition-transform hover:scale-[1.02]"
           >
             <Logo />

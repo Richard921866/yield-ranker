@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useCategory } from "@/utils/category";
 import {
   fetchETFData,
   fetchETFDataWithMetadata,
@@ -56,6 +57,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { LayoutGrid, ChevronDown } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
@@ -102,6 +110,14 @@ export default function Dashboard() {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const location = useLocation();
+  const currentCategory = useCategory();
+  const [selectedCategory, setSelectedCategory] = useState<"cef" | "cc">(currentCategory);
+
+  // Update selected category when route changes
+  useEffect(() => {
+    setSelectedCategory(currentCategory);
+  }, [currentCategory]);
   const { favorites, toggleFavorite: toggleFavoriteHook, cleanupFavorites } = useFavorites('etf');
   const [activeTab, setActiveTab] = useState("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
@@ -2239,7 +2255,17 @@ export default function Dashboard() {
           className={`h-16 border-b border-slate-200 flex items-center flex-shrink-0 ${sidebarCollapsed ? "justify-center px-2" : "px-6 justify-between"
             }`}
         >
-          {!sidebarCollapsed && <Logo simple />}
+          {!sidebarCollapsed && (
+            <button
+              onClick={() => {
+                const homePath = selectedCategory === "cef" ? "/cef" : "/";
+                navigate(homePath);
+              }}
+              className="hover:opacity-80 transition-opacity cursor-pointer"
+            >
+              <Logo simple />
+            </button>
+          )}
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             className="p-2 hover:bg-slate-100 rounded-lg transition-colors hidden lg:block"
@@ -2391,6 +2417,43 @@ export default function Dashboard() {
                 <h1 className="text-xl sm:text-2xl font-bold text-foreground">
                   Dashboard
                 </h1>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="h-9 px-3 text-sm font-medium text-foreground hover:bg-slate-50 border-slate-200 flex items-center gap-1.5"
+                    >
+                      <LayoutGrid className="w-4 h-4" />
+                      <span className="hidden sm:inline">
+                        {selectedCategory === "cef" ? "Closed End Funds" : "Covered Call Option ETFs"}
+                      </span>
+                      <span className="sm:hidden">
+                        {selectedCategory === "cef" ? "CEF" : "CC ETFs"}
+                      </span>
+                      <ChevronDown className="w-3 h-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-64">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setSelectedCategory("cc");
+                        navigate("/");
+                      }}
+                      className={`cursor-pointer ${selectedCategory === "cc" ? 'bg-slate-100 font-semibold' : ''}`}
+                    >
+                      Covered Call Option ETFs
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setSelectedCategory("cef");
+                        navigate("/cef");
+                      }}
+                      className={`cursor-pointer ${selectedCategory === "cef" ? 'bg-slate-100 font-semibold' : ''}`}
+                    >
+                      Closed End Funds
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               <div className="flex items-center gap-2 sm:gap-4">
                 <div className="hidden sm:flex items-center gap-3">
