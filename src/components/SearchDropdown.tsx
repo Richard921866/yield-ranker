@@ -6,6 +6,7 @@ import { fetchETFData } from "@/services/etfData";
 import { fetchCEFData } from "@/services/cefData";
 import { ETF } from "@/types/etf";
 import { CEF } from "@/types/cef";
+import { useCategory } from "@/utils/category";
 
 export const SearchDropdown = () => {
   const [query, setQuery] = useState("");
@@ -14,6 +15,7 @@ export const SearchDropdown = () => {
   const [cefList, setCefList] = useState<CEF[]>([]);
   const navigate = useNavigate();
   const location = useLocation();
+  const currentCategory = useCategory();
   const searchRef = useRef<HTMLDivElement>(null);
 
   const pages = [
@@ -27,34 +29,39 @@ export const SearchDropdown = () => {
     fetchCEFData().then(setCefList).catch(console.error);
   }, []);
 
-  const filteredETFs = etfList.filter((etf) =>
-    etf.symbol.toLowerCase().includes(query.toLowerCase()) ||
-    (etf.name && etf.name.toLowerCase().includes(query.toLowerCase()))
-  ).slice(0, 6);
+  // Filter based on selected category - only show results for the current category
+  const filteredETFs = currentCategory === "cc" 
+    ? etfList.filter((etf) =>
+        etf.symbol.toLowerCase().includes(query.toLowerCase()) ||
+        (etf.name && etf.name.toLowerCase().includes(query.toLowerCase()))
+      ).slice(0, 6)
+    : [];
 
-  const filteredCEFs = cefList.filter((cef) => {
-    const queryLower = query.toLowerCase();
-    const symbolMatch = cef.symbol.toLowerCase().includes(queryLower);
-    const nameMatch = cef.name?.toLowerCase().includes(queryLower);
-    const descriptionMatch = cef.description?.toLowerCase().includes(queryLower);
-    const issuerMatch = cef.issuer?.toLowerCase().includes(queryLower);
-    
-    // Special handling for "covered call" and related searches
-    const queryHasCoveredCallTerms = queryLower.includes("covered call") || 
-                                     queryLower.includes("coveredcall") ||
-                                     queryLower.includes("cc option") ||
-                                     (queryLower.includes("cc") && queryLower.includes("option")) ||
-                                     queryLower.includes("option");
-    
-    const descriptionHasCoveredCallTerms = cef.description?.toLowerCase().includes("covered call") || 
-                                           cef.description?.toLowerCase().includes("coveredcall") ||
-                                           cef.description?.toLowerCase().includes("cc") ||
-                                           cef.description?.toLowerCase().includes("option");
-    
-    const coveredCallMatch = queryHasCoveredCallTerms && descriptionHasCoveredCallTerms;
-    
-    return symbolMatch || nameMatch || descriptionMatch || issuerMatch || coveredCallMatch;
-  }).slice(0, 6);
+  const filteredCEFs = currentCategory === "cef"
+    ? cefList.filter((cef) => {
+        const queryLower = query.toLowerCase();
+        const symbolMatch = cef.symbol.toLowerCase().includes(queryLower);
+        const nameMatch = cef.name?.toLowerCase().includes(queryLower);
+        const descriptionMatch = cef.description?.toLowerCase().includes(queryLower);
+        const issuerMatch = cef.issuer?.toLowerCase().includes(queryLower);
+        
+        // Special handling for "covered call" and related searches
+        const queryHasCoveredCallTerms = queryLower.includes("covered call") || 
+                                         queryLower.includes("coveredcall") ||
+                                         queryLower.includes("cc option") ||
+                                         (queryLower.includes("cc") && queryLower.includes("option")) ||
+                                         queryLower.includes("option");
+        
+        const descriptionHasCoveredCallTerms = cef.description?.toLowerCase().includes("covered call") || 
+                                               cef.description?.toLowerCase().includes("coveredcall") ||
+                                               cef.description?.toLowerCase().includes("cc") ||
+                                               cef.description?.toLowerCase().includes("option");
+        
+        const coveredCallMatch = queryHasCoveredCallTerms && descriptionHasCoveredCallTerms;
+        
+        return symbolMatch || nameMatch || descriptionMatch || issuerMatch || coveredCallMatch;
+      }).slice(0, 6)
+    : [];
 
   const filteredPages = pages.filter((page) =>
     page.name.toLowerCase().includes(query.toLowerCase())
@@ -182,7 +189,7 @@ export const SearchDropdown = () => {
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground pointer-events-none z-10" />
         <Input
           type="text"
-          placeholder="Search ETFs & CEFs..."
+          placeholder={currentCategory === "cef" ? "Search CEFs..." : "Search ETFs..."}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);

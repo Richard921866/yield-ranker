@@ -502,7 +502,8 @@ function calculateTotalReturnDrip(
   prices: PriceRecord[],
   startDate: string,
   endDate: string,
-  requestedDays?: number
+  requestedDays?: number,
+  period?: '1W' | '1M' | '3M' | '6M' | '1Y' | '3Y' | '5Y' | '10Y' | '15Y'
 ): number | null {
   if (prices.length < 2) return null;
 
@@ -519,17 +520,40 @@ function calculateTotalReturnDrip(
   // Ensure we're not dividing by zero and dates are valid
   if (startRecord.date > endRecord.date) return null;
 
-  // Calculate return
-  const returnValue = ((endPrice / startPrice) - 1) * 100;
+  // Calculate total return: ((End / Start) - 1) * 100
+  const totalReturn = ((endPrice / startPrice) - 1) * 100;
 
   // Sanity check: returns should be reasonable (between -99% and 10000%)
   // This catches calculation errors or data issues
-  if (returnValue < -99 || returnValue > 10000 || !isFinite(returnValue)) {
-    logger.warn('Metrics', `Unreasonable total return calculated: ${returnValue}% (start: ${startPrice}, end: ${endPrice}, dates: ${startRecord.date} to ${endRecord.date})`);
+  if (totalReturn < -99 || totalReturn > 10000 || !isFinite(totalReturn)) {
+    logger.warn('Metrics', `Unreasonable total return calculated: ${totalReturn}% (start: ${startPrice}, end: ${endPrice}, dates: ${startRecord.date} to ${endRecord.date})`);
     return null;
   }
 
-  return returnValue;
+  // Annualize returns for periods over 1 year (3Y, 5Y, 10Y, 15Y)
+  // Formula: Annualized Return = ((1 + Total Return/100)^(1/years) - 1) * 100
+  if (period && (period === '3Y' || period === '5Y' || period === '10Y' || period === '15Y')) {
+    const years = period === '3Y' ? 3 : period === '5Y' ? 5 : period === '10Y' ? 10 : 15;
+    let annualizedReturn: number;
+
+    if (totalReturn <= -100) {
+      // Can't annualize a -100% or worse return
+      annualizedReturn = -100;
+    } else {
+      annualizedReturn = ((Math.pow(1 + totalReturn / 100, 1 / years)) - 1) * 100;
+    }
+
+    // Sanity check: annualized returns should be reasonable
+    if (!isFinite(annualizedReturn) || annualizedReturn < -100 || annualizedReturn > 1000) {
+      logger.warn('Metrics', `Unreasonable annualized return calculated: ${annualizedReturn}% for ${period} (total: ${totalReturn}%)`);
+      return null;
+    }
+
+    return annualizedReturn;
+  }
+
+  // For periods <= 1 year (1W, 1M, 3M, 6M, 1Y), return the raw total return (not annualized)
+  return totalReturn;
 }
 
 /**
@@ -743,7 +767,7 @@ async function calculateReturnsForPeriod(
   const requestedDays = periodDaysMap[period];
 
   return {
-    priceDrip: calculateTotalReturnDrip(prices, startDate, endDate, requestedDays),
+    priceDrip: calculateTotalReturnDrip(prices, startDate, endDate, requestedDays, period),
     priceReturn: calculatePriceReturn(prices, startDate, endDate, requestedDays),
     priceNoDrip: calculateTotalReturnNoDrip(prices, dividends, startDate, endDate, requestedDays),
   };

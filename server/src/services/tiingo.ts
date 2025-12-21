@@ -306,7 +306,6 @@ export async function fetchDividendHistory(
             .map(p => ({
                 date: new Date(p.date),
                 splitFactor: p.splitFactor,
-                inverseFactor: 1 / p.splitFactor, // Adjustment factor for pre-split dividends
             }))
             .sort((a, b) => a.date.getTime() - b.date.getTime()); // Sort chronologically (oldest first)
 
@@ -317,9 +316,15 @@ export async function fetchDividendHistory(
                 const divCash = p.divCash || 0;
                 const exDate = new Date(p.date);
                 
-                // Apply split adjustment per Gemini's method:
-                // - Dividends BEFORE split date: multiply by inverse split factor
-                // - Dividends ON or AFTER split date: use raw (already adjusted)
+                // Apply split adjustment:
+                // Tiingo's splitFactor represents the ratio of new shares to old shares
+                // - For forward splits (2-for-1): splitFactor = 2, adjustment = 1/2 = 0.5
+                // - For reverse splits (1-for-10): splitFactor = 0.1, adjustment = 0.1
+                // To adjust historical dividends to current share basis:
+                // - Forward splits (splitFactor > 1): multiply by 1/splitFactor
+                // - Reverse splits (splitFactor < 1): multiply by splitFactor
+                // - Dividends BEFORE split date: apply adjustment
+                // - Dividends ON or AFTER split date: use raw (already adjusted by Tiingo)
                 let adjDividend = divCash; // Default: no adjustment (post-split or no split)
                 
                 if (splitEvents.length > 0) {
@@ -328,10 +333,16 @@ export async function fetchDividendHistory(
                     const applicableSplits = splitEvents.filter(split => split.date > exDate);
                     
                     if (applicableSplits.length > 0) {
-                        // Use the most recent split (closest to dividend date)
-                        // For multiple splits, multiply all inverse factors
+                        // For multiple splits, calculate cumulative adjustment
+                        // For each split: if splitFactor > 1 (forward), use 1/splitFactor; if < 1 (reverse), use splitFactor
                         const adjustmentFactor = applicableSplits.reduce(
-                            (factor, split) => factor * split.inverseFactor,
+                            (factor, split) => {
+                                // Forward split: divide by splitFactor (multiply by 1/splitFactor)
+                                // Reverse split: multiply by splitFactor
+                                return split.splitFactor > 1 
+                                    ? factor * (1 / split.splitFactor)  // Forward split
+                                    : factor * split.splitFactor;        // Reverse split
+                            },
                             1
                         );
                         adjDividend = divCash * adjustmentFactor;

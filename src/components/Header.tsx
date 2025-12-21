@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { NavLink } from "./NavLink";
 import { Logo } from "./Logo";
 import { Button } from "./ui/button";
@@ -28,12 +28,13 @@ import {
   DropdownMenuLabel,
 } from "./ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCategory } from "@/utils/category";
 
 export const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
   const { user, profile, signOut, loading } = useAuth();
+  const currentCategory = useCategory();
   const isAuthenticated = !!user;
   const displayName =
     profile?.display_name ||
@@ -52,15 +53,16 @@ export const Header = () => {
     setMobileMenuOpen(false);
   };
 
-  // Determine if we're on CEF table page
-  const isOnCEFTable = location.pathname.startsWith("/cef");
-
-  // Button shows OPPOSITE category and links to its DOCUMENTATION page
-  // If on CEF table (/cef) → Button shows "Covered Call Option ETFs" → links to /covered-call-etfs (CC docs)
-  // If on CC table (/) → Button shows "Closed End Funds" → links to /closed-end-funds (CEF docs)
-  const dynamicButton = isOnCEFTable
-    ? { label: "Covered Call Option ETFs", path: "/covered-call-etfs" }  // On CEF table → show CC button → go to CC docs
-    : { label: "Closed End Funds", path: "/closed-end-funds" };           // On CC table → show CEF button → go to CEF docs
+  // Context-aware navbar based on selected category
+  // When CEF is selected: show "Closed End Funds Docs" and "Closed End Fund Resources"
+  // When CC is selected: show "Covered Call Option ETFs Docs" and "Covered Call Option ETF Resources"
+  const docsButton = currentCategory === "cef"
+    ? { label: "Closed End Funds Docs", path: "/closed-end-funds" }
+    : { label: "Covered Call Option ETFs Docs", path: "/covered-call-etfs" };
+  
+  const resourcesButton = currentCategory === "cef"
+    ? { label: "Closed End Fund Resources", path: "/resources" }
+    : { label: "Covered Call Option ETF Resources", path: "/resources" };
 
   return (
     <header className="sticky top-0 z-[100] w-full border-b bg-background/95 backdrop-blur-md shadow-sm">
@@ -83,23 +85,23 @@ export const Header = () => {
             {/* Filter Dropdown - CEFs and CC ETFs */}
             <CategorySelector />
 
-            {/* Dynamic button - Shows same category as Filter, links to its table page */}
+            {/* Docs button - Shows same category as Filter, links to its documentation page */}
             <Button
               variant="ghost"
               className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
-              onClick={() => go(dynamicButton.path)}
+              onClick={() => go(docsButton.path)}
             >
-              {dynamicButton.label}
+              {docsButton.label}
             </Button>
 
-            {/* Resources - Simple link, no dropdown */}
+            {/* Resources - Context-aware based on selected category */}
             <Button
               variant="ghost"
               className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
               onClick={() => go("/resources")}
             >
               <FileText className="w-4 h-4 mr-1.5" />
-              Resources
+              {resourcesButton.label}
             </Button>
 
             {/* Plans */}
@@ -217,16 +219,16 @@ export const Header = () => {
             <Button
               variant="ghost"
               className="justify-start px-4 py-3 text-base font-semibold text-foreground hover:bg-slate-100 rounded-md"
-              onClick={() => go(dynamicButton.path)}
+              onClick={() => go(docsButton.path)}
             >
-              {dynamicButton.label}
+              {docsButton.label}
             </Button>
             <Button
               variant="ghost"
               className="justify-start px-4 py-3 text-base font-semibold text-foreground hover:bg-slate-100 rounded-md"
               onClick={() => go("/resources")}
             >
-              Resources
+              {resourcesButton.label}
             </Button>
             <Button
               variant="ghost"

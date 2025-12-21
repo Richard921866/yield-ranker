@@ -465,7 +465,8 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
         week_52_low: metrics.week52Low,
         // Note: 5Y, 10Y, 15Y columns don't exist in database - these are calculated in real-time
         // Only save 3Y and shorter periods to database
-        tr_drip_3y: metrics.totalReturnDrip?.['3Y'],
+        // Returns over 1 year (3Y, 5Y, 10Y, 15Y) are automatically annualized by calculateTotalReturnDrip
+        tr_drip_3y: metrics.totalReturnDrip?.['3Y'], // Annualized 3-year return
         tr_drip_12m: metrics.totalReturnDrip?.['1Y'],
         tr_drip_6m: metrics.totalReturnDrip?.['6M'],
         tr_drip_3m: metrics.totalReturnDrip?.['3M'],

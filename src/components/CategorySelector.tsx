@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { ChevronDown, LayoutGrid } from "lucide-react";
 import {
@@ -7,21 +7,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { useCategory } from "@/utils/category";
 
 export const CategorySelector = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-
-  // Determine current category based on route (table pages)
-  const getCurrentCategory = (): "cef" | "cc" => {
-    if (location.pathname.startsWith("/cef")) {
-      return "cef";
-    }
-    // Default to CC if on home page or CC pages
-    return "cc";
-  };
-
-  const currentCategory = getCurrentCategory();
+  const currentCategory = useCategory();
 
   // Filter options - navigate to TABLE pages (not docs)
   const options = [
