@@ -52,11 +52,80 @@ if (!envLoaded) {
 import { createClient } from '@supabase/supabase-js';
 import { batchUpdateETFMetricsPreservingCEFFields, getPriceHistory } from '../src/services/database.js';
 import { formatDate } from '../src/utils/index.js';
+import { fetchPriceHistory, fetchDividendHistory } from '../src/services/tiingo.js';
+import type { TiingoPriceData } from '../src/types/index.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+// 15 years lookback for CEF metrics (same as refresh_all.ts)
+const LOOKBACK_DAYS = 5475; // 15 years = 15 * 365 = 5475 days
+
+function getDateDaysAgo(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split('T')[0];
+}
+
+async function upsertPrices(ticker: string, prices: TiingoPriceData[]): Promise<number> {
+  if (prices.length === 0) return 0;
+
+  // Ensure ticker exists in etf_static (required for foreign key constraint)
+  const { data: existingTicker, error: checkError } = await supabase
+    .from('etf_static')
+    .select('ticker')
+    .eq('ticker', ticker.toUpperCase())
+    .maybeSingle();
+
+  if (!existingTicker && !checkError) {
+    // Try to insert a minimal record for NAV symbols
+    console.log(`    Creating ticker record for ${ticker} (required for foreign key)...`);
+    const { error: insertError } = await supabase
+      .from('etf_static')
+      .insert({
+        ticker: ticker.toUpperCase(),
+        name: `NAV Symbol: ${ticker}`,
+        description: `Auto-created for NAV price data`,
+      });
+
+    if (insertError) {
+      console.warn(`    ⚠ Could not create ticker record for ${ticker}: ${insertError.message}`);
+      console.warn(`    ⚠ Will skip inserting prices for ${ticker} to avoid foreign key error`);
+      return 0;
+    } else {
+      console.log(`    ✓ Created ticker record for ${ticker} (NAV symbol)`);
+    }
+  }
+
+  const records = prices.map(p => ({
+    ticker: ticker.toUpperCase(),
+    date: p.date.split('T')[0],
+    open: p.open,
+    high: p.high,
+    low: p.low,
+    close: p.close,
+    adj_close: p.adjClose,
+    volume: p.volume,
+    div_cash: p.divCash || 0,
+    split_factor: p.splitFactor || 1,
+  }));
+
+  const { error } = await supabase
+    .from('prices_daily')
+    .upsert(records, {
+      onConflict: 'ticker,date',
+      ignoreDuplicates: false,
+    });
+
+  if (error) {
+    console.error(`    Error upserting prices: ${error.message}`);
+    return 0;
+  }
+
+  return records.length;
+}
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -108,8 +177,34 @@ async function refreshCEF(ticker: string, dryRun: boolean): Promise<void> {
     console.log(`  Using NAV symbol: ${navSymbolForCalc}`);
 
     if (dryRun) {
-      console.log(`  [DRY RUN] Would calculate all CEF metrics`);
+      console.log(`  [DRY RUN] Would fetch prices and calculate all CEF metrics`);
       return;
+    }
+
+    // Step 1: Fetch and store price data for both CEF ticker and NAV symbol
+    const priceStartDate = getDateDaysAgo(LOOKBACK_DAYS);
+    console.log(`  📥 Fetching price data (${LOOKBACK_DAYS} days lookback from ${priceStartDate})...`);
+
+    // Fetch CEF market prices
+    try {
+      console.log(`    Fetching market prices for ${ticker}...`);
+      const marketPrices = await fetchPriceHistory(ticker, priceStartDate);
+      const marketPricesAdded = await upsertPrices(ticker, marketPrices);
+      console.log(`    ✓ Added/updated ${marketPricesAdded} market price records for ${ticker}`);
+    } catch (error) {
+      console.warn(`    ⚠ Failed to fetch market prices for ${ticker}: ${(error as Error).message}`);
+    }
+
+    // Fetch NAV symbol prices (if different from ticker)
+    if (navSymbolForCalc && navSymbolForCalc !== ticker) {
+      try {
+        console.log(`    Fetching NAV prices for ${navSymbolForCalc}...`);
+        const navPrices = await fetchPriceHistory(navSymbolForCalc, priceStartDate);
+        const navPricesAdded = await upsertPrices(navSymbolForCalc, navPrices);
+        console.log(`    ✓ Added/updated ${navPricesAdded} NAV price records for ${navSymbolForCalc}`);
+      } catch (error) {
+        console.warn(`    ⚠ Failed to fetch NAV prices for ${navSymbolForCalc}: ${(error as Error).message}`);
+      }
     }
 
     // Import CEF calculation functions
@@ -204,7 +299,7 @@ async function refreshCEF(ticker: string, dryRun: boolean): Promise<void> {
     try {
       const { getDividendHistory } = await import('../src/services/database.js');
       const { calculateDividendVolatility } = await import('../src/services/metrics.js');
-      
+
       const dividends = await getDividendHistory(ticker.toUpperCase());
       if (dividends && dividends.length > 0) {
         dviResult = calculateDividendVolatility(dividends, 12, ticker);

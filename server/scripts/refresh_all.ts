@@ -389,7 +389,7 @@ async function upsertDividends(ticker: string, dividends: any[], dryRun: boolean
         onConflict: 'ticker,ex_date',
         ignoreDuplicates: false,
       });
-    
+
     if (retryError) {
       console.error(`  Error upserting dividends: ${retryError.message}`);
       return 0;
@@ -484,7 +484,7 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
         ticker,
         metrics: updateData,
       }]);
-      
+
       console.log(`  ✓ Metrics recalculated`);
       console.log(`    - Annual Dividend: ${metrics.annualizedDividend?.toFixed(2) || 'N/A'}`);
       console.log(`    - DVI: ${metrics.dividendCVPercent?.toFixed(1) || 'N/A'}%`);
@@ -509,7 +509,7 @@ async function main() {
     console.error('❌ CRITICAL ERROR: LOOKBACK_DAYS is undefined!');
     process.exit(1);
   }
-  
+
   if (LOOKBACK_DAYS !== 5475) {
     console.error('❌ CRITICAL ERROR: LOOKBACK_DAYS is NOT 5475!');
     console.error(`❌ Current value: ${LOOKBACK_DAYS}`);
@@ -530,7 +530,7 @@ async function main() {
   }
   const calculatedYears = Math.round(LOOKBACK_DAYS / 365);
   console.log(`Lookback: ${LOOKBACK_DAYS} days (${calculatedYears} years)`);
-  
+
   // Double-check the calculation
   if (LOOKBACK_DAYS !== 5475 || calculatedYears !== 15) {
     console.error(`❌ ERROR: LOOKBACK_DAYS verification failed!`);
@@ -567,11 +567,11 @@ async function main() {
     tickers = [options.ticker];
   } else {
     // Fetch only ETFs (exclude CEFs with nav_symbol at query level)
-    // Use .or() to get records where nav_symbol IS NULL OR nav_symbol is empty string
+    // CEFs have a nav_symbol set - we want records where nav_symbol is NULL or empty
     const { data, error } = await supabase
       .from('etf_static')
       .select('ticker, nav_symbol')
-      .or('nav_symbol.is.null,nav_symbol.eq.')
+      .or('nav_symbol.is.null,nav_symbol.eq.""')
       .order('ticker');
 
     if (error || !data) {
@@ -580,7 +580,7 @@ async function main() {
     }
 
     tickers = data.map(t => t.ticker);
-    
+
     console.log(`\n📊 Filtered tickers:`);
     console.log(`   - Covered Call ETFs to process: ${tickers.length}`);
     console.log(`   - CEFs excluded (have nav_symbol - use refresh:cefs script)`);
