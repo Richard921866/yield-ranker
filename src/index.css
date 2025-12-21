@@ -62,17 +62,28 @@ All colors MUST be HSL.
   /* Smooth page transitions - prevent white flash */
   html {
     background-color: hsl(var(--background));
+    overflow-x: hidden;
   }
 
   body {
     background-color: hsl(var(--background));
-    transition: background-color 0.2s ease;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
   }
 
-  /* Smooth route transitions */
+  /* Smooth route transitions - ensure no white flash */
   #root {
     min-height: 100vh;
+    width: 100%;
     background-color: hsl(var(--background));
+    position: relative;
+  }
+  
+  /* Ensure all page containers have background */
+  [data-page-container] {
+    background-color: hsl(var(--background));
+    min-height: 100vh;
   }
 
   .dark {

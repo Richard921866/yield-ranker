@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, createElement } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -43,29 +43,44 @@ const DisclaimerModal = lazy(() =>
 
 const queryClient = new QueryClient();
 
-// Loading fallback for lazy loaded pages
+// Loading fallback for lazy loaded pages - must have background to prevent white flash
 const PageLoading = () => (
-  <div className="flex items-center justify-center min-h-screen bg-background">
+  <div className="flex items-center justify-center min-h-screen bg-background w-full">
     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
   </div>
 );
 
-// Wrapper component for animated routes
-const AnimatedRoutes = () => {
+// Seamless page transition wrapper - prevents white flash (pagetransition)
+const PageTransition = () => {
   const location = useLocation();
   
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={location.pathname}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.2, ease: "easeInOut" }}
-        className="min-h-screen bg-background"
-      >
-        <Suspense fallback={<PageLoading />}>
-          <Routes location={location}>
+    <div 
+      className="min-h-screen w-full" 
+      style={{ 
+        backgroundColor: 'hsl(var(--background))',
+        position: 'relative',
+        minHeight: '100vh'
+      }}
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={location.pathname}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.1, ease: [0.4, 0, 0.2, 1] }}
+          className="min-h-screen w-full"
+          style={{ 
+            willChange: 'opacity', 
+            backgroundColor: 'hsl(var(--background))',
+            position: 'relative',
+            minHeight: '100vh'
+          }}
+          data-page-container
+        >
+          <Suspense fallback={<PageLoading />}>
+            <Routes location={location}>
               <Route path="/" element={<Index />} />
               <Route path="/cef" element={<CEFIndex />} />
               <Route path="/cef/:symbol" element={<CEFDetail />} />
@@ -166,10 +181,11 @@ const AnimatedRoutes = () => {
                 }
               />
               <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-      </motion.div>
-    </AnimatePresence>
+            </Routes>
+          </Suspense>
+        </motion.div>
+      </AnimatePresence>
+    </div>
   );
 };
 
@@ -184,7 +200,7 @@ const App = () => (
           <Suspense fallback={null}>
             <DisclaimerModal />
           </Suspense>
-          <AnimatedRoutes />
+          {createElement(PageTransition)}
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
