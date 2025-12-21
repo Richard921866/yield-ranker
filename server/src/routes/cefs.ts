@@ -1582,10 +1582,11 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
       lastUpdatedTimestamp: lastUpdatedTimestamp,
     };
 
-    await setCached(cacheKey, response, CACHE_TTL.ETF_LIST);
+    // TEMPORARILY DISABLE CACHE - re-enable after confirming filter works
+    // await setCached(cacheKey, response, CACHE_TTL.ETF_LIST);
     logger.info(
       "Routes",
-      `Returning ${cefsWithDividendHistory.length} CEFs (cached)`
+      `Returning ${cefsWithDividendHistory.length} CEFs (cache disabled for testing)`
     );
 
     res.json(response);
