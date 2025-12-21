@@ -1411,9 +1411,19 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
       );
     }
 
+    // Log filtering details for debugging
+    const withNavSymbol = allData.filter((item: any) => 
+      item.nav_symbol !== null && item.nav_symbol !== undefined && item.nav_symbol !== ""
+    ).length;
+    const withIssuerOrDesc = allData.filter((item: any) => {
+      const hasIssuer = item.issuer !== null && item.issuer !== undefined && item.issuer !== '';
+      const hasDescription = item.description !== null && item.description !== undefined && item.description !== '';
+      return hasIssuer || hasDescription;
+    }).length;
+    
     logger.info(
       "Routes",
-      `Fetched ${allData.length} total records, ${staticData.length} CEFs (filtered by nav_symbol or nav)`
+      `Fetched ${allData.length} total records, ${withNavSymbol} with nav_symbol, ${withIssuerOrDesc} with issuer/description, ${staticData.length} uploaded CEFs (filtered: nav_symbol AND issuer/description)`
     );
 
     // NO real-time calculations - use database values only
