@@ -1471,14 +1471,13 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
         const currentNav: number | null = cef.nav ?? null;
         const marketPrice: number | null = cef.price ?? null;
 
-        // ALWAYS calculate premium/discount from current MP and NAV
-        // Formula: ((MP / NAV - 1) * 100) as percentage
-        // Example: GAB (6.18/5.56)-1 * 100 = 11.15% (displays as +11.15%)
-        let premiumDiscount: number | null = null;
-        if (currentNav && currentNav !== 0 && marketPrice && marketPrice > 0) {
+        // Use stored premium_discount from database first (pre-calculated by refresh_cefs.ts)
+        // Only calculate if database value is missing
+        let premiumDiscount: number | null = cef.premium_discount ?? null;
+        if (premiumDiscount === null && currentNav && currentNav !== 0 && marketPrice && marketPrice > 0) {
+          // Fallback: calculate if database value is missing
+          // Formula: ((MP / NAV - 1) * 100) as percentage
           premiumDiscount = (marketPrice / currentNav - 1) * 100;
-        } else if (cef.premium_discount !== null && cef.premium_discount !== undefined) {
-          premiumDiscount = cef.premium_discount;
         }
 
         // Read CEF metrics from database first
