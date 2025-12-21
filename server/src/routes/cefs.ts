@@ -1346,20 +1346,35 @@ router.get("/test-data-range/:symbol", async (req: Request, res: Response): Prom
 router.get("/", async (_req: Request, res: Response): Promise<void> => {
   try {
     const cacheKey = "cef_list";
-    const cached = await getCached<any>(cacheKey);
-    if (cached) {
-      logger.info(
-        "Routes",
-        `Returning ${cached.cefs?.length || 0} CEFs from Redis cache`
-      );
-      res.json(cached);
-      return;
+    
+    // TEMPORARILY DISABLE CACHE to ensure fresh data with new filter
+    // TODO: Re-enable cache after confirming filter works correctly
+    // const cached = await getCached<any>(cacheKey);
+    // if (cached) {
+    //   logger.info(
+    //     "Routes",
+    //     `Returning ${cached.cefs?.length || 0} CEFs from Redis cache`
+    //   );
+    //   res.json(cached);
+    //   return;
+    // }
+
+    // Clear cache to ensure fresh data
+    const redis = getRedis();
+    if (redis) {
+      try {
+        await redis.del(cacheKey);
+        logger.info("Routes", "Cleared CEF list cache to ensure fresh filtered data");
+      } catch (cacheError) {
+        logger.warn("Routes", `Failed to clear cache: ${(cacheError as Error).message}`);
+      }
     }
 
     const supabase = getSupabase();
 
     // Filter at database level: Only get CEFs (those with nav_symbol set)
     // nav_symbol is the definitive identifier for CEFs
+    logger.info("Routes", "Fetching CEFs from database with nav_symbol filter...");
     const staticResult = await supabase
       .from("etf_static")
       .select("*")
