@@ -249,7 +249,7 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
 
       // Automatically fetch data for newly added ETFs
       logger.info('Upload', `Fetching price/dividend data for ${newTickers.length} newly added ticker(s)...`);
-      const LOOKBACK_DAYS = 365;
+      const LOOKBACK_DAYS = 15 * 365; // 15 years
       const priceStartDate = getDateDaysAgo(LOOKBACK_DAYS);
       const dividendStartDate = getDateDaysAgo(LOOKBACK_DAYS);
 

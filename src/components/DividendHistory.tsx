@@ -354,7 +354,7 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
       try {
         // Fetch Tiingo dividend data and corporate actions dates in parallel
         const [tiingoData, corpActionsResponse] = await Promise.all([
-          fetchDividends(ticker, 10),
+          fetchDividends(ticker, 15),
           fetchDividendDates(ticker).catch(() => ({ dividends: [] as DividendDates[] }))
         ]);
 
