@@ -153,11 +153,6 @@ export const Header = () => {
                     <span>Dashboard</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer" onClick={() => go("/favorites")}>
-                    <Star className="w-4 h-4 mr-2 text-yellow-500" />
-                    <span>Favorites</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem className="cursor-pointer" onClick={logout}>
                     <LogOut className="w-4 h-4 mr-2 text-primary" />
                     <span>Sign out</span>
@@ -274,11 +269,6 @@ export const Header = () => {
                     <DropdownMenuItem className="cursor-pointer" onClick={() => go("/dashboard")}>
                       <BarChart3 className="w-4 h-4 mr-2 text-primary" />
                       <span>Dashboard</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="cursor-pointer" onClick={() => go("/favorites")}>
-                      <Star className="w-4 h-4 mr-2 text-yellow-500" />
-                      <span>Favorites</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem className="cursor-pointer" onClick={logout}>
