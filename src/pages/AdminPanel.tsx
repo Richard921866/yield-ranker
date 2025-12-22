@@ -1188,9 +1188,9 @@ const AdminPanel = () => {
                       <p className="text-sm text-muted-foreground mb-4">
                         Upload Covered Call Option ETF data from Excel file.
                         <br /><br />
-                        <strong>Required:</strong> Standard DTR format columns
+                        <strong>Required:</strong> SYMBOL
                         <br />
-                        <strong>Optional:</strong> "Div" column to update current dividend amounts
+                        <strong>Optional:</strong> Issuer, Description, Pay Day, # Payments, IPO Price, Div
                       </p>
                     </div>
 
