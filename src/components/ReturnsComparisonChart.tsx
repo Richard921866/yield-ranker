@@ -33,6 +33,8 @@ interface ReturnsComparisonChartProps {
   ticker: string;
   allTickers?: string[];
   onComparisonChange?: (tickers: string[]) => void;
+  externalPeriod?: ChartPeriod;
+  hidePeriodSelector?: boolean;
 }
 
 const CHART_COLORS = {
@@ -47,8 +49,11 @@ export function ReturnsComparisonChart({
   ticker,
   allTickers = [],
   onComparisonChange,
+  externalPeriod,
+  hidePeriodSelector = false,
 }: ReturnsComparisonChartProps) {
-  const [period, setPeriod] = useState<ChartPeriod>('1Y');
+  const [internalPeriod, setInternalPeriod] = useState<ChartPeriod>('1Y');
+  const period = externalPeriod || internalPeriod;
   const [showBothLines, setShowBothLines] = useState(true);
   const [comparisonTickers, setComparisonTickers] = useState<string[]>([]);
   const [showComparisonSelector, setShowComparisonSelector] = useState(false);
@@ -100,7 +105,8 @@ export function ReturnsComparisonChart({
       
       try {
         const tickers = [ticker, ...comparisonTickers];
-        const comparison = await fetchComparison(tickers, period, 'totalReturn');
+        const currentPeriod = externalPeriod || internalPeriod;
+        const comparison = await fetchComparison(tickers, currentPeriod, 'totalReturn');
         
         // Generate chart data
         const data = generateChartDataFromComparison(comparison);
@@ -128,7 +134,7 @@ export function ReturnsComparisonChart({
     };
     
     loadChartData();
-  }, [ticker, comparisonTickers, period]);
+  }, [ticker, comparisonTickers, period, externalPeriod, internalPeriod]);
 
   // Generate chart data from comparison response
   function generateChartDataFromComparison(comparison: ComparisonData): any[] {
@@ -231,20 +237,22 @@ export function ReturnsComparisonChart({
           </div>
         </div>
         
-        {/* Period Selector */}
-        <div className="flex gap-1 flex-wrap">
-          {PERIODS.map(p => (
-            <Button
-              key={p}
-              variant={period === p ? "default" : "outline"}
-              size="sm"
-              onClick={() => setPeriod(p)}
-              className="h-8 px-3 text-xs"
-            >
-              {p}
-            </Button>
-          ))}
-        </div>
+        {/* Period Selector - only show if not hidden */}
+        {!hidePeriodSelector && (
+          <div className="flex gap-1 flex-wrap">
+            {PERIODS.map(p => (
+              <Button
+                key={p}
+                variant={period === p ? "default" : "outline"}
+                size="sm"
+                onClick={() => setInternalPeriod(p)}
+                className="h-8 px-3 text-xs"
+              >
+                {p}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Comparison Selector */}

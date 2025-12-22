@@ -566,6 +566,8 @@ const CEFDetail = () => {
               <ReturnsComparisonChart
                 ticker={symbol || ""}
                 allTickers={allCEFs.map(c => c.symbol)}
+                externalPeriod={selectedTimeframe === "10Y" ? "5Y" : selectedTimeframe === "15Y" ? "MAX" : selectedTimeframe as any}
+                hidePeriodSelector={true}
               />
             )}
           </Card>
