@@ -4,7 +4,7 @@
  * Per Section 3.2 of PDF - Displays:
  * - Top half: Line chart of annualized dividend over time (from rolling 365D series)
  * - Below: Bar chart of individual dividend payments by ex-date
- * - Time-range buttons: 1W / 1M / 3M / 6M / 1Y / 3Y / 5Y / 10Y / 20Y / ALL
+ * - Time-range buttons: 1W (if weekly) / 1M / 3M / 6M / 1Y / 3Y / 5Y / 10Y / 20Y
  * - Bottom half: Dividend payout schedule table
  */
 
@@ -50,7 +50,7 @@ interface YearlyDividend {
   dividends: DividendRecord[];
 }
 
-type TimeRange = '1W' | '1M' | '3M' | '6M' | '1Y' | '3Y' | '5Y' | '10Y' | '20Y' | 'ALL';
+type TimeRange = '1W' | '1M' | '3M' | '6M' | '1Y' | '3Y' | '5Y' | '10Y' | '20Y';
 
 export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, numPayments }: DividendHistoryProps) {
   const [dividendData, setDividendData] = useState<DividendData | null>(null);
@@ -77,7 +77,6 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
       case '5Y': cutoffDate.setFullYear(now.getFullYear() - 5); break;
       case '10Y': cutoffDate.setFullYear(now.getFullYear() - 10); break;
       case '20Y': cutoffDate.setFullYear(now.getFullYear() - 20); break;
-      case 'ALL': return dividendData.dividends;
     }
 
     return dividendData.dividends.filter(d => new Date(d.exDate) >= cutoffDate);
@@ -327,7 +326,6 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
       case '5Y': cutoffDate.setFullYear(now.getFullYear() - 5); break;
       case '10Y': cutoffDate.setFullYear(now.getFullYear() - 10); break;
       case '20Y': cutoffDate.setFullYear(now.getFullYear() - 20); break;
-      case 'ALL': return dividendData.dividends;
     }
 
     return dividendData.dividends.filter(d => new Date(d.exDate) >= cutoffDate);
@@ -346,6 +344,39 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
       .sort((a, b) => b[0] - a[0])
       .map(([year, records]) => ({ year, records }));
   }, [getFilteredTableRecords]);
+
+  // Detect if there are weekly dividends
+  const hasWeeklyDividends = useMemo(() => {
+    if (!dividendData?.dividends || dividendData.dividends.length < 2) return false;
+    
+    // Check numPayments prop (52 = weekly)
+    if (numPayments === 52) return true;
+    
+    // Check frequency field in recent dividends
+    const recentDividends = dividendData.dividends.slice(0, Math.min(10, dividendData.dividends.length));
+    const hasWeeklyFrequency = recentDividends.some(div => {
+      const freq = String(div.frequency || '').toLowerCase();
+      return freq.includes('week') || freq === 'weekly' || freq === 'wk' || freq === 'w';
+    });
+    if (hasWeeklyFrequency) return true;
+    
+    // Check actual payment intervals (if <= 10 days between payments, it's weekly)
+    for (let i = 0; i < recentDividends.length - 1; i++) {
+      const currentDate = new Date(recentDividends[i].exDate);
+      const nextDate = new Date(recentDividends[i + 1].exDate);
+      const daysBetween = Math.abs((nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysBetween <= 10) return true;
+    }
+    
+    return false;
+  }, [dividendData, numPayments]);
+
+  // Reset timeRange if it's '1W' but there are no weekly dividends
+  useEffect(() => {
+    if (timeRange === '1W' && !hasWeeklyDividends && dividendData) {
+      setTimeRange('1Y');
+    }
+  }, [timeRange, hasWeeklyDividends, dividendData]);
 
   const toggleYear = (year: number) => {
     setExpandedYears(prev => {
@@ -437,7 +468,7 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
     <Card className="p-3 sm:p-4 md:p-6">
 
       <div className="flex gap-1 mb-4 flex-wrap">
-        {(['1W', '1M', '3M', '6M', '1Y', '3Y', '5Y', '10Y', '20Y', 'ALL'] as TimeRange[]).map((range) => (
+        {((hasWeeklyDividends ? ['1W', '1M', '3M', '6M', '1Y', '3Y', '5Y', '10Y', '20Y'] : ['1M', '3M', '6M', '1Y', '3Y', '5Y', '10Y', '20Y']) as TimeRange[]).map((range) => (
           <Button
             key={range}
             variant={timeRange === range ? "default" : "outline"}
