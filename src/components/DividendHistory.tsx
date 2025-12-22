@@ -4,7 +4,7 @@
  * Per Section 3.2 of PDF - Displays:
  * - Top half: Line chart of annualized dividend over time (from rolling 365D series)
  * - Below: Bar chart of individual dividend payments by ex-date
- * - Time-range buttons: 1Y / 3Y / 5Y / 10Y / 20Y / ALL
+ * - Time-range: 20Y (fixed)
  * - Bottom half: Dividend payout schedule table
  */
 
@@ -50,7 +50,7 @@ interface YearlyDividend {
   dividends: DividendRecord[];
 }
 
-type TimeRange = '1Y' | '3Y' | '5Y' | '10Y' | '20Y' | 'ALL';
+type TimeRange = '20Y';
 
 export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, numPayments }: DividendHistoryProps) {
   const [dividendData, setDividendData] = useState<DividendData | null>(null);
@@ -59,7 +59,7 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
   const [error, setError] = useState<string | null>(null);
   const [showAllRecords, setShowAllRecords] = useState(false);
   const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
-  const [timeRange, setTimeRange] = useState<TimeRange>('5Y');
+  const [timeRange, setTimeRange] = useState<TimeRange>('20Y');
 
   const getFilteredDividends = useMemo(() => {
     if (!dividendData?.dividends) return [];
@@ -68,12 +68,7 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
     const cutoffDate = new Date();
 
     switch (timeRange) {
-      case '1Y': cutoffDate.setFullYear(now.getFullYear() - 1); break;
-      case '3Y': cutoffDate.setFullYear(now.getFullYear() - 3); break;
-      case '5Y': cutoffDate.setFullYear(now.getFullYear() - 5); break;
-      case '10Y': cutoffDate.setFullYear(now.getFullYear() - 10); break;
       case '20Y': cutoffDate.setFullYear(now.getFullYear() - 20); break;
-      case 'ALL': return dividendData.dividends;
     }
 
     return dividendData.dividends.filter(d => new Date(d.exDate) >= cutoffDate);
@@ -314,12 +309,7 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
     const cutoffDate = new Date();
 
     switch (timeRange) {
-      case '1Y': cutoffDate.setFullYear(now.getFullYear() - 1); break;
-      case '3Y': cutoffDate.setFullYear(now.getFullYear() - 3); break;
-      case '5Y': cutoffDate.setFullYear(now.getFullYear() - 5); break;
-      case '10Y': cutoffDate.setFullYear(now.getFullYear() - 10); break;
       case '20Y': cutoffDate.setFullYear(now.getFullYear() - 20); break;
-      case 'ALL': return dividendData.dividends;
     }
 
     return dividendData.dividends.filter(d => new Date(d.exDate) >= cutoffDate);
@@ -427,17 +417,14 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
     <Card className="p-3 sm:p-4 md:p-6">
 
       <div className="flex gap-1 mb-4 flex-wrap">
-        {(['1Y', '3Y', '5Y', '10Y', '20Y', 'ALL'] as TimeRange[]).map((range) => (
-          <Button
-            key={range}
-            variant={timeRange === range ? "default" : "outline"}
-            size="sm"
-            onClick={() => setTimeRange(range)}
-            className="h-8 px-2 sm:px-3 text-xs flex-shrink-0"
-          >
-            {range}
-          </Button>
-        ))}
+        <Button
+          variant="default"
+          size="sm"
+          className="h-8 px-2 sm:px-3 text-xs flex-shrink-0"
+          disabled
+        >
+          20Y
+        </Button>
       </div>
 
       {individualChartData && individualChartData.chartData && individualChartData.chartData.length > 0 && individualChartData.chartData.some(d => d.amount > 0 && !isNaN(d.amount)) ? (

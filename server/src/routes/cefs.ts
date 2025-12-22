@@ -1687,6 +1687,9 @@ router.get(
           case "15Y":
             startDate.setFullYear(startDate.getFullYear() - 15);
             break;
+          case "20Y":
+            startDate.setFullYear(startDate.getFullYear() - 20);
+            break;
           default:
             startDate.setFullYear(startDate.getFullYear() - 1);
         }
