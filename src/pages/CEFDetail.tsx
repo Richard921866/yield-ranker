@@ -412,19 +412,21 @@ const CEFDetail = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex gap-1 flex-wrap">
-                  {timeframes.map((tf) => (
-                    <Button
-                      key={tf}
-                      variant={selectedTimeframe === tf ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedTimeframe(tf)}
-                      className="h-9 px-3 text-xs"
-                    >
-                      {tf}
-                    </Button>
-                  ))}
-                </div>
+                {chartType !== "totalReturn" && (
+                  <div className="flex gap-1 flex-wrap">
+                    {timeframes.map((tf) => (
+                      <Button
+                        key={tf}
+                        variant={selectedTimeframe === tf ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedTimeframe(tf)}
+                        className="h-9 px-3 text-xs"
+                      >
+                        {tf}
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
               {chartType === "priceNAV" && (
                 <Button

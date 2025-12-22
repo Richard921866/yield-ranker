@@ -181,8 +181,8 @@ export async function calculateNAVTrend6M(
 
     if (!currentNav || !past126Nav || past126Nav <= 0) return null;
 
-    // Calculate percentage change: ((Current / Past) - 1) * 100
-    const trend = (currentNav / past126Nav - 1) * 100;
+    // Calculate percentage change: ((Current - Past) / Past) * 100
+    const trend = ((currentNav - past126Nav) / past126Nav) * 100;
 
     // Sanity check
     if (!isFinite(trend) || trend < -99 || trend > 10000) return null;
@@ -246,8 +246,8 @@ export async function calculateNAVReturn12M(
 
     if (!currentNav || !past252Nav || past252Nav <= 0) return null;
 
-    // Calculate percentage change: ((Current / Past) - 1) * 100
-    const trend = (currentNav / past252Nav - 1) * 100;
+    // Calculate percentage change: ((Current - Past) / Past) * 100
+    const trend = ((currentNav - past252Nav) / past252Nav) * 100;
 
     // Sanity check
     if (!isFinite(trend) || trend < -99 || trend > 10000) return null;

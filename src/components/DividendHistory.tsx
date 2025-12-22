@@ -81,7 +81,7 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
 
   const yearlyDividends = useMemo(() => {
     // Use filtered dividends to match what's shown in the table
-    const filteredDivs = getFilteredDividends;
+    const filteredDivs = getFilteredDividends();
     if (!filteredDivs || filteredDivs.length === 0) return [];
 
     const result: YearlyDividend[] = [];
@@ -280,9 +280,9 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
   }, [getFilteredDividends]);
 
   const chartData = useMemo(() => {
+    // Get the last 5 years (most recent) and display oldest to newest (left to right)
     return yearlyDividends
-      .slice(0, 5)
-      .reverse()
+      .slice(-5)
       .map(y => {
         const total = typeof y.total === 'number' && !isNaN(y.total) && isFinite(y.total) && y.total > 0
           ? Number(y.total.toFixed(4))
@@ -510,13 +510,8 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                             Ex-Date: {exDateStr}
                           </div>
                           {!isNaN(amountValue) && isFinite(amountValue) && (
-                            <div style={{ fontSize: '12px', marginBottom: '2px' }}>
-                              BAR: Actual Div {amountValue.toFixed(4)}
-                            </div>
-                          )}
-                          {!isNaN(normalizedValue) && isFinite(normalizedValue) && (
                             <div style={{ fontSize: '12px' }}>
-                              LINE: Normalized Div {normalizedValue.toFixed(4)}
+                              Actual Div: {amountValue.toFixed(4)}
                             </div>
                           )}
                         </div>
@@ -524,15 +519,6 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                     }}
                   />
                   <Bar dataKey="amount" fill="#93c5fd" radius={[2, 2, 0, 0]} name="Individual Payment Amount (Monthly/Weekly)" minPointSize={3} />
-                  <Line
-                    type="monotone"
-                    dataKey="normalizedRate"
-                    stroke="#ef4444"
-                    strokeWidth={2}
-                    dot={{ fill: '#ef4444', r: 3 }}
-                    name="Equivalent Weekly Rate (Rate Normalized to Weekly Payout)"
-                    connectNulls={false}
-                  />
                 </ComposedChart>
               ) : (
                 <BarChart
