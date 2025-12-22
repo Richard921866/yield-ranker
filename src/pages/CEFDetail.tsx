@@ -384,55 +384,43 @@ const CEFDetail = () => {
               </h2>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 relative z-0">
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-bold text-muted-foreground whitespace-nowrap">
-                    Metric:
-                  </label>
-                  <Select
-                    value={chartType}
-                    onValueChange={(value: ChartType) => setChartType(value)}
-                  >
-                    <SelectTrigger className="w-[160px] h-9 text-sm text-blue-600 border-blue-600 focus:border-blue-600 focus:ring-blue-600">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="priceNAV">
-                        <span className="font-bold">Price/NAV</span>
-                      </SelectItem>
-                      <SelectItem value="totalReturn">
-                        <span className="font-bold">Total Return (DRIP)</span>
-                      </SelectItem>
-                      <SelectItem value="priceReturn">
-                        <span className="font-bold">Price Return</span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex gap-1 flex-wrap">
-                  {timeframes.map((tf) => (
-                    <Button
-                      key={tf}
-                      variant={selectedTimeframe === tf ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedTimeframe(tf)}
-                      className="h-9 px-3 text-xs"
-                    >
-                      {tf}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              {chartType === "priceNAV" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate(`/cef/${cef.symbol}/dividends`)}
-                  className="h-9 px-3 text-xs"
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-bold text-muted-foreground whitespace-nowrap">
+                  Metric:
+                </label>
+                <Select
+                  value={chartType}
+                  onValueChange={(value: ChartType) => setChartType(value)}
                 >
-                  Dividend History
-                </Button>
-              )}
+                  <SelectTrigger className="w-[160px] h-9 text-sm text-blue-600 border-blue-600 focus:border-blue-600 focus:ring-blue-600">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="priceNAV">
+                      <span className="font-bold">Price/NAV</span>
+                    </SelectItem>
+                    <SelectItem value="totalReturn">
+                      <span className="font-bold">Total Return (DRIP)</span>
+                    </SelectItem>
+                    <SelectItem value="priceReturn">
+                      <span className="font-bold">Price Return</span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-1 flex-wrap justify-end">
+                {timeframes.map((tf) => (
+                  <Button
+                    key={tf}
+                    variant={selectedTimeframe === tf ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedTimeframe(tf)}
+                    className="h-9 px-3 text-xs"
+                  >
+                    {tf}
+                  </Button>
+                ))}
+              </div>
             </div>
 
             {chartError && (
