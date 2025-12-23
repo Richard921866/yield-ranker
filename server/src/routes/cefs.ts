@@ -146,11 +146,11 @@ export async function calculateNAVTrend6M(
 
   try {
     // Get enough history: need at least 6 calendar months + buffer
-    const endDate = new Date();
+    const today = new Date();
     const startDate = new Date();
-    startDate.setMonth(endDate.getMonth() - 7); // Get 7 months to ensure we have data
+    startDate.setMonth(today.getMonth() - 7); // Get 7 months to ensure we have data
     const startDateStr = formatDate(startDate);
-    const endDateStr = formatDate(endDate);
+    const endDateStr = formatDate(today);
 
     const navData = await getPriceHistory(
       navSymbol.toUpperCase(),
@@ -158,28 +158,35 @@ export async function calculateNAVTrend6M(
       endDateStr
     );
 
-    if (navData.length === 0) {
-      logger.info("CEF Metrics", `6M NAV Trend N/A for ${navSymbol}: no data available`);
+    if (navData.length < 2) {
+      logger.info("CEF Metrics", `6M NAV Trend N/A for ${navSymbol}: insufficient data (${navData.length} < 2 records)`);
       return null;
     }
 
     // Sort by date ascending (oldest first)
     navData.sort((a, b) => a.date.localeCompare(b.date));
 
-    // Get current NAV (last record)
+    // Get current NAV (last record - most recent available date)
     const currentRecord = navData[navData.length - 1];
     if (!currentRecord) return null;
 
-    // Calculate date exactly 6 calendar months ago
-    const sixMonthsAgo = new Date(endDate);
-    sixMonthsAgo.setMonth(endDate.getMonth() - 6);
+    // Use the current record's date (not today) to calculate 6 months ago
+    // This ensures we use the actual last available data date
+    const currentDate = new Date(currentRecord.date + 'T00:00:00');
+    const sixMonthsAgo = new Date(currentDate);
+    sixMonthsAgo.setMonth(currentDate.getMonth() - 6);
     const sixMonthsAgoStr = formatDate(sixMonthsAgo);
 
-    // Find NAV record on or before 6 months ago (get closest available date)
-    const sixMonthsRecords = navData.filter(r => r.date <= sixMonthsAgoStr);
-    const past6MRecord = sixMonthsRecords.length > 0 
-      ? sixMonthsRecords[sixMonthsRecords.length - 1] 
-      : navData.find(r => r.date >= sixMonthsAgoStr);
+    // Find NAV record closest to 6 months ago (get closest available date)
+    // Prefer records on or after the target date, but take closest if none available
+    let past6MRecord = navData.find(r => r.date >= sixMonthsAgoStr);
+    if (!past6MRecord) {
+      // If no record on/after target date, use the last record before it
+      const sixMonthsRecords = navData.filter(r => r.date <= sixMonthsAgoStr);
+      past6MRecord = sixMonthsRecords.length > 0 
+        ? sixMonthsRecords[sixMonthsRecords.length - 1] 
+        : null;
+    }
 
     if (!past6MRecord) {
       logger.info("CEF Metrics", `6M NAV Trend N/A for ${navSymbol}: no data available for 6 months ago (${sixMonthsAgoStr})`);
@@ -226,11 +233,11 @@ export async function calculateNAVReturn12M(
 
   try {
     // Get enough history: need at least 12 calendar months + buffer
-    const endDate = new Date();
+    const today = new Date();
     const startDate = new Date();
-    startDate.setFullYear(endDate.getFullYear() - 2); // Get 2 years to ensure we have data
+    startDate.setFullYear(today.getFullYear() - 2); // Get 2 years to ensure we have data
     const startDateStr = formatDate(startDate);
-    const endDateStr = formatDate(endDate);
+    const endDateStr = formatDate(today);
 
     const navData = await getPriceHistory(
       navSymbol.toUpperCase(),
@@ -238,28 +245,35 @@ export async function calculateNAVReturn12M(
       endDateStr
     );
 
-    if (navData.length === 0) {
-      logger.info("CEF Metrics", `12M NAV Trend N/A for ${navSymbol}: no data available`);
+    if (navData.length < 2) {
+      logger.info("CEF Metrics", `12M NAV Trend N/A for ${navSymbol}: insufficient data (${navData.length} < 2 records)`);
       return null;
     }
 
     // Sort by date ascending (oldest first)
     navData.sort((a, b) => a.date.localeCompare(b.date));
 
-    // Get current NAV (last record)
+    // Get current NAV (last record - most recent available date)
     const currentRecord = navData[navData.length - 1];
     if (!currentRecord) return null;
 
-    // Calculate date exactly 12 calendar months ago
-    const twelveMonthsAgo = new Date(endDate);
-    twelveMonthsAgo.setMonth(endDate.getMonth() - 12);
+    // Use the current record's date (not today) to calculate 12 months ago
+    // This ensures we use the actual last available data date
+    const currentDate = new Date(currentRecord.date + 'T00:00:00');
+    const twelveMonthsAgo = new Date(currentDate);
+    twelveMonthsAgo.setMonth(currentDate.getMonth() - 12);
     const twelveMonthsAgoStr = formatDate(twelveMonthsAgo);
 
-    // Find NAV record on or before 12 months ago (get closest available date)
-    const twelveMonthsRecords = navData.filter(r => r.date <= twelveMonthsAgoStr);
-    const past12MRecord = twelveMonthsRecords.length > 0 
-      ? twelveMonthsRecords[twelveMonthsRecords.length - 1] 
-      : navData.find(r => r.date >= twelveMonthsAgoStr);
+    // Find NAV record closest to 12 months ago (get closest available date)
+    // Prefer records on or after the target date, but take closest if none available
+    let past12MRecord = navData.find(r => r.date >= twelveMonthsAgoStr);
+    if (!past12MRecord) {
+      // If no record on/after target date, use the last record before it
+      const twelveMonthsRecords = navData.filter(r => r.date <= twelveMonthsAgoStr);
+      past12MRecord = twelveMonthsRecords.length > 0 
+        ? twelveMonthsRecords[twelveMonthsRecords.length - 1] 
+        : null;
+    }
 
     if (!past12MRecord) {
       logger.info("CEF Metrics", `12M NAV Trend N/A for ${navSymbol}: no data available for 12 months ago (${twelveMonthsAgoStr})`);
