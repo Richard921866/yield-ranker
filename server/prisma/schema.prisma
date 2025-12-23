@@ -493,6 +493,8 @@ model saved_screeners {
   created_at DateTime? @default(now()) @db.Timestamptz(6)
   users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  @@index([user_id], map: "idx_saved_screeners_user_id")
+  @@index([user_id, created_at(sort: Desc)], map: "idx_saved_screeners_user_created")
   @@schema("public")
 }
 
@@ -519,6 +521,7 @@ model site_settings {
   updated_at  DateTime? @default(now()) @db.Timestamptz(6)
   users       users?    @relation(fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
+  @@index([updated_at], map: "idx_site_settings_updated_at")
   @@schema("public")
 }
 
@@ -597,6 +600,9 @@ model etf_static {
   @@index([issuer], map: "idx_etf_static_issuer")
   @@index([weighted_rank], map: "idx_etf_static_weighted_rank")
   @@index([forward_yield], map: "idx_etf_static_forward_yield")
+  @@index([last_updated], map: "idx_etf_static_last_updated")
+  @@index([tr_drip_12m], map: "idx_etf_static_tr_drip_12m")
+  @@index([dividend_cv_percent], map: "idx_etf_static_dividend_cv")
   @@schema("public")
 }
 
@@ -625,6 +631,7 @@ model prices_daily {
   @@index([ticker], map: "idx_prices_daily_ticker")
   @@index([date], map: "idx_prices_daily_date")
   @@index([ticker, date(sort: Desc)], map: "idx_prices_daily_ticker_date")
+  @@index([ticker, div_cash], map: "idx_prices_daily_ticker_div_cash")
   @@schema("public")
 }
 
@@ -652,6 +659,7 @@ model dividends_detail {
   @@index([ticker], map: "idx_dividends_detail_ticker")
   @@index([ex_date], map: "idx_dividends_detail_ex_date")
   @@index([ticker, ex_date(sort: Desc)], map: "idx_dividends_detail_ticker_exdate")
+  @@index([div_type], map: "idx_dividends_detail_div_type")
   @@schema("public")
 }
 

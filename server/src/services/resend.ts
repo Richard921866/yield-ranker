@@ -63,7 +63,7 @@ export async function sendEmail(
         };
     }
 
-    const fromEmail = from || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+    const fromEmail = from || process.env.RESEND_FROM_EMAIL || 'noreply@dividendsandtotalreturns.com';
     const toEmails = Array.isArray(to) ? to : [to];
 
     try {
