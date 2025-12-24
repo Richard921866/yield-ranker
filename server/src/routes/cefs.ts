@@ -179,13 +179,13 @@ export async function calculateNAVTrend6M(
 
     // Find NAV record closest to 6 months ago (get closest available date)
     // Prefer records on or after the target date, but take closest if none available
-    let past6MRecord = navData.find(r => r.date >= sixMonthsAgoStr);
+    let past6MRecord: typeof navData[0] | undefined = navData.find(r => r.date >= sixMonthsAgoStr);
     if (!past6MRecord) {
       // If no record on/after target date, use the last record before it
       const sixMonthsRecords = navData.filter(r => r.date <= sixMonthsAgoStr);
       past6MRecord = sixMonthsRecords.length > 0 
         ? sixMonthsRecords[sixMonthsRecords.length - 1] 
-        : null;
+        : undefined;
     }
 
     if (!past6MRecord) {
@@ -266,13 +266,13 @@ export async function calculateNAVReturn12M(
 
     // Find NAV record closest to 12 months ago (get closest available date)
     // Prefer records on or after the target date, but take closest if none available
-    let past12MRecord = navData.find(r => r.date >= twelveMonthsAgoStr);
+    let past12MRecord: typeof navData[0] | undefined = navData.find(r => r.date >= twelveMonthsAgoStr);
     if (!past12MRecord) {
       // If no record on/after target date, use the last record before it
       const twelveMonthsRecords = navData.filter(r => r.date <= twelveMonthsAgoStr);
       past12MRecord = twelveMonthsRecords.length > 0 
         ? twelveMonthsRecords[twelveMonthsRecords.length - 1] 
-        : null;
+        : undefined;
     }
 
     if (!past12MRecord) {
