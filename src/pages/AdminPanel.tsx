@@ -889,7 +889,9 @@ const AdminPanel = () => {
                       ? "Delete Data"
                       : activeTab === "favorites"
                         ? "Favorites"
-                        : "Site Settings"}
+                        : activeTab === "price-reference"
+                          ? "Price Reference"
+                          : "Site Settings"}
               </h1>
             </div>
             <div className="flex items-center gap-3">
