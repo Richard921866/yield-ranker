@@ -541,7 +541,11 @@ export const CEFTable = ({
                 className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors"
                 onClick={() => {
                   onSelectionChange?.(cef.symbol);
-                  navigate(`/cef/${cef.symbol}`);
+                  if (onSymbolClick) {
+                    onSymbolClick(cef.symbol);
+                  } else {
+                    navigate(`/cef/${cef.symbol}`);
+                  }
                 }}
               >
                 <td className="py-1 px-1.5 align-middle text-center sticky left-0 z-10 bg-white border-r border-slate-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
@@ -563,7 +567,8 @@ export const CEFTable = ({
                 </td>
                 <td className="py-1 px-1.5 sm:px-2 align-middle sticky left-[28px] z-10 bg-white border-r border-slate-200 text-primary text-xs transition-all shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] min-w-[70px] sm:min-w-[80px]">
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       if (onSymbolClick) {
                         onSymbolClick(cef.symbol);
                       } else {
