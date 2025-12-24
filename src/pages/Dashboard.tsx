@@ -24,6 +24,7 @@ import { RankingWeights as CEFRankingWeights } from "@/types/cef";
 import { ETF } from "@/types/etf";
 import { CEF } from "@/types/cef";
 import { CEFTable } from "@/components/CEFTable";
+import { ETFTable } from "@/components/ETFTable";
 import {
   LogOut,
   Home,
@@ -648,6 +649,8 @@ export default function Dashboard() {
 
   const totalWeight = (yieldWeight ?? 0) + (volatilityWeight ?? 0) + (totalReturnWeight ?? 0);
   const isValid = !isNaN(totalWeight) && totalWeight === 100;
+  const cefTotalWeight = (cefYieldWeight ?? 0) + (cefVolatilityWeight ?? 0) + (cefTotalReturnWeight ?? 0);
+  const cefIsValid = !isNaN(cefTotalWeight) && cefTotalWeight === 100;
 
   // Function to load weights from profile
   const loadWeightsFromProfile = useCallback(() => {
@@ -2994,54 +2997,21 @@ export default function Dashboard() {
                   )}
                   {/* Covered Call Option ETFs Section - Only show when CC category is selected */}
                   {selectedCategory === "cc" && (
-                    <>
-                      {isLoadingData ? (
-                        <div className="flex-1 flex items-center justify-center">
-                          <div className="text-center">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-                            <p className="text-muted-foreground">Loading ETF data...</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex-1 min-h-0 flex flex-col">
-                          <div className="w-full max-w-[98%] mx-auto flex flex-col min-h-0 flex-1">
-                            <Card className="p-2 sm:p-3 border-2 border-slate-200 flex-1 min-h-0 flex flex-col">
-                              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-2 sm:mb-3 flex-shrink-0">
-                                <div className="flex flex-col gap-1">
-                                  <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">
-                                    Covered Call Option ETFs
-                                  </h3>
-                              <div className="text-xs text-muted-foreground leading-tight">
-                                {lastDataUpdate ? (
-                                  <div className="flex items-center gap-1 mb-1">
-                                    <Clock className="h-3 w-3" />
-                                    <span>Last updated: {lastDataUpdate}</span>
-                                    <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
-                                  </div>
-                                ) : (
-                                  <div className="mb-1">
-                                    <span>Last updated: {lastDataUpdate || 'N/A'}</span>
-                                    <span className="ml-2 text-primary font-medium">Source: Tiingo</span>
-                                  </div>
-                                )}
-                                <div className="mt-1">Records: {uniqueSymbolETFs.length}</div>
-                              </div>
+                    <div className="space-y-6">
+                      <Card className="p-6">
+                        <div className="space-y-4">
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                            <div className="flex flex-col gap-1">
+                              <h2 className="text-2xl font-bold text-foreground">
+                                Covered Call Option ETFs
+                              </h2>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {isLoadingData ? "Loading..." : `${uniqueSymbolETFs.length} ETFs`}
+                                {lastDataUpdate && ` • Last updated: ${lastDataUpdate}`}
+                              </p>
                             </div>
                             <div className="flex flex-col gap-2">
-                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:pt-0.5 w-full sm:w-auto md:flex-nowrap">
-                                {/* Search - Hidden on mobile landscape */}
-                                {!(isLandscape && typeof window !== 'undefined' && window.innerWidth < 1024) && (
-                                  <div className="relative w-full sm:w-auto min-w-[200px] sm:max-w-xs md:max-w-sm">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                    <Input
-                                      placeholder="Search ETFs..."
-                                      value={searchQuery}
-                                      onChange={(e) => setSearchQuery(e.target.value)}
-                                      className="pl-10 w-full h-10 sm:h-9 md:h-9 border-2 text-sm"
-                                    />
-                                  </div>
-                                )}
-                                {/* Customize Rankings with ranking numbers positioned above without affecting alignment */}
+                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:pt-0.5 md:flex-nowrap">
                                 <div className="relative">
                                   {isPremium && (
                                     <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs sm:text-sm text-muted-foreground font-medium whitespace-nowrap">
@@ -3064,60 +3034,61 @@ export default function Dashboard() {
                                     Customize Rankings
                                   </Button>
                                 </div>
-                                {/* Total Return / Price Return Toggle - 50/50 split with blue background */}
-                                <div className="relative inline-flex items-center h-10 sm:h-9 md:h-9 border-2 border-slate-300 rounded-md overflow-hidden w-full sm:w-auto">
-                                  <div
-                                    className={`absolute top-0 bottom-0 left-0 bg-primary transition-all duration-200 ${showTotalReturns ? 'w-1/2' : 'w-1/2 translate-x-full'
-                                      }`}
-                                    style={{ zIndex: 0 }}
-                                  />
+                                {isPremium && (
                                   <button
-                                    onClick={() => setShowTotalReturns(true)}
-                                    className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 whitespace-nowrap ${showTotalReturns
-                                      ? "text-white"
-                                      : "text-slate-600 hover:text-slate-900"
+                                    onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                                    className={`border-2 h-10 sm:h-9 md:h-9 transition-colors whitespace-nowrap w-full sm:w-auto md:flex-shrink-0 justify-center px-4 rounded-md flex items-center ${showFavoritesOnly
+                                        ? "bg-yellow-500 hover:bg-yellow-600 border-yellow-500 text-white"
+                                        : "border-yellow-400 text-yellow-600 hover:bg-yellow-50 hover:text-yellow-600"
                                       }`}
                                   >
-                                    Total Returns
+                                    <Star
+                                      className={`h-4 w-4 mr-2 ${showFavoritesOnly ? "fill-white" : "fill-yellow-400"
+                                        }`}
+                                    />
+                                    {showFavoritesOnly ? "Show All" : "Favorites"}{" "}
+                                    {favorites.size > 0 && `(${favorites.size})`}
                                   </button>
-                                  <button
-                                    onClick={() => setShowTotalReturns(false)}
-                                    className={`relative z-10 flex-1 px-3 sm:px-4 py-2 text-xs font-semibold transition-colors duration-200 md:whitespace-nowrap ${!showTotalReturns
-                                      ? "text-white"
-                                      : "text-slate-600 hover:text-slate-900"
-                                      }`}
-                                  >
-                                    Price Returns
-                                  </button>
-                                </div>
-                                {/* Favorites - Rightmost */}
-                                <Button
-                                  variant={showFavoritesOnly ? "default" : "outline"}
-                                  size="sm"
-                                  onClick={() =>
-                                    setShowFavoritesOnly(!showFavoritesOnly)
-                                  }
-                                  className={`border-2 h-10 sm:h-9 md:h-9 transition-colors whitespace-nowrap w-full sm:w-auto md:flex-shrink-0 justify-center ${showFavoritesOnly
-                                    ? "bg-yellow-500 hover:bg-yellow-600 border-yellow-500 text-white"
-                                    : "border-yellow-400 text-yellow-600 hover:bg-yellow-50 hover:text-yellow-600"
-                                    }`}
-                                >
-                                  <Star
-                                    className={`h-4 w-4 mr-2 ${showFavoritesOnly
-                                      ? "fill-white"
-                                      : "fill-yellow-400"
-                                      }`}
-                                  />
-                                  {showFavoritesOnly ? "Show All" : "Favorites"}{" "}
-                                  {favorites.size > 0 && `(${favorites.size})`}
-                                </Button>
+                                )}
                               </div>
                             </div>
                           </div>
 
-                          <div className="flex-1 min-h-0 flex flex-col">
-                            <div className="flex-1 min-h-0 max-h-[calc(100vh-250px)] overflow-x-auto overflow-y-scroll">
-                              <table className="w-full caption-bottom text-xs min-w-max border-collapse">
+                          <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-lg">
+                            {isLoadingData ? (
+                              <div className="min-h-[60vh] flex flex-col items-center justify-center py-20 px-4">
+                                <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+                                <h3 className="text-xl font-bold text-foreground mb-2">
+                                  Loading ETF Data
+                                </h3>
+                                <p className="text-sm text-muted-foreground text-center max-w-md">
+                                  Fetching the latest data. Please wait.
+                                </p>
+                              </div>
+                            ) : uniqueSymbolETFs.length === 0 ? (
+                              <div className="flex flex-col items-center justify-center py-20 px-4">
+                                <div className="text-6xl mb-4">⚠️</div>
+                                <h3 className="text-xl font-bold text-foreground mb-2">
+                                  No Data Available
+                                </h3>
+                                <p className="text-sm text-muted-foreground text-center max-w-md">
+                                  Unable to fetch live ETF data. Please check your connection
+                                  and try again.
+                                </p>
+                              </div>
+                            ) : (
+                              <ETFTable
+                                etfs={uniqueSymbolETFs}
+                                favorites={favorites}
+                                onToggleFavorite={toggleFavorite}
+                                viewMode={showTotalReturns ? "total" : "price"}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    </div>
+                  )}
                                 <thead className="sticky top-0 z-[100] bg-slate-50 shadow-sm border-b border-slate-200">
                                   <tr className="bg-slate-50">
                                     <th
@@ -3442,8 +3413,8 @@ export default function Dashboard() {
                     <div className="space-y-6">
                       <Card className="p-6">
                         <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div>
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                            <div className="flex flex-col gap-1">
                               <h2 className="text-2xl font-bold text-foreground">
                                 Closed End Funds
                               </h2>
@@ -3451,6 +3422,48 @@ export default function Dashboard() {
                                 {isLoadingCEFData ? "Loading..." : `${filteredCEFs.length} CEFs`}
                                 {lastCEFDataUpdate && ` • Last updated: ${lastCEFDataUpdate}`}
                               </p>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:pt-0.5 md:flex-nowrap">
+                                <div className="relative">
+                                  {isPremium && (
+                                    <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs sm:text-sm text-muted-foreground font-medium whitespace-nowrap">
+                                      {cefYieldWeight} {cefVolatilityWeight} {cefTotalReturnWeight} {cefTotalReturnTimeframe.toUpperCase()}
+                                    </div>
+                                  )}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      if (isGuest) {
+                                        setShowUpgradeModal(true);
+                                      } else {
+                                        setShowRankingPanel(true);
+                                      }
+                                    }}
+                                    className="border-2 border-primary bg-white text-primary hover:bg-white hover:text-primary h-10 sm:h-9 md:h-9 rounded-md whitespace-nowrap w-full sm:w-auto md:flex-shrink-0 justify-center"
+                                  >
+                                    <Sliders className="h-4 w-4 mr-2" />
+                                    Customize Rankings
+                                  </Button>
+                                </div>
+                                {isPremium && (
+                                  <button
+                                    onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                                    className={`border-2 h-10 sm:h-9 md:h-9 transition-colors whitespace-nowrap w-full sm:w-auto md:flex-shrink-0 justify-center px-4 rounded-md flex items-center ${showFavoritesOnly
+                                        ? "bg-yellow-500 hover:bg-yellow-600 border-yellow-500 text-white"
+                                        : "border-yellow-400 text-yellow-600 hover:bg-yellow-50 hover:text-yellow-600"
+                                      }`}
+                                  >
+                                    <Star
+                                      className={`h-4 w-4 mr-2 ${showFavoritesOnly ? "fill-white" : "fill-yellow-400"
+                                        }`}
+                                    />
+                                    {showFavoritesOnly ? "Show All" : "CEF Favorites"}{" "}
+                                    {favorites.size > 0 && `(${favorites.size})`}
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
 
@@ -3502,10 +3515,10 @@ export default function Dashboard() {
                           <div className="flex items-center justify-between">
                             <div>
                               <h3 className="text-xl font-bold text-foreground">
-                                Customize Rankings
+                                Customize {selectedCategory === "cef" ? "CEF" : "ETF"} Rankings
                               </h3>
                               <p className="text-sm text-muted-foreground mt-1">
-                                Personalize your ETF rankings by adjusting the
+                                Personalize your {selectedCategory === "cef" ? "CEF" : "ETF"} rankings by adjusting the
                                 importance of each metric
                               </p>
                             </div>
@@ -3518,14 +3531,14 @@ export default function Dashboard() {
                           </div>
 
                           {/* Presets Section */}
-                          {rankingPresets.length > 0 && (
+                          {(selectedCategory === "cc" ? rankingPresets : cefRankingPresets).length > 0 && (
                             <div className="space-y-3">
                               <Label className="text-base font-semibold text-foreground">
                                 Saved Presets
                               </Label>
                               <div className="max-h-48 overflow-y-auto pr-2 space-y-2">
                                 <div className="grid grid-cols-2 gap-2">
-                                  {rankingPresets.map((preset) => (
+                                  {(selectedCategory === "cc" ? rankingPresets : cefRankingPresets).map((preset) => (
                                     <div
                                       key={preset.name}
                                       className="group relative flex items-center gap-2 p-3 rounded-lg border-2 border-slate-200 bg-blue-50 hover:border-primary hover:bg-primary/5 transition-all"
@@ -3566,12 +3579,21 @@ export default function Dashboard() {
                                   Yield
                                 </Label>
                                 <span className="text-2xl font-bold tabular-nums text-primary">
-                                  {yieldWeight}%
+                                  {selectedCategory === "cef" ? cefYieldWeight : yieldWeight}%
                                 </span>
                               </div>
                               <Slider
-                                value={[yieldWeight]}
-                                onValueChange={handleYieldChange}
+                                value={selectedCategory === "cef" ? [cefYieldWeight] : [yieldWeight]}
+                                onValueChange={selectedCategory === "cef" ? (value) => {
+                                  const newYield = value[0];
+                                  setCefYieldWeight(newYield);
+                                  setCefWeights({
+                                    yield: newYield,
+                                    volatility: cefVolatilityWeight,
+                                    totalReturn: cefTotalReturnWeight,
+                                    timeframe: cefTotalReturnTimeframe,
+                                  });
+                                } : handleYieldChange}
                                 min={0}
                                 max={100}
                                 step={5}
@@ -3582,15 +3604,24 @@ export default function Dashboard() {
                             <div className="space-y-3 p-4 rounded-lg bg-slate-50 border border-slate-200">
                               <div className="flex items-center justify-between">
                                 <Label className="text-sm font-medium text-foreground">
-                                  Dividend Volatility Index (DVI)
+                                  {selectedCategory === "cef" ? "Z-Score" : "Dividend Volatility Index (DVI)"}
                                 </Label>
                                 <span className="text-2xl font-bold tabular-nums text-primary">
-                                  {volatilityWeight ?? 0}%
+                                  {selectedCategory === "cef" ? (cefVolatilityWeight ?? 0) : (volatilityWeight ?? 0)}%
                                 </span>
                               </div>
                               <Slider
-                                value={[volatilityWeight ?? 0]}
-                                onValueChange={handleStdDevChange}
+                                value={selectedCategory === "cef" ? [cefVolatilityWeight ?? 0] : [volatilityWeight ?? 0]}
+                                onValueChange={selectedCategory === "cef" ? (value) => {
+                                  const newVol = value[0] ?? 33;
+                                  setCefVolatilityWeight(newVol);
+                                  setCefWeights({
+                                    yield: cefYieldWeight,
+                                    volatility: newVol,
+                                    totalReturn: cefTotalReturnWeight,
+                                    timeframe: cefTotalReturnTimeframe,
+                                  });
+                                } : handleStdDevChange}
                                 min={0}
                                 max={100}
                                 step={5}
@@ -3604,12 +3635,21 @@ export default function Dashboard() {
                                   Total Return
                                 </Label>
                                 <span className="text-2xl font-bold tabular-nums text-primary">
-                                  {totalReturnWeight}%
+                                  {selectedCategory === "cef" ? cefTotalReturnWeight : totalReturnWeight}%
                                 </span>
                               </div>
                               <Slider
-                                value={[totalReturnWeight]}
-                                onValueChange={handleTotalReturnChange}
+                                value={selectedCategory === "cef" ? [cefTotalReturnWeight] : [totalReturnWeight]}
+                                onValueChange={selectedCategory === "cef" ? (value) => {
+                                  const newTotalReturn = value[0];
+                                  setCefTotalReturnWeight(newTotalReturn);
+                                  setCefWeights({
+                                    yield: cefYieldWeight,
+                                    volatility: cefVolatilityWeight,
+                                    totalReturn: newTotalReturn,
+                                    timeframe: cefTotalReturnTimeframe,
+                                  });
+                                } : handleTotalReturnChange}
                                 min={0}
                                 max={100}
                                 step={5}
@@ -3617,8 +3657,8 @@ export default function Dashboard() {
                               />
                               <div className="flex gap-2 mt-2">
                                 <button
-                                  onClick={() => handleTimeframeChange("3mo")}
-                                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${totalReturnTimeframe === "3mo"
+                                  onClick={() => selectedCategory === "cef" ? setCefTotalReturnTimeframe("3mo") : handleTimeframeChange("3mo")}
+                                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${(selectedCategory === "cef" ? cefTotalReturnTimeframe : totalReturnTimeframe) === "3mo"
                                     ? "bg-primary text-white"
                                     : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"
                                     }`}
@@ -3626,8 +3666,8 @@ export default function Dashboard() {
                                   3 Mo
                                 </button>
                                 <button
-                                  onClick={() => handleTimeframeChange("6mo")}
-                                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${totalReturnTimeframe === "6mo"
+                                  onClick={() => selectedCategory === "cef" ? setCefTotalReturnTimeframe("6mo") : handleTimeframeChange("6mo")}
+                                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${(selectedCategory === "cef" ? cefTotalReturnTimeframe : totalReturnTimeframe) === "6mo"
                                     ? "bg-primary text-white"
                                     : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"
                                     }`}
@@ -3635,8 +3675,8 @@ export default function Dashboard() {
                                   6 Mo
                                 </button>
                                 <button
-                                  onClick={() => handleTimeframeChange("12mo")}
-                                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${totalReturnTimeframe === "12mo"
+                                  onClick={() => selectedCategory === "cef" ? setCefTotalReturnTimeframe("12mo") : handleTimeframeChange("12mo")}
+                                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${(selectedCategory === "cef" ? cefTotalReturnTimeframe : totalReturnTimeframe) === "12mo"
                                     ? "bg-primary text-white"
                                     : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"
                                     }`}
@@ -3652,12 +3692,12 @@ export default function Dashboard() {
                               </span>
                               <div className="flex items-center gap-3">
                                 <span
-                                  className={`text-3xl font-bold tabular-nums ${isValid ? "text-primary" : "text-destructive"
+                                  className={`text-3xl font-bold tabular-nums ${(selectedCategory === "cef" ? cefIsValid : isValid) ? "text-primary" : "text-destructive"
                                     }`}
                                 >
-                                  {isNaN(totalWeight) ? 0 : totalWeight}%
+                                  {isNaN(selectedCategory === "cef" ? cefTotalWeight : totalWeight) ? 0 : (selectedCategory === "cef" ? cefTotalWeight : totalWeight)}%
                                 </span>
-                                {isValid ? (
+                                {(selectedCategory === "cef" ? cefIsValid : isValid) ? (
                                   <span className="text-sm px-3 py-1.5 rounded-full bg-green-100 text-green-700 font-medium border border-green-300">
                                     Valid
                                   </span>
