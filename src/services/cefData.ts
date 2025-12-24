@@ -8,19 +8,36 @@ export interface CEFDataResponse {
   lastUpdatedTimestamp?: string;
 }
 
-// NO CACHING - Always fetch fresh data from database for consistency
-// This ensures data is always up-to-date after running refresh:cef or refresh:all
+// Session-level caching for immediate display (not localStorage)
+// Data is cached in sessionStorage for the current session only
+// This allows immediate display like CC ETFs while still fetching fresh data
+const CEF_SESSION_CACHE_KEY = "cef-data-session-cache";
+const CEF_SESSION_CACHE_TIMESTAMP_KEY = "cef-data-session-cache-timestamp";
 
 export function isCEFDataCached(): boolean {
-  // Always return false - no caching, always fetch fresh data
-  return false;
+  try {
+    // Check sessionStorage (not localStorage) - only for current session
+    const cached = sessionStorage.getItem(CEF_SESSION_CACHE_KEY);
+    const timestamp = sessionStorage.getItem(CEF_SESSION_CACHE_TIMESTAMP_KEY);
+    
+    if (!cached || !timestamp) return false;
+    
+    // Cache is valid for 5 minutes (allows immediate display while fresh data loads)
+    const cacheAge = Date.now() - parseInt(timestamp, 10);
+    const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+    
+    return cacheAge < CACHE_DURATION_MS;
+  } catch {
+    return false;
+  }
 }
 
 export function clearCEFCache(): void {
-  // No-op - no caching to clear
-  // Kept for backwards compatibility with components that call it
   try {
-    // Clear any old cache that might exist from previous versions
+    // Clear sessionStorage cache
+    sessionStorage.removeItem(CEF_SESSION_CACHE_KEY);
+    sessionStorage.removeItem(CEF_SESSION_CACHE_TIMESTAMP_KEY);
+    // Also clear any old localStorage cache from previous versions
     localStorage.removeItem("cef-data-cache");
     localStorage.removeItem("cef-data-cache-timestamp");
     localStorage.removeItem("cef-data-cache-version");
@@ -46,9 +63,27 @@ export async function fetchCEFData(): Promise<CEF[]> {
 }
 
 export async function fetchCEFDataWithMetadata(): Promise<CEFDataResponse> {
-  // NO CACHING - Always fetch fresh data from database for consistency
-  // This ensures data is always up-to-date after running refresh:cef or refresh:all
-  
+  // Check sessionStorage cache first for immediate display (like CC ETFs)
+  if (isCEFDataCached()) {
+    const cached = sessionStorage.getItem(CEF_SESSION_CACHE_KEY);
+    if (cached) {
+      try {
+        const data = JSON.parse(cached);
+        // Return cached data immediately for instant display
+        // Fresh data will be fetched in background and update the cache
+        return {
+          ...data,
+          lastUpdatedTimestamp: data.lastUpdatedTimestamp || data.last_updated_timestamp || undefined,
+          lastUpdated: data.lastUpdated || data.last_updated || undefined,
+        };
+      } catch (parseError) {
+        console.warn("Failed to parse cached CEF data:", parseError);
+        // Fall through to fetch fresh data
+      }
+    }
+  }
+
+  // Fetch fresh data from database
   try {
     // Add timeout to fetch request - increased to 90 seconds to allow for database queries
     const controller = new AbortController();
@@ -77,7 +112,14 @@ export async function fetchCEFDataWithMetadata(): Promise<CEFDataResponse> {
         lastUpdatedTimestamp,
       };
 
-      // NO CACHING - Return fresh data directly from database
+      // Cache in sessionStorage for immediate display on next visit (5 minute cache)
+      try {
+        sessionStorage.setItem(CEF_SESSION_CACHE_KEY, JSON.stringify(data));
+        sessionStorage.setItem(CEF_SESSION_CACHE_TIMESTAMP_KEY, Date.now().toString());
+      } catch (cacheError) {
+        console.warn("Failed to cache CEF data in sessionStorage:", cacheError);
+      }
+
       return data;
     } catch (err) {
       clearTimeout(timeoutId);
@@ -89,6 +131,23 @@ export async function fetchCEFDataWithMetadata(): Promise<CEFDataResponse> {
     }
   } catch (error) {
     console.error("[CEF Data] Failed to fetch CEF data from backend:", error);
+    
+    // If fetch failed, try to use stale sessionStorage cache as fallback
+    const staleCache = sessionStorage.getItem(CEF_SESSION_CACHE_KEY);
+    if (staleCache) {
+      try {
+        const data = JSON.parse(staleCache);
+        console.log("[CEF Data] Using stale cached data as fallback");
+        return {
+          ...data,
+          lastUpdatedTimestamp: data.lastUpdatedTimestamp || data.last_updated_timestamp || undefined,
+          lastUpdated: data.lastUpdated || data.last_updated || undefined,
+        };
+      } catch (parseError) {
+        console.error("[CEF Data] Failed to parse stale cache:", parseError);
+      }
+    }
+    
     throw error instanceof Error ? error : new Error(String(error));
   }
 }
