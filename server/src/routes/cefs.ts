@@ -193,6 +193,15 @@ export async function calculateNAVTrend6M(
       return null;
     }
 
+    // CRITICAL: Validate that we have data close enough to 6 months ago
+    // If the selected record is more than 7.5 months away, the data is insufficient
+    const past6MDate = new Date(past6MRecord.date + 'T00:00:00');
+    const monthsDiff = (currentDate.getTime() - past6MDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44); // Average days per month
+    if (monthsDiff < 5 || monthsDiff > 7.5) {
+      logger.info("CEF Metrics", `6M NAV Trend N/A for ${navSymbol}: insufficient historical data (selected record is ${monthsDiff.toFixed(1)} months ago, need ~6 months)`);
+      return null;
+    }
+
     // Use close price (not adj_close) to match CEO's calculation from chart
     const currentNav = currentRecord.close ?? currentRecord.adj_close;
     const past6MNav = past6MRecord.close ?? past6MRecord.adj_close;
@@ -233,9 +242,10 @@ export async function calculateNAVReturn12M(
 
   try {
     // Get enough history: need at least 12 calendar months + buffer
+    // Use 15 months to ensure we have enough data even with weekends/holidays
     const today = new Date();
     const startDate = new Date();
-    startDate.setFullYear(today.getFullYear() - 2); // Get 2 years to ensure we have data
+    startDate.setMonth(today.getMonth() - 15); // Get 15 months to ensure we have data
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(today);
 
@@ -277,6 +287,15 @@ export async function calculateNAVReturn12M(
 
     if (!past12MRecord) {
       logger.info("CEF Metrics", `12M NAV Trend N/A for ${navSymbol}: no data available for 12 months ago (${twelveMonthsAgoStr})`);
+      return null;
+    }
+
+    // CRITICAL: Validate that we have data close enough to 12 months ago
+    // If the selected record is more than 14 months away, the data is insufficient
+    const past12MDate = new Date(past12MRecord.date + 'T00:00:00');
+    const monthsDiff = (currentDate.getTime() - past12MDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44); // Average days per month
+    if (monthsDiff < 10 || monthsDiff > 14) {
+      logger.info("CEF Metrics", `12M NAV Trend N/A for ${navSymbol}: insufficient historical data (selected record is ${monthsDiff.toFixed(1)} months ago, need ~12 months)`);
       return null;
     }
 
