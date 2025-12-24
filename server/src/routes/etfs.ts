@@ -1078,12 +1078,14 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
 
     const allData = staticResult.data || [];
 
-    // Filter: Include records without nav_symbol OR records with nav_symbol but no NAV data
-    // Records with nav_symbol AND NAV data are shown on CEFs table
+    // Filter: Include ONLY actual CCETFs (Covered Call ETFs)
+    // Exclude: CEFs (have nav_symbol + NAV data), NAV placeholder records, auto-created records
     // CRITICAL: Exclude NAV symbol records (where ticker === nav_symbol) - these are placeholder records
     const staticData = allData.filter((item: any) => {
       const ticker = item.ticker || '';
       const navSymbol = item.nav_symbol || '';
+      const issuer = item.issuer || '';
+      const description = item.description || '';
 
       // CRITICAL: Exclude NAV symbol records (where ticker === nav_symbol)
       // These are auto-created placeholder records for NAV price data, not actual funds
@@ -1099,6 +1101,20 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
         return false;
       }
 
+      // CRITICAL: Exclude auto-created CEF placeholder records
+      // These have blank issuers and descriptions starting with "Auto-created for NAV"
+      // These are CEF symbols that got added to the table but should only show on CEFs page
+      const isAutoCreatedRecord = !issuer && description.toLowerCase().includes('auto-created for nav');
+      if (isAutoCreatedRecord) {
+        return false;
+      }
+
+      // Exclude records with blank issuer AND have a nav_symbol set (these are CEFs, not CCETFs)
+      // Real CCETFs always have an issuer (e.g., "GRANITE YIELDBOOST", "ROUNDHILL", "TAPPALPHA")
+      if (!issuer && navSymbol) {
+        return false;
+      }
+
       const hasNavSymbol = item.nav_symbol !== null && item.nav_symbol !== undefined && item.nav_symbol !== '';
       const hasNAVData = item.nav !== null && item.nav !== undefined && item.nav !== 0;
 
@@ -1107,7 +1123,7 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
         return false;
       }
 
-      // Include everything else: no nav_symbol, or nav_symbol but no NAV data
+      // Include everything else: CCETFs with issuers, no nav_symbol, or nav_symbol but no NAV data
       return true;
     });
 
@@ -1122,10 +1138,15 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
       return ticker.length >= 4 && ticker.startsWith('X') && ticker.endsWith('X');
     }).length;
     const withoutNavSymbol = allData.filter((item: any) => !item.nav_symbol || item.nav_symbol === '').length;
-    const withNavSymbolNoNAV = allData.filter((item: any) => {
-      const hasNavSymbol = item.nav_symbol !== null && item.nav_symbol !== undefined && item.nav_symbol !== '';
-      const hasNAVData = item.nav !== null && item.nav !== undefined && item.nav !== 0;
-      return hasNavSymbol && !hasNAVData;
+    const autoCreatedRecords = allData.filter((item: any) => {
+      const issuer = item.issuer || '';
+      const description = item.description || '';
+      return !issuer && description.toLowerCase().includes('auto-created for nav');
+    }).length;
+    const blankIssuerCEFs = allData.filter((item: any) => {
+      const issuer = item.issuer || '';
+      const navSymbol = item.nav_symbol || '';
+      return !issuer && navSymbol;
     }).length;
     const excludedCEFs = allData.filter((item: any) => {
       const hasNavSymbol = item.nav_symbol !== null && item.nav_symbol !== undefined && item.nav_symbol !== '';
@@ -1133,12 +1154,13 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
       return hasNavSymbol && hasNAVData;
     }).length;
 
-    logger.info('Routes', `ETF Filter Results: ${allData.length} total → ${staticData.length} ETFs`);
+    logger.info('Routes', `CCETF Filter Results: ${allData.length} total → ${staticData.length} CCETFs`);
     logger.info('Routes', `  - Records without nav_symbol: ${withoutNavSymbol}`);
-    logger.info('Routes', `  - Records with nav_symbol but no NAV: ${withNavSymbolNoNAV} (included in ETFs)`);
-    logger.info('Routes', `  - Excluded CEFs (nav_symbol + NAV data): ${excludedCEFs} (shown on CEFs table)`);
+    logger.info('Routes', `  - Excluded CEFs (nav_symbol + NAV data): ${excludedCEFs}`);
     logger.info('Routes', `  - Excluded NAV symbol records (ticker === nav_symbol): ${navSymbolRecords}`);
     logger.info('Routes', `  - Excluded NAV proxy symbols (X...X pattern): ${navProxySymbols}`);
+    logger.info('Routes', `  - Excluded auto-created CEF records: ${autoCreatedRecords}`);
+    logger.info('Routes', `  - Excluded blank issuer CEFs: ${blankIssuerCEFs}`);
 
     // Map to frontend format
     const results = staticData.map((etf: any) => ({
@@ -1276,11 +1298,31 @@ router.get('/export', async (_req: Request, res: Response): Promise<void> => {
     }
 
     const allStaticData = staticResult.data || [];
-    // Filter out CEFs from export - only include ETFs
+    // Filter out CEFs from export - only include CCETFs (same logic as main GET endpoint)
     const staticData = allStaticData.filter((item: any) => {
-      const hasNavSymbol = item.nav_symbol !== null && item.nav_symbol !== undefined && item.nav_symbol !== '';
-      const hasNav = item.nav !== null && item.nav !== undefined && item.nav !== '';
-      return !hasNavSymbol && !hasNav;
+      const ticker = item.ticker || '';
+      const navSymbol = item.nav_symbol || '';
+      const issuer = item.issuer || '';
+      const description = item.description || '';
+
+      // Exclude NAV symbol records (ticker === nav_symbol)
+      if (ticker === navSymbol && navSymbol !== '') return false;
+
+      // Exclude NAV proxy symbols (X...X pattern)
+      if (ticker.length >= 4 && ticker.startsWith('X') && ticker.endsWith('X')) return false;
+
+      // Exclude auto-created CEF placeholder records
+      if (!issuer && description.toLowerCase().includes('auto-created for nav')) return false;
+
+      // Exclude records with blank issuer AND have nav_symbol set (these are CEFs)
+      if (!issuer && navSymbol) return false;
+
+      // Exclude CEFs (have nav_symbol + NAV data)
+      const hasNavSymbol = navSymbol !== '';
+      const hasNAVData = item.nav !== null && item.nav !== undefined && item.nav !== 0;
+      if (hasNavSymbol && hasNAVData) return false;
+
+      return true;
     });
     const legacyData = legacyResult.data || [];
 
