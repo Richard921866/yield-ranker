@@ -55,6 +55,7 @@ import {
   RefreshCw,
   Clock,
   Loader2,
+  Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -1284,8 +1285,11 @@ export default function Dashboard() {
   const [selectedCEF, setSelectedCEF] = useState<CEF | null>(null);
 
   const handleCEFSymbolClick = (symbol: string) => {
-    // Navigate to CEF detail page (same as home page behavior)
-    navigate(`/cef/${symbol}`);
+    // Find the CEF and set it as selected to show detail view within dashboard
+    const cef = filteredCEFs.find((c) => c.symbol === symbol);
+    if (cef) {
+      setSelectedCEF(cef);
+    }
   };
 
   const handleCEFDividendClick = (symbol: string) => {
@@ -2421,6 +2425,275 @@ export default function Dashboard() {
             </div>
           </div>
         </main>
+      </div>
+    );
+  }
+
+  // Show CEF detail view if a CEF is selected
+  if (selectedCEF) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex">
+        {mobileSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-[90] lg:hidden"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        )}
+
+        <aside
+          className={`${sidebarCollapsed ? "w-16" : "w-64"
+            } bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0 transition-all duration-300 ${mobileSidebarOpen ? "fixed left-0 top-0 z-[100]" : "hidden lg:flex"
+            }`}
+        >
+          {/* Sidebar content - same as main dashboard */}
+          <div
+            className={`h-16 border-b border-slate-200 flex items-center flex-shrink-0 ${sidebarCollapsed ? "justify-center px-2" : "px-6 justify-between"
+              }`}
+          >
+            {!sidebarCollapsed && (
+              <button
+                onClick={() => {
+                  const homePath = selectedCategory === "cef" ? "/cef" : "/";
+                  navigate(homePath);
+                }}
+                className="hover:opacity-80 transition-opacity cursor-pointer"
+              >
+                <Logo simple />
+              </button>
+            )}
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors hidden lg:block"
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {sidebarCollapsed ? (
+                <PanelLeft className="w-5 h-5 text-slate-600" />
+              ) : (
+                <PanelLeftClose className="w-5 h-5 text-slate-600" />
+              )}
+            </button>
+            <button
+              onClick={() => setMobileSidebarOpen(false)}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors lg:hidden"
+            >
+              <ChevronLeft className="w-5 h-5 text-slate-600" />
+            </button>
+          </div>
+
+          <nav
+            className={`flex-1 overflow-y-auto ${sidebarCollapsed ? "p-2 space-y-1" : "p-4 space-y-2"
+              }`}
+          >
+            <button
+              onClick={() => {
+                setSelectedCEF(null);
+                setShowFavoritesOnly(false);
+                setAdminSection(null);
+                navigate("/");
+              }}
+              className={`w-full flex items-center ${sidebarCollapsed
+                ? "justify-center px-0 py-2.5"
+                : "gap-3 px-4 py-3"
+                } rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-100 hover:text-foreground`}
+              title={sidebarCollapsed ? "Home" : ""}
+            >
+              <Home className="w-5 h-5" />
+              {!sidebarCollapsed && "Home"}
+            </button>
+            <button
+              onClick={() => {
+                setSelectedCEF(null);
+                setShowFavoritesOnly(false);
+                setAdminSection(null);
+                setSelectedCategory("cc");
+                navigate("/dashboard");
+              }}
+              className={`w-full flex items-center ${sidebarCollapsed
+                ? "justify-center px-0 py-2.5"
+                : "gap-3 px-4 py-3"
+                } rounded-lg text-sm font-medium transition-colors ${selectedCategory === "cc" && !showFavoritesOnly
+                  ? sidebarCollapsed
+                    ? "bg-primary/10 text-primary"
+                    : "bg-primary text-white"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
+                }`}
+              title={sidebarCollapsed ? "CC ETFs" : ""}
+            >
+              <BarChart3 className="w-5 h-5" />
+              {!sidebarCollapsed && "CC ETFs"}
+            </button>
+            <button
+              onClick={() => {
+                setSelectedCEF(null);
+                setShowFavoritesOnly(false);
+                setAdminSection(null);
+                setSelectedCategory("cef");
+                navigate("/dashboard");
+              }}
+              className={`w-full flex items-center ${sidebarCollapsed
+                ? "justify-center px-0 py-2.5"
+                : "gap-3 px-4 py-3"
+                } rounded-lg text-sm font-medium transition-colors ${selectedCategory === "cef"
+                  ? sidebarCollapsed
+                    ? "bg-primary/10 text-primary"
+                    : "bg-primary text-white"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
+                }`}
+              title={sidebarCollapsed ? "CEFs" : ""}
+            >
+              <TrendingUp className="w-5 h-5" />
+              {!sidebarCollapsed && "CEFs"}
+            </button>
+            <button
+              onClick={() => {
+                setSelectedCEF(null);
+                setShowFavoritesOnly(false);
+                setAdminSection(null);
+                navigate("/focus");
+              }}
+              className={`w-full flex items-center ${sidebarCollapsed
+                ? "justify-center px-0 py-2.5"
+                : "gap-3 px-4 py-3"
+                } rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-100 hover:text-foreground`}
+              title={sidebarCollapsed ? "My Focus" : ""}
+            >
+              <Target className="w-5 h-5" />
+              {!sidebarCollapsed && "My Focus"}
+            </button>
+          </nav>
+
+          <div
+            className={`border-t border-slate-200 flex-shrink-0 ${sidebarCollapsed ? "p-2" : "p-4"
+              }`}
+          >
+            <button
+              onClick={logout}
+              className={`w-full flex items-center ${sidebarCollapsed
+                ? "justify-center px-0 py-2.5"
+                : "gap-3 px-4 py-3"
+                } rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors`}
+              title={sidebarCollapsed ? "Logout" : ""}
+            >
+              <LogOut className="w-5 h-5" />
+              {!sidebarCollapsed && "Logout"}
+            </button>
+          </div>
+        </aside>
+
+        <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-hidden">
+          <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 flex items-center flex-shrink-0">
+              <div className="flex items-center justify-between w-full gap-4">
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="lg:hidden h-10 w-10"
+                    onClick={() => setMobileSidebarOpen(true)}
+                  >
+                    <Menu className="h-6 w-6" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedCEF(null);
+                      setShowFavoritesOnly(false);
+                    }}
+                    className="hover:bg-slate-100 hover:text-foreground transition-colors text-sm sm:text-base"
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Back to Rankings</span>
+                    <span className="sm:hidden">Back</span>
+                  </Button>
+                </div>
+              </div>
+            </header>
+
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+              <div className="space-y-6">
+                <div className="mb-4 sm:mb-6">
+                  <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4 mb-2">
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
+                      {selectedCEF.symbol}
+                    </h1>
+                    <span className="text-base sm:text-lg text-muted-foreground">
+                      {selectedCEF.description || "N/A"}
+                    </span>
+                  </div>
+                </div>
+
+                <Card className="p-4 sm:p-6 border-2 border-slate-200">
+                  <div className="flex items-center justify-between mb-4 sm:mb-6">
+                    <h2 className="text-xl sm:text-2xl font-bold">
+                      {selectedCEF.symbol} Key Metrics
+                    </h2>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Market Price
+                      </p>
+                      <p className="text-xl font-bold text-foreground">
+                        {selectedCEF.marketPrice != null ? `$${selectedCEF.marketPrice.toFixed(2)}` : 'N/A'}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        NAV
+                      </p>
+                      <p className="text-xl font-bold text-foreground">
+                        {selectedCEF.nav != null ? `$${selectedCEF.nav.toFixed(2)}` : 'N/A'}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Premium/Discount
+                      </p>
+                      <p className={`text-xl font-bold ${selectedCEF.premiumDiscount != null && selectedCEF.premiumDiscount >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {selectedCEF.premiumDiscount != null ? `${selectedCEF.premiumDiscount >= 0 ? '+' : ''}${selectedCEF.premiumDiscount.toFixed(2)}%` : 'N/A'}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Forward Yield
+                      </p>
+                      <p className="text-xl font-bold text-foreground">
+                        {selectedCEF.forwardYield != null ? `${selectedCEF.forwardYield.toFixed(2)}%` : 'N/A'}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        5-Year Z-Score
+                      </p>
+                      <p className="text-xl font-bold text-foreground">
+                        {selectedCEF.zScore5Yr != null ? selectedCEF.zScore5Yr.toFixed(2) : 'N/A'}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Last Dividend
+                      </p>
+                      <p className="text-xl font-bold text-foreground">
+                        {selectedCEF.lastDividend != null ? `$${selectedCEF.lastDividend.toFixed(4)}` : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <Button
+                      onClick={() => navigate(`/cef/${selectedCEF.symbol}`)}
+                      className="w-full sm:w-auto"
+                    >
+                      View Full Details & Charts
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          </main>
+        </div>
       </div>
     );
   }
