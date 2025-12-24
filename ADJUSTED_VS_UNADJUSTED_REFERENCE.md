@@ -15,6 +15,7 @@
 | TOTAL RETURNS | ADJUSTED | `adj_close` | All total return calculations |
 | 6 MO NAV TREND | ADJUSTED | `adj_close` | 6-month NAV trend calculation |
 | 12 MO NAV TREND | ADJUSTED | `adj_close` | 12-month NAV trend calculation |
+| 5-YEAR Z-SCORE | ADJUSTED | `adj_close` | Premium/discount Z-score calculation |
 
 ## Detailed Specifications
 
@@ -75,6 +76,15 @@ These metrics use the **adjusted close price** (`adj_close`) from Tiingo:
    - Purpose: Calculate 12-month NAV trend accounting for distributions
    - Formula: `((current_adj_close - past12m_adj_close) / past12m_adj_close) * 100`
    - Period: Exactly 12 calendar months
+
+4. **5-YEAR Z-SCORE**
+   - Location: CEF metrics, CEF table
+   - Field: `five_year_z_score`
+   - Source: `prices_daily.adj_close` for both price and NAV
+   - Purpose: Calculate premium/discount Z-score accounting for distributions
+   - Formula: `(Current Discount - Mean Discount) / Standard Deviation`
+   - Where: `Current Discount = (Price_adj / NAV_adj) - 1`
+   - Period: Up to 5 years of trading days (1260 days max, 504 days minimum)
 
 ## Implementation Notes
 

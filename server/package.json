@@ -38,6 +38,7 @@
     "analyze:dvi": "tsx scripts/dvi_analysis.ts",
     "export:dvi": "tsx scripts/dvi_simple_export.ts",
     "debug:nav": "tsx scripts/debug_nav_trend.ts",
+    "test:zscore": "tsx scripts/test_zscore_gab.ts",
     "tiingo:test": "tsx -e \"import { healthCheck } from './src/services/tiingo.js'; healthCheck().then(console.log)\""
   },
   "dependencies": {

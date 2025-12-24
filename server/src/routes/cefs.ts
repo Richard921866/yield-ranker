@@ -67,21 +67,21 @@ export async function calculateCEFZScore(
     if (priceData.length === 0 || navData.length === 0) return null;
 
     // Create maps by date for efficient lookup
-    // Use unadjusted close for Z-Score calculation (premium/discount uses actual trading prices)
+    // Use adjusted close (adj_close) for Z-Score calculation to account for distributions
     const priceMap = new Map<string, number>();
     priceData.forEach((p: PriceRecord) => {
-      // Z-Score uses unadjusted prices for premium/discount calculation
-      const price = p.close ?? null;
+      // Z-Score uses adjusted prices to account for dividends and distributions
+      const price = p.adj_close ?? p.close ?? null;
       if (price !== null && price > 0) {
         priceMap.set(p.date, price);
       }
     });
 
-    // Use unadjusted close for NAV as well (premium/discount uses actual NAV values)
+    // Use adjusted close for NAV as well (accounts for distributions)
     const navMap = new Map<string, number>();
     navData.forEach((p: PriceRecord) => {
-      // Z-Score uses unadjusted NAV for premium/discount calculation
-      const nav = p.close ?? null;
+      // Z-Score uses adjusted NAV to account for distributions
+      const nav = p.adj_close ?? p.close ?? null;
       if (nav !== null && nav > 0) {
         navMap.set(p.date, nav);
       }
@@ -105,14 +105,31 @@ export async function calculateCEFZScore(
       return null; // Not enough data (less than 2 years)
     }
 
-    // Use up to 5 years of data (most recent)
+    // Use up to 5 years of data (most recent) for historical stats
     const lookbackPeriod = Math.min(discounts.length, DAYS_5Y);
     const history = discounts.slice(-lookbackPeriod);
 
     if (history.length === 0) return null;
 
-    // Calculate stats
-    const currentDiscount = history[history.length - 1];
+    // Calculate current discount from most recent price and NAV (not from history array)
+    // Get the most recent date that has both price and NAV
+    const sortedDatesArray = Array.from(sortedDates).sort().reverse();
+    let currentDiscount: number | null = null;
+    for (const date of sortedDatesArray) {
+      const price = priceMap.get(date);
+      const nav = navMap.get(date);
+      if (price && nav && nav > 0) {
+        currentDiscount = price / nav - 1.0;
+        break; // Use the most recent available date
+      }
+    }
+
+    // Fallback to last value in history if we couldn't find a current discount
+    if (currentDiscount === null) {
+      currentDiscount = history[history.length - 1];
+    }
+
+    // Calculate stats from history (excluding current if it's in history)
     const avgDiscount = history.reduce((sum, d) => sum + d, 0) / history.length;
     const variance =
       history.reduce((sum, d) => sum + Math.pow(d - avgDiscount, 2), 0) /
