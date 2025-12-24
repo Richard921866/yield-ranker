@@ -1266,8 +1266,35 @@ export default function Dashboard() {
   };
 
   const handleETFClick = (etf: ETF) => {
-    // Navigate to the individual ETF detail page
-    navigate(`/etf/${etf.symbol}`);
+    // Set selected ETF to show detail view within dashboard
+    setSelectedETF(etf);
+  };
+
+  const handleETFSymbolClick = (symbol: string) => {
+    // Find the ETF and set it as selected to show detail view within dashboard
+    const etf = uniqueSymbolETFs.find((e) => e.symbol === symbol);
+    if (etf) {
+      setSelectedETF(etf);
+    }
+  };
+
+  const handleETFDividendClick = (symbol: string) => {
+    // Show dividend modal within dashboard
+    setDividendModalSymbol(symbol);
+    setShowDividendModal(true);
+  };
+
+  const [selectedCEF, setSelectedCEF] = useState<CEF | null>(null);
+
+  const handleCEFSymbolClick = (symbol: string) => {
+    // Navigate to CEF detail page (same as home page behavior)
+    navigate(`/cef/${symbol}`);
+  };
+
+  const handleCEFDividendClick = (symbol: string) => {
+    // Show dividend modal within dashboard
+    setDividendModalSymbol(symbol);
+    setShowDividendModal(true);
   };
 
   type ChartPoint = { [key: string]: number | string | null };
@@ -2987,7 +3014,7 @@ export default function Dashboard() {
               ) : (
                 <>
                   {((isGuest && guestMessage) || (isPremium && premiumMessage)) && (
-                    <div className="w-full max-w-[98%] mx-auto">
+                    <div className="w-full">
                       <Card className="p-4 border-2 border-primary/20 bg-primary/5">
                         <p className="text-base md:text-lg text-foreground leading-relaxed font-medium">
                           {isGuest ? guestMessage : premiumMessage}
@@ -3108,6 +3135,8 @@ export default function Dashboard() {
                                 favorites={favorites}
                                 onToggleFavorite={toggleFavorite}
                                 viewMode={showTotalReturns ? "total" : "price"}
+                                onSymbolClick={handleETFSymbolClick}
+                                onDividendClick={handleETFDividendClick}
                               />
                             )}
                           </div>
@@ -3202,6 +3231,8 @@ export default function Dashboard() {
                                 cefs={filteredCEFs}
                                 favorites={favorites}
                                 onToggleFavorite={toggleFavorite}
+                                onSymbolClick={handleCEFSymbolClick}
+                                onDividendClick={handleCEFDividendClick}
                               />
                             )}
                           </div>

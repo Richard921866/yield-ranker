@@ -12,6 +12,8 @@ interface CEFTableProps {
   onSelectionChange?: (symbol: string) => void;
   favorites?: Set<string>;
   onToggleFavorite?: (symbol: string) => void;
+  onSymbolClick?: (symbol: string) => void;
+  onDividendClick?: (symbol: string) => void;
 }
 
 type SortField = keyof CEF | null;
@@ -62,6 +64,8 @@ export const CEFTable = ({
   onSelectionChange,
   favorites = new Set(),
   onToggleFavorite,
+  onSymbolClick,
+  onDividendClick,
 }: CEFTableProps) => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
@@ -559,7 +563,13 @@ export const CEFTable = ({
                 </td>
                 <td className="py-1 px-1.5 sm:px-2 align-middle sticky left-[28px] z-10 bg-white border-r border-slate-200 text-primary text-xs transition-all shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] min-w-[70px] sm:min-w-[80px]">
                   <button
-                    onClick={() => navigate(`/cef/${cef.symbol}`)}
+                    onClick={() => {
+                      if (onSymbolClick) {
+                        onSymbolClick(cef.symbol);
+                      } else {
+                        navigate(`/cef/${cef.symbol}`);
+                      }
+                    }}
                     className="hover:underline hover:text-primary/80 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1 whitespace-nowrap font-bold"
                   >
                     {cef.symbol}
@@ -599,7 +609,11 @@ export const CEFTable = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(`/cef/${cef.symbol}/dividends`);
+                      if (onDividendClick) {
+                        onDividendClick(cef.symbol);
+                      } else {
+                        navigate(`/cef/${cef.symbol}/dividends`);
+                      }
                     }}
                     className="tabular-nums text-xs text-primary font-medium hover:underline cursor-pointer transition-colors"
                     title="Click to view dividend history"

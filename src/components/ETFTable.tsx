@@ -17,6 +17,8 @@ interface ETFTableProps {
   viewMode?: "total" | "price";
   favorites?: Set<string>;
   onToggleFavorite?: (symbol: string) => void;
+  onSymbolClick?: (symbol: string) => void;
+  onDividendClick?: (symbol: string) => void;
 }
 
 type SortField = keyof ETF | null;
@@ -65,6 +67,8 @@ export const ETFTable = ({
   viewMode = "total",
   favorites = new Set(),
   onToggleFavorite,
+  onSymbolClick,
+  onDividendClick,
 }: ETFTableProps) => {
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -392,7 +396,13 @@ export const ETFTable = ({
                   className="py-1 px-1.5 sm:px-2 align-middle sticky left-[28px] z-10 bg-white border-r border-slate-200 text-primary text-xs transition-all shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] min-w-[70px] sm:min-w-[80px]"
                 >
                   <button
-                    onClick={() => navigate(`/etf/${etf.symbol}`)}
+                    onClick={() => {
+                      if (onSymbolClick) {
+                        onSymbolClick(etf.symbol);
+                      } else {
+                        navigate(`/etf/${etf.symbol}`);
+                      }
+                    }}
                     className="hover:underline hover:text-primary/80 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1 whitespace-nowrap font-bold"
                   >
                     {etf.symbol}
@@ -422,7 +432,11 @@ export const ETFTable = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(`/etf/${etf.symbol}/dividends`);
+                      if (onDividendClick) {
+                        onDividendClick(etf.symbol);
+                      } else {
+                        navigate(`/etf/${etf.symbol}/dividends`);
+                      }
                     }}
                     className="tabular-nums text-xs text-primary font-medium hover:underline cursor-pointer transition-colors"
                     title="Click to view dividend history"
