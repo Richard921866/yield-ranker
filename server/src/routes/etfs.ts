@@ -1080,11 +1080,19 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
 
     // Filter: Include records without nav_symbol OR records with nav_symbol but no NAV data
     // Records with nav_symbol AND NAV data are shown on CEFs table
-    // Also exclude NAV proxy symbols (tickers like XDNPX, XGABX that start and end with X)
+    // CRITICAL: Exclude NAV symbol records (where ticker === nav_symbol) - these are placeholder records
     const staticData = allData.filter((item: any) => {
       const ticker = item.ticker || '';
+      const navSymbol = item.nav_symbol || '';
 
-      // Exclude NAV proxy symbols (auto-created records for CEF NAV price data)
+      // CRITICAL: Exclude NAV symbol records (where ticker === nav_symbol)
+      // These are auto-created placeholder records for NAV price data, not actual funds
+      // Examples: XGABX (where ticker=XGABX and nav_symbol=XGABX), XBTOX, XBMEX, etc.
+      if (ticker === navSymbol && navSymbol !== '') {
+        return false;
+      }
+
+      // Also exclude NAV proxy symbols by pattern (backup check)
       // These follow the pattern X + base_symbol + X (e.g., XDNPX for DNP, XGABX for GAB)
       const isNavProxySymbol = ticker.length >= 4 && ticker.startsWith('X') && ticker.endsWith('X');
       if (isNavProxySymbol) {

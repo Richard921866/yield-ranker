@@ -1442,12 +1442,24 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
 
     const staticData = staticResult.data || [];
 
-    // Filter out NAV symbol records (where ticker === nav_symbol)
-    // These are the NAV ticker records themselves, not the actual CEF records
-    // CEFs are identified by having nav_symbol set - NAV data may or may not be populated yet
+    // Filter: Only include actual CEFs (not NAV symbol records, and must have NAV data)
+    // CEFs are identified by having nav_symbol set AND actual NAV data
+    // Records with nav_symbol but no NAV data go to ETFs table (covered calls)
     const filteredData = staticData.filter((item: any) => {
-      // Exclude if ticker equals nav_symbol (that's a NAV symbol record, not the CEF itself)
-      return item.ticker !== item.nav_symbol;
+      // CRITICAL: Exclude if ticker equals nav_symbol (that's a NAV symbol record, not the CEF itself)
+      // Examples: XGABX (where ticker=XGABX and nav_symbol=XGABX), XBTOX, XBMEX, etc.
+      if (item.ticker === item.nav_symbol) {
+        return false;
+      }
+
+      // CRITICAL: Must have actual NAV data to be considered a CEF
+      // If NAV is null/undefined/0, it goes to ETFs table instead
+      const hasNAVData = item.nav !== null && item.nav !== undefined && item.nav !== 0;
+      if (!hasNAVData) {
+        return false;
+      }
+
+      return true;
     });
 
     if (filteredData.length === 0 && staticData.length > 0) {
