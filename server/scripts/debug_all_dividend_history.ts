@@ -449,44 +449,6 @@ async function debugAllCEFs(): Promise<void> {
   console.log(`Output also saved to: ${outputFile}`);
   console.log(`You can open this file and copy-paste into Google Doc`);
   console.log(`${'='.repeat(100)}\n`);
-
-  // Output summary
-  console.log(`\n${'='.repeat(80)}`);
-  console.log('SUMMARY');
-  console.log(`${'='.repeat(80)}\n`);
-
-  // Sort by ticker for easy reading
-  results.sort((a, b) => a.ticker.localeCompare(b.ticker));
-
-  console.log('TICKER | DIV HISTO | INCREASES | DECREASES | TOTAL DIVS | REGULAR DIVS');
-  console.log('-'.repeat(80));
-  
-  for (const r of results) {
-    if (r.error) {
-      console.log(`${r.ticker.padEnd(6)} | ERROR     | ${r.error.substring(0, 40)}`);
-    } else {
-      console.log(
-        `${r.ticker.padEnd(6)} | ${r.result.padEnd(9)} | ${String(r.increases).padStart(9)} | ${String(r.decreases).padStart(9)} | ${String(r.totalDividends).padStart(10)} | ${String(r.regularDividends).padStart(12)}`
-      );
-    }
-  }
-
-  // Also output detailed format for copy-paste
-  console.log(`\n${'='.repeat(80)}`);
-  console.log('DETAILED OUTPUT (for Google Doc)');
-  console.log(`${'='.repeat(80)}\n`);
-
-  for (const r of results) {
-    if (r.error) {
-      console.log(`${r.ticker}: ERROR - ${r.error}\n`);
-    } else {
-      console.log(`${r.ticker}: ${r.result}`);
-      console.log(`  Total Dividends: ${r.totalDividends}`);
-      console.log(`  Regular Dividends: ${r.regularDividends}`);
-      console.log(`  Increases: ${r.increases}`);
-      console.log(`  Decreases: ${r.decreases}\n`);
-    }
-  }
 }
 
 async function main() {
