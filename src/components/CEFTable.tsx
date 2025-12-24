@@ -242,31 +242,18 @@ export const CEFTable = ({
                 </SortButton>
               </th>
               <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                <Tooltip delayDuration={200}>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <SortButton
-                        field="dividendHistory"
-                        sortField={sortField}
-                        sortDirection={sortDirection}
-                        onSort={handleSort}
-                      >
-                        <div className="whitespace-normal leading-tight">
-                          <span className="font-bold">DIV</span>
-                          <br />
-                          <span className="font-bold">HISTO</span>
-                        </div>
-                      </SortButton>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="top"
-                    sideOffset={8}
-                    className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg"
-                  >
-                    <p>Click to see div history</p>
-                  </TooltipContent>
-                </Tooltip>
+                <SortButton
+                  field="dividendHistory"
+                  sortField={sortField}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                >
+                  <div className="whitespace-normal leading-tight">
+                    DIV
+                    <br />
+                    HISTO
+                  </div>
+                </SortButton>
               </th>
               <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
                 <SortButton
@@ -340,31 +327,18 @@ export const CEFTable = ({
                 </SortButton>
               </th>
               <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                <Tooltip delayDuration={200}>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <SortButton
-                        field="yearlyDividend"
-                        sortField={sortField}
-                        sortDirection={sortDirection}
-                        onSort={handleSort}
-                      >
-                        <div className="whitespace-normal leading-tight">
-                          Yrly
-                          <br />
-                          <span className="font-bold">Div</span>
-                        </div>
-                      </SortButton>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="top"
-                    sideOffset={8}
-                    className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg"
-                  >
-                    <p>Click to see div history</p>
-                  </TooltipContent>
-                </Tooltip>
+                <SortButton
+                  field="yearlyDividend"
+                  sortField={sortField}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                >
+                  <div className="whitespace-normal leading-tight">
+                    Yrly
+                    <br />
+                    Div
+                  </div>
+                </SortButton>
               </th>
               <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
                 <SortButton
