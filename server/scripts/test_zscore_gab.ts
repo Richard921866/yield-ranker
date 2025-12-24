@@ -113,10 +113,19 @@ async function testZScoreGAB() {
       console.log(`  Close: ${latestNav.close}`);
       console.log(`  Adj Close: ${latestNav.adj_close}`);
       
-      const currentDiscountClose = (latestPrice.close / latestNav.close - 1) * 100;
-      const currentDiscountAdj = (latestPrice.adj_close / latestNav.adj_close - 1) * 100;
-      console.log(`\nCurrent Discount (using close): ${currentDiscountClose.toFixed(4)}%`);
-      console.log(`Current Discount (using adj_close): ${currentDiscountAdj.toFixed(4)}%`);
+      if (latestPrice.close != null && latestNav.close != null) {
+        const currentDiscountClose = (latestPrice.close / latestNav.close - 1) * 100;
+        console.log(`\nCurrent Discount (using close): ${currentDiscountClose.toFixed(4)}%`);
+      } else {
+        console.log(`\nCurrent Discount (using close): N/A (missing data)`);
+      }
+      
+      if (latestPrice.adj_close != null && latestNav.adj_close != null) {
+        const currentDiscountAdj = (latestPrice.adj_close / latestNav.adj_close - 1) * 100;
+        console.log(`Current Discount (using adj_close): ${currentDiscountAdj.toFixed(4)}%`);
+      } else {
+        console.log(`Current Discount (using adj_close): N/A (missing data)`);
+      }
     }
 
     if (priceData.length === 0 || navData.length === 0) {
