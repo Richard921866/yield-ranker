@@ -1271,11 +1271,8 @@ export default function Dashboard() {
   };
 
   const handleETFSymbolClick = (symbol: string) => {
-    // Find the ETF and set it as selected to show detail view within dashboard
-    const etf = uniqueSymbolETFs.find((e) => e.symbol === symbol);
-    if (etf) {
-      setSelectedETF(etf);
-    }
+    // Navigate to ETF detail page (same as home page behavior, like CEFs)
+    navigate(`/etf/${symbol}`);
   };
 
   const handleETFDividendClick = (symbol: string) => {
