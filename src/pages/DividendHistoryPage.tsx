@@ -69,7 +69,7 @@ const DividendHistoryPage = () => {
           <div className="text-center py-12">
             <p className="text-muted-foreground">Invalid symbol</p>
             <Button onClick={() => navigate("/")} className="mt-4">
-              Back to Rankings
+              Back to Home Page
             </Button>
           </div>
         </main>
@@ -88,7 +88,7 @@ const DividendHistoryPage = () => {
             className="mb-6 hover:bg-slate-100 hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Rankings
+            Back to Home Page
           </Button>
         </div>
 
