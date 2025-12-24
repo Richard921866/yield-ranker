@@ -220,6 +220,14 @@ const AppRoutes = () => {
                 }
               />
               <Route
+                path="/admin/price-reference"
+                element={
+                  <RequireAuth>
+                    <AdminPanel />
+                  </RequireAuth>
+                }
+              />
+              <Route
                 path="/settings"
                 element={
                   <RequireAuth>

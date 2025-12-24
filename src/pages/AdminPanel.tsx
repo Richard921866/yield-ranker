@@ -81,7 +81,7 @@ const AdminPanel = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "users" | "upload" | "delete" | "favorites" | "site-settings"
+    "users" | "upload" | "delete" | "favorites" | "site-settings" | "price-reference"
   >("users");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -167,6 +167,8 @@ const AdminPanel = () => {
       setActiveTab("upload"); // Legacy support - redirect data to upload
     } else if (path.endsWith("/settings")) {
       setActiveTab("site-settings");
+    } else if (path.endsWith("/price-reference")) {
+      setActiveTab("price-reference");
     } else {
       const params = new URLSearchParams(location.search);
       const tab = params.get("tab");
@@ -182,6 +184,8 @@ const AdminPanel = () => {
         setActiveTab("upload"); // Legacy support
       } else if (tab === "settings") {
         setActiveTab("site-settings");
+      } else if (tab === "price-reference") {
+        setActiveTab("price-reference");
       } else {
         setActiveTab("users");
       }
@@ -820,6 +824,20 @@ const AdminPanel = () => {
           >
             <Globe className="w-5 h-5" />
             {!sidebarCollapsed && "Site Settings"}
+          </button>
+          <button
+            onClick={() => navigate("/admin/price-reference")}
+            className={`w-full flex items-center ${sidebarCollapsed
+              ? "justify-center px-0 py-2.5"
+              : "gap-3 px-4 py-3"
+              } rounded-lg text-sm font-medium ${activeTab === "price-reference"
+                ? "bg-primary text-white"
+                : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
+              } transition-colors`}
+            title={sidebarCollapsed ? "Price Reference" : ""}
+          >
+            <Database className="w-5 h-5" />
+            {!sidebarCollapsed && "Price Reference"}
           </button>
           <button
             onClick={() => navigate("/settings")}
@@ -1697,9 +1715,12 @@ const AdminPanel = () => {
                 </div>
               </Card>
 
-              {/* Adjusted vs Unadjusted Price Reference */}
-              <Card className="border-2 border-blue-200 bg-blue-50/30">
-                <div className="p-6 space-y-4">
+            </div>
+            )}
+
+            {activeTab === "price-reference" && (
+              <Card className="border-2 border-slate-200">
+                <div className="p-6 space-y-6">
                   <div>
                     <h2 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
                       <Database className="w-5 h-5 text-primary" />
@@ -1767,31 +1788,9 @@ const AdminPanel = () => {
                         </table>
                       </div>
                     </div>
-
-                    <div className="mt-4 p-4 bg-yellow-50 border-2 border-yellow-200 rounded-lg">
-                      <h4 className="font-semibold text-foreground mb-2">⚠️ Common Mistakes to Avoid</h4>
-                      <ul className="text-sm space-y-1 text-muted-foreground list-disc list-inside">
-                        <li><strong>WRONG:</strong> <code className="bg-slate-100 px-1 rounded">close ?? adj_close</code> for NAV trends (prioritizes unadjusted)</li>
-                        <li><strong>CORRECT:</strong> <code className="bg-slate-100 px-1 rounded">adj_close ?? close</code> for NAV trends (prioritizes adjusted)</li>
-                        <li><strong>WRONG:</strong> <code className="bg-slate-100 px-1 rounded">adj_close</code> for market price display</li>
-                        <li><strong>CORRECT:</strong> <code className="bg-slate-100 px-1 rounded">close</code> for market price display</li>
-                        <li><strong>WRONG:</strong> <code className="bg-slate-100 px-1 rounded">close</code> for total return calculations</li>
-                        <li><strong>CORRECT:</strong> <code className="bg-slate-100 px-1 rounded">adj_close</code> for total return calculations</li>
-                      </ul>
-                    </div>
-
-                    <div className="mt-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                      <h4 className="font-semibold text-foreground mb-2">📋 Code Locations</h4>
-                      <ul className="text-sm space-y-1 text-muted-foreground">
-                        <li><strong>Market Price & NAV (Unadjusted):</strong> <code className="bg-slate-100 px-1 rounded">server/scripts/refresh_cef.ts</code>, <code className="bg-slate-100 px-1 rounded">server/src/routes/cefs.ts</code></li>
-                        <li><strong>Total Returns (Adjusted):</strong> <code className="bg-slate-100 px-1 rounded">server/src/services/metrics.ts</code>, <code className="bg-slate-100 px-1 rounded">server/src/routes/cefs.ts</code></li>
-                        <li><strong>NAV Trends (Adjusted):</strong> <code className="bg-slate-100 px-1 rounded">server/src/routes/cefs.ts</code>, <code className="bg-slate-100 px-1 rounded">server/scripts/refresh_cef.ts</code></li>
-                      </ul>
-                    </div>
                   </div>
                 </div>
               </Card>
-            </div>
             )}
           </div>
         </div>
