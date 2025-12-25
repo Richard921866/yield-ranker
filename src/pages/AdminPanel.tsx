@@ -325,8 +325,9 @@ const AdminPanel = () => {
     setNotebookLoading(true);
     try {
       let content = await getNotebook();
-      // If notebook is empty, initialize with default price reference content - just the Summary Table
-      if (!content || content.trim() === "") {
+      // Always reset to clean table content (image 1) - just the Summary Table
+      // If notebook is empty or has old content, reset to clean version
+      if (!content || content.trim() === "" || content.includes("Total Returns Calculation") || content.includes("Common Mistakes")) {
         // Use string concatenation to avoid template literal parsing issues in build
         content = [
           '<h1>Adjusted vs Unadjusted Price Reference</h1>',
@@ -1964,7 +1965,8 @@ const AdminPanel = () => {
                           suppressContentEditableWarning
                           onBlur={(e) => setNotebookContent(e.currentTarget.innerHTML)}
                           onInput={(e) => setNotebookContent(e.currentTarget.innerHTML)}
-                          className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
+                          className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{ __html: notebookContent }}
                         >
                         </div>
                       </div>
