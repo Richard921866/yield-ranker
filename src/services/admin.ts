@@ -133,6 +133,27 @@ export const deleteProfile = async (id: string): Promise<void> => {
   // The profile deletion above is sufficient to remove the user from the app
 };
 
+export const getNotebook = async (): Promise<string> => {
+  const { data, error } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "admin_notebook")
+    .maybeSingle();
+  
+  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+    throw error;
+  }
+  
+  return data?.value || "";
+};
+
+export const saveNotebook = async (
+  content: string,
+  updatedBy?: string | null
+): Promise<SiteSetting> => {
+  return updateSiteSetting("admin_notebook", content, updatedBy);
+};
+
 
 
 
