@@ -1341,11 +1341,9 @@ const AdminPanel = () => {
                       <p className="text-sm text-muted-foreground mb-4">
                         Upload Covered Call Option ETF data from Excel file.
                         <br /><br />
-                        <strong>Required Fields:</strong> SYMBOL (or TICKER), CATEGORY (must be "CCETF" or "CCEF")
+                        <strong>Required:</strong> CC ETF Symbol, CATEGORY (must be "CCETF" or "CCEF")
                         <br />
-                        <strong>Optional Fields:</strong> Issuer, Description, Pay Day (or Pay Day Text), # Payments (or Payments Per Year), IPO Price (or IPO Price), Div (or Dividend)
-                        <br />
-                        <strong>Note:</strong> Field names are case-insensitive and accept spaces/underscores (e.g., "Pay Day" = "Pay Day" or "pay_day")
+                        <strong>Optional:</strong> Issuer, Description, Pay Day, # Payments, IPO Price, Div
                       </p>
                     </div>
 
@@ -1421,13 +1419,9 @@ const AdminPanel = () => {
                         <p className="text-sm text-muted-foreground mb-4">
                           Upload Closed End Fund data from Excel file.
                           <br /><br />
-                          <strong>Required Fields:</strong> SYMBOL (or TICKER), CATEGORY (must be "CEF"), Last Div (or Last Dividend, Last Div)
+                          <strong>Required:</strong> CEF Symbol, CATEGORY (must be "CEF"), Last Div
                           <br />
-                          <strong>Optional Fields:</strong> NAV Symbol (or NAV Symbol, NAV Symbol), Description (or Desc), OPEN (or Open Date, Opening Date), DIV HISTORY (or Dividend History - auto-computed if not provided), IPO PRICE (or IPO Price, IPO), # (or # Payments, Payments Per Year)
-                          <br />
-                          <strong>Note:</strong> DIV HISTO is automatically computed from dividend records in the database. The DIV HISTORY field is optional and only used to manually override the computed value.
-                          <br />
-                          Field names are case-insensitive and accept spaces/underscores.
+                          <strong>Optional:</strong> NAV Symbol, Description, OPEN (Open Date), DIV HISTORY, IPO PRICE, # (# Payments)
                         </p>
                       </div>
 
@@ -1975,15 +1969,23 @@ const AdminPanel = () => {
                           </div>
                         </div>
                         <div className="overflow-x-auto -mx-2 px-2">
-                          <div 
-                            ref={contentEditableRef}
-                            contentEditable 
-                            suppressContentEditableWarning
-                            onBlur={(e) => setNotebookContent(e.currentTarget.innerHTML)}
-                            onInput={(e) => setNotebookContent(e.currentTarget.innerHTML)}
-                            className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg prose prose-sm max-w-none"
-                          >
-                          </div>
+                          {notebookLoading ? (
+                            <div className="flex items-center justify-center py-8">
+                              <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground mr-2" />
+                              <span className="text-muted-foreground">Loading...</span>
+                            </div>
+                          ) : (
+                            <div 
+                              ref={contentEditableRef}
+                              contentEditable 
+                              suppressContentEditableWarning
+                              onBlur={(e) => setNotebookContent(e.currentTarget.innerHTML)}
+                              onInput={(e) => setNotebookContent(e.currentTarget.innerHTML)}
+                              className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg prose prose-sm max-w-none"
+                              dangerouslySetInnerHTML={notebookContent ? { __html: notebookContent } : undefined}
+                            >
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
