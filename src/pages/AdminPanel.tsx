@@ -316,7 +316,171 @@ const AdminPanel = () => {
   const loadNotebook = async () => {
     setNotebookLoading(true);
     try {
-      const content = await getNotebook();
+      let content = await getNotebook();
+      // If notebook is empty, initialize with default price reference content
+      if (!content || content.trim() === "") {
+        content = `# Adjusted vs Unadjusted Price Reference
+
+**Last Updated:** ${new Date().toLocaleDateString()}  
+**Purpose:** This document defines which metrics use ADJUSTED (adj_close) vs UNADJUSTED (close) prices as specified by the CEO.
+
+## Summary Table
+
+| Metric | Type | Price Field |
+|--------|------|-------------|
+| MARKET PRICE (HOME PAGE TABLE) | UNADJUSTED | \`close\` |
+| NAV (HOME PAGE) | UNADJUSTED | \`close\` |
+| PRICE (CHART) | UNADJUSTED | \`close\` |
+| NAV (CHART) | UNADJUSTED | \`close\` |
+| TOTAL RETURNS | ADJUSTED | \`adj_close\` |
+| 6 MO NAV TREND | ADJUSTED | \`adj_close\` |
+| 12 MO NAV TREND | ADJUSTED | \`adj_close\` |
+| 5-YEAR Z-SCORE | ADJUSTED | \`adj_close\` |
+
+---
+
+## 1. Total Returns Calculation
+
+**Used for all return periods** (3Y, 5Y, 10Y, 15Y, 12M, 6M, 3M, 1M, 1W).
+
+**Formula:**
+\`\`\`
+Total Return = ((end_adj_close / start_adj_close) - 1) × 100
+\`\`\`
+
+**Price Source:** \`adj_close\` (adjusted)  
+**Purpose:** Accounts for dividends and distributions (total return with DRIP)
+
+---
+
+## 2. Premium/Discount Calculation
+
+**Formula:**
+\`\`\`
+Premium/Discount = ((Market Price / NAV) - 1) × 100
+\`\`\`
+
+**Price Source:** \`close\` (unadjusted)  
+**Example:** If MP=$50, NAV=$45: ((50/45) - 1) × 100 = +11.11% (premium)
+
+---
+
+## 3. 5-Year Z-Score Calculation
+
+Measures how current premium/discount compares to historical average.
+
+**Step 1: Calculate Daily Discounts**
+\`\`\`
+Daily Discount = (Price_adj_close / NAV_adj_close) - 1
+\`\`\`
+Uses \`adj_close\` for both price and NAV
+
+**Step 2: Calculate Statistics**
+- Mean Discount = Average of all discounts
+- Variance = Σ((Discount - Mean)²) / n
+- Std Dev = √Variance
+
+**Step 3: Calculate Z-Score**
+\`\`\`
+Z-Score = (Current Discount - Mean Discount) / Standard Deviation
+\`\`\`
+
+**Lookback Period:** Up to 5 years (1,260 trading days max, 504 days minimum)  
+Returns null if less than 2 years of data available
+
+---
+
+## 4. NAV Trend Calculations
+
+### 6-Month NAV Trend
+
+**Formula:**
+\`\`\`
+((Current NAV - NAV 6 months ago) / NAV 6 months ago) × 100
+\`\`\`
+
+**Period:** Exactly 6 calendar months (not trading days)  
+**Price Source:** \`adj_close\` (adjusted) - accounts for distributions
+
+### 12-Month NAV Trend
+
+**Formula:**
+\`\`\`
+((Current NAV - NAV 12 months ago) / NAV 12 months ago) × 100
+\`\`\`
+
+**Period:** Exactly 12 calendar months (not trading days)  
+**Price Source:** \`adj_close\` (adjusted) - accounts for distributions
+
+---
+
+## 5. Dividend Split Adjustment
+
+Adjusts historical dividends for stock splits to maintain comparability.
+
+**Formula:**
+For each split that occurred AFTER dividend date:
+\`\`\`
+adjustmentFactor = adjustmentFactor × (1 / splitFactor)
+adjAmount = amount × adjustmentFactor
+\`\`\`
+
+**Examples:**
+
+**Forward split (2-for-1, splitFactor=2.0):**
+- Original: $0.30 → Adjusted: $0.30 × (1/2) = $0.15
+
+**Reverse split (10-for-1, splitFactor=0.1):**
+- Original: $0.0594 → Adjusted: $0.0594 × (1/0.1) = $0.594
+
+**Important:** Both forward and reverse splits use the same formula: multiply by (1/splitFactor)
+
+---
+
+## 6. Annual Dividend Total
+
+**Formula:**
+\`\`\`
+Year Total = Σ(adjAmount) for all dividends in that year
+\`\`\`
+
+Uses \`adjAmount\` (split-adjusted), includes all dividend types (Regular + Special)
+
+---
+
+## ⚠️ Common Mistakes to Avoid
+
+❌ **WRONG:** \`close ?? adj_close\` for NAV trends (prioritizes unadjusted)  
+✅ **CORRECT:** \`adj_close ?? close\` for NAV trends (prioritizes adjusted)
+
+❌ **WRONG:** \`adj_close\` for market price display  
+✅ **CORRECT:** \`close\` for market price display
+
+❌ **WRONG:** \`close\` for total return calculations  
+✅ **CORRECT:** \`adj_close\` for total return calculations
+
+❌ **WRONG:** Reverse split adjustment: \`amount × splitFactor\`  
+✅ **CORRECT:** Reverse split adjustment: \`amount × (1/splitFactor)\`
+
+---
+
+## 📍 Key Code Locations
+
+- **Market Price & NAV (Unadjusted):** server/scripts/refresh_cef.ts, server/src/routes/cefs.ts
+- **Total Returns (Adjusted):** server/src/services/metrics.ts → calculateTotalReturnDrip()
+- **Z-Score (Adjusted):** server/src/routes/cefs.ts → calculateCEFZScore()
+- **NAV Trends (Adjusted):** server/src/routes/cefs.ts → calculateNAVTrend6M(), calculateNAVTrend12M()
+- **Dividend Split Adjustment:** server/src/services/tiingo.ts → fetchDividendHistory()
+- **Premium/Discount:** server/src/routes/cefs.ts → ((marketPrice / currentNav) - 1) × 100
+
+---
+
+## Additional Notes
+
+Use this space to add any additional formulas, calculations, or notes you need to keep track of.`;
+        // Save the default content
+        await saveNotebook(content, profile?.id ?? null);
+      }
       setNotebookContent(content);
     } catch (error) {
       toast({
@@ -1787,10 +1951,10 @@ const AdminPanel = () => {
                     <div>
                       <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center gap-2">
                         <Database className="w-6 h-6 text-primary" />
-                        Admin Notebook
+                        Calculations & Formulas Reference
                       </h2>
                       <p className="text-sm text-muted-foreground">
-                        Keep notes, formulas, calculations, and any other information you need. All content is editable and saved automatically.
+                        Complete reference for all calculations, formulas, and methodologies. All content is editable - click Save to update.
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
