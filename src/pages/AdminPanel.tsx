@@ -228,20 +228,27 @@ const AdminPanel = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
-  // Set content in contentEditable when it loads
+  // Set content in contentEditable when it loads or when tab becomes active
   useEffect(() => {
-    if (contentEditableRef.current && !notebookLoading) {
+    if (activeTab === "price-reference" && contentEditableRef.current && !notebookLoading) {
       // Always set content, even if empty, to ensure it renders
       if (notebookContent) {
-        if (contentEditableRef.current.innerHTML !== notebookContent) {
-          contentEditableRef.current.innerHTML = notebookContent;
-        }
+        // Use requestAnimationFrame to ensure DOM is ready
+        requestAnimationFrame(() => {
+          if (contentEditableRef.current && contentEditableRef.current.innerHTML !== notebookContent) {
+            contentEditableRef.current.innerHTML = notebookContent;
+          }
+        });
       } else {
         // If no content, set empty string to clear any previous content
-        contentEditableRef.current.innerHTML = '';
+        requestAnimationFrame(() => {
+          if (contentEditableRef.current) {
+            contentEditableRef.current.innerHTML = '';
+          }
+        });
       }
     }
-  }, [notebookContent, notebookLoading]);
+  }, [notebookContent, notebookLoading, activeTab]);
 
   // Keyboard shortcut for saving notebook (Ctrl+S / Cmd+S)
   useEffect(() => {
@@ -1349,7 +1356,7 @@ const AdminPanel = () => {
                       <p className="text-sm text-muted-foreground mb-4">
                         Upload Covered Call Option ETF data from Excel file.
                         <br /><br />
-                        <strong>Required:</strong> CC ETF Symbol, CATEGORY
+                        <strong>Required:</strong> CC ETF Symbol
                         <br />
                         <strong>Optional:</strong> Issuer, Description, Pay Day, # Payments, IPO Price, Div
                       </p>
@@ -1427,7 +1434,7 @@ const AdminPanel = () => {
                         <p className="text-sm text-muted-foreground mb-4">
                           Upload Closed End Fund data from Excel file.
                           <br /><br />
-                          <strong>Required:</strong> CEF Symbol, CATEGORY, Last Div
+                          <strong>Required:</strong> CEF Symbol, Last Div
                           <br />
                           <strong>Optional:</strong> NAV Symbol, Description, OPEN (Open Date), DIV HISTORY, IPO PRICE, # (# Payments)
                         </p>
@@ -1864,27 +1871,27 @@ const AdminPanel = () => {
 
             {activeTab === "price-reference" && (
               <Card className="border-2 border-slate-200">
-                <div className="p-6 space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center gap-2">
-                        <Database className="w-6 h-6 text-primary" />
+                <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div className="flex-1">
+                      <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-2 flex items-center gap-2">
+                        <Database className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                         Adjusted vs Unadjusted Price Reference
                       </h2>
-                      <p className="text-sm text-muted-foreground mb-6">
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6">
                         This reference document defines which metrics use ADJUSTED (adj_close) or UNADJUSTED (close) prices as specified by the CTO.
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
                       {notebookLastSaved && (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
                           Last saved: {notebookLastSaved}
                         </span>
                       )}
                       <Button
                         onClick={handleSaveNotebook}
                         disabled={notebookSaving || notebookLoading}
-                        className="min-w-[100px]"
+                        className="min-w-[100px] w-full sm:w-auto"
                       >
                         {notebookSaving ? (
                           <>
@@ -1909,10 +1916,10 @@ const AdminPanel = () => {
                   ) : (
                     <div className="space-y-6">
                       {/* Summary Table - Fully Editable */}
-                      <div className="bg-white rounded-lg border-2 border-slate-200 p-6 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-bold text-foreground">Summary Table</h3>
-                          <div className="flex gap-2">
+                      <div className="bg-white rounded-lg border-2 border-slate-200 p-4 sm:p-6 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <h3 className="text-base sm:text-lg font-bold text-foreground">Summary Table</h3>
+                          <div className="flex gap-2 flex-wrap">
                             <Button
                               variant="outline"
                               size="sm"
@@ -1976,7 +1983,7 @@ const AdminPanel = () => {
                             </Button>
                           </div>
                         </div>
-                        <div className="overflow-x-auto -mx-2 px-2">
+                        <div className="overflow-x-auto -mx-2 px-2 w-full">
                           {notebookLoading ? (
                             <div className="flex items-center justify-center py-8">
                               <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground mr-2" />
@@ -1989,7 +1996,7 @@ const AdminPanel = () => {
                               suppressContentEditableWarning
                               onBlur={(e) => setNotebookContent(e.currentTarget.innerHTML)}
                               onInput={(e) => setNotebookContent(e.currentTarget.innerHTML)}
-                              className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg prose prose-sm max-w-none"
+                              className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg prose prose-sm max-w-none w-full min-h-[200px]"
                             >
                             </div>
                           )}
