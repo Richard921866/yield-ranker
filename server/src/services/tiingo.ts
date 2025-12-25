@@ -334,14 +334,13 @@ export async function fetchDividendHistory(
                     
                     if (applicableSplits.length > 0) {
                         // For multiple splits, calculate cumulative adjustment
-                        // For each split: if splitFactor > 1 (forward), use 1/splitFactor; if < 1 (reverse), use splitFactor
+                        // For both forward and reverse splits: multiply by (1 / splitFactor)
+                        // - Forward split (2-for-1, splitFactor=2): multiply by 1/2 = 0.5
+                        // - Reverse split (10-for-1, splitFactor=0.1): multiply by 1/0.1 = 10
                         const adjustmentFactor = applicableSplits.reduce(
                             (factor, split) => {
-                                // Forward split: divide by splitFactor (multiply by 1/splitFactor)
-                                // Reverse split: multiply by splitFactor
-                                return split.splitFactor > 1 
-                                    ? factor * (1 / split.splitFactor)  // Forward split
-                                    : factor * split.splitFactor;        // Reverse split
+                                // Both forward and reverse splits: multiply by (1 / splitFactor)
+                                return factor * (1 / split.splitFactor);
                             },
                             1
                         );

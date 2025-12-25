@@ -52,18 +52,19 @@ This document provides a comprehensive explanation of how dividend history is ca
 - **Formula**:
   ```
   For each split that occurred AFTER dividend date:
-    If forward split (splitFactor > 1):
-      adjustmentFactor = adjustmentFactor × (1 / splitFactor)
-    If reverse split (splitFactor < 1):
-      adjustmentFactor = adjustmentFactor × splitFactor
+    adjustmentFactor = adjustmentFactor × (1 / splitFactor)
   
   adjAmount = amount × adjustmentFactor
   ```
 - **Purpose**: Makes historical dividends comparable across split events
 - **Usage**: **PRIMARY VALUE** used in all charts and calculations
-- **Example**: 
-  - Original: $0.30
-  - 2-for-1 split occurred after: $0.30 × (1/2) = $0.15 adjusted
+- **Examples**: 
+  - Forward split (2-for-1, splitFactor=2.0): 
+    - Original: $0.30
+    - Adjusted: $0.30 × (1/2) = $0.15
+  - Reverse split (10-for-1, splitFactor=0.1):
+    - Original: $0.0594
+    - Adjusted: $0.0594 × (1/0.1) = $0.594
 
 ### 3. Scaled Amount (`scaledAmount`)
 - **Definition**: Price-scaled dividend amount
