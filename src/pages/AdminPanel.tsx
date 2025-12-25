@@ -1349,7 +1349,7 @@ const AdminPanel = () => {
                       <p className="text-sm text-muted-foreground mb-4">
                         Upload Covered Call Option ETF data from Excel file.
                         <br /><br />
-                        <strong>Required:</strong> CC ETF Symbol, CATEGORY (must be "CCETF" or "CCEF")
+                        <strong>Required:</strong> CC ETF Symbol, CATEGORY
                         <br />
                         <strong>Optional:</strong> Issuer, Description, Pay Day, # Payments, IPO Price, Div
                       </p>
@@ -1427,7 +1427,7 @@ const AdminPanel = () => {
                         <p className="text-sm text-muted-foreground mb-4">
                           Upload Closed End Fund data from Excel file.
                           <br /><br />
-                          <strong>Required:</strong> CEF Symbol, CATEGORY (must be "CEF"), Last Div
+                          <strong>Required:</strong> CEF Symbol, CATEGORY, Last Div
                           <br />
                           <strong>Optional:</strong> NAV Symbol, Description, OPEN (Open Date), DIV HISTORY, IPO PRICE, # (# Payments)
                         </p>
