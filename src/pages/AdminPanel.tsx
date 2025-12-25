@@ -230,8 +230,16 @@ const AdminPanel = () => {
 
   // Set content in contentEditable when it loads
   useEffect(() => {
-    if (contentEditableRef.current && notebookContent && !notebookLoading) {
-      contentEditableRef.current.innerHTML = notebookContent;
+    if (contentEditableRef.current && !notebookLoading) {
+      // Always set content, even if empty, to ensure it renders
+      if (notebookContent) {
+        if (contentEditableRef.current.innerHTML !== notebookContent) {
+          contentEditableRef.current.innerHTML = notebookContent;
+        }
+      } else {
+        // If no content, set empty string to clear any previous content
+        contentEditableRef.current.innerHTML = '';
+      }
     }
   }, [notebookContent, notebookLoading]);
 
