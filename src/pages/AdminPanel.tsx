@@ -114,6 +114,7 @@ const AdminPanel = () => {
   const [notebookLoading, setNotebookLoading] = useState(false);
   const [notebookSaving, setNotebookSaving] = useState(false);
   const [notebookLastSaved, setNotebookLastSaved] = useState<string | null>(null);
+  const [selectedTableId, setSelectedTableId] = useState<string>("summary-table");
   const contentEditableRef = useRef<HTMLDivElement>(null);
 
   const userMetadata =
@@ -331,53 +332,53 @@ const AdminPanel = () => {
         // Use string concatenation to avoid template literal parsing issues in build
         content = [
           '<h1>Adjusted vs Unadjusted Price Reference</h1>',
-          '<p>This reference document defines which metrics use ADJUSTED (adj_close) or UNADJUSTED (close) prices as specified by the CTO.</p>',
+          '<p class="mb-6">This reference document defines which metrics use ADJUSTED (adj_close) or UNADJUSTED (close) prices as specified by the CTO.</p>',
           '',
-          '<h2>Summary Table</h2>',
-          '<div class="overflow-x-auto">',
-          '<table class="w-full text-sm border-collapse">',
+          '<h2 data-table-id="summary-table" class="text-lg font-bold text-foreground mb-4">Summary Table</h2>',
+          '<div class="overflow-x-auto -mx-2 px-2">',
+          '<table data-table="summary-table" class="min-w-full text-sm border-collapse table-auto">',
           '<thead>',
           '<tr class="bg-slate-100">',
-          '<th class="border border-slate-300 px-3 py-2 text-left font-semibold">Metric</th>',
-          '<th class="border border-slate-300 px-3 py-2 text-left font-semibold">Type</th>',
-          '<th class="border border-slate-300 px-3 py-2 text-left font-semibold">Price Field</th>',
+          '<th class="border border-slate-300 px-3 py-2 text-left font-semibold whitespace-nowrap min-w-[200px]">Metric</th>',
+          '<th class="border border-slate-300 px-3 py-2 text-left font-semibold whitespace-nowrap min-w-[120px]">Type</th>',
+          '<th class="border border-slate-300 px-3 py-2 text-left font-semibold whitespace-nowrap min-w-[100px]">Price Field</th>',
           '</tr>',
           '</thead>',
           '<tbody>',
           '<tr>',
-          '<td class="border border-slate-300 px-3 py-2">MARKET PRICE (HOME PAGE TABLE)</td>',
-          '<td class="border border-slate-300 px-3 py-2"><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">UNADJUSTED</span></td>',
-          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs">`close`</td>',
+          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap">MARKET PRICE (HOME PAGE TABLE)</td>',
+          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap"><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">UNADJUSTED</span></td>',
+          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs whitespace-nowrap">`close`</td>',
           '</tr>',
           '<tr class="bg-slate-50">',
-          '<td class="border border-slate-300 px-3 py-2">NAV (HOME PAGE)</td>',
-          '<td class="border border-slate-300 px-3 py-2"><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">UNADJUSTED</span></td>',
-          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs">`close`</td>',
+          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap">NAV (HOME PAGE)</td>',
+          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap"><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">UNADJUSTED</span></td>',
+          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs whitespace-nowrap">`close`</td>',
           '</tr>',
           '<tr>',
-          '<td class="border border-slate-300 px-3 py-2">PRICE (CHART)</td>',
-          '<td class="border border-slate-300 px-3 py-2"><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">UNADJUSTED</span></td>',
-          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs">`close`</td>',
+          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap">PRICE (CHART)</td>',
+          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap"><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">UNADJUSTED</span></td>',
+          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs whitespace-nowrap">`close`</td>',
           '</tr>',
           '<tr class="bg-slate-50">',
-          '<td class="border border-slate-300 px-3 py-2">NAV (CHART)</td>',
-          '<td class="border border-slate-300 px-3 py-2"><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">UNADJUSTED</span></td>',
-          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs">`close`</td>',
+          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap">NAV (CHART)</td>',
+          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap"><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">UNADJUSTED</span></td>',
+          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs whitespace-nowrap">`close`</td>',
           '</tr>',
           '<tr>',
-          '<td class="border border-slate-300 px-3 py-2">TOTAL RETURNS</td>',
-          '<td class="border border-slate-300 px-3 py-2"><span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">ADJUSTED</span></td>',
-          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs">`adj_close`</td>',
+          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap">TOTAL RETURNS</td>',
+          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap"><span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">ADJUSTED</span></td>',
+          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs whitespace-nowrap">`adj_close`</td>',
           '</tr>',
           '<tr class="bg-slate-50">',
-          '<td class="border border-slate-300 px-3 py-2">6 MO NAV TREND</td>',
-          '<td class="border border-slate-300 px-3 py-2"><span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">ADJUSTED</span></td>',
-          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs">`adj_close`</td>',
+          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap">6 MO NAV TREND</td>',
+          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap"><span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">ADJUSTED</span></td>',
+          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs whitespace-nowrap">`adj_close`</td>',
           '</tr>',
           '<tr>',
-          '<td class="border border-slate-300 px-3 py-2">12 MO NAV TREND</td>',
-          '<td class="border border-slate-300 px-3 py-2"><span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">ADJUSTED</span></td>',
-          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs">`adj_close`</td>',
+          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap">12 MO NAV TREND</td>',
+          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap"><span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">ADJUSTED</span></td>',
+          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs whitespace-nowrap">`adj_close`</td>',
           '</tr>',
           '</tbody>',
           '</table>',
@@ -1862,8 +1863,8 @@ const AdminPanel = () => {
                         <Database className="w-6 h-6 text-primary" />
                         Adjusted vs Unadjusted Price Reference
                       </h2>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        This reference document defines which metrics use ADJUSTED (adj_close) vs UNADJUSTED (close) prices as specified by the CEO.
+                      <p className="text-sm text-muted-foreground mb-6">
+                        This reference document defines which metrics use ADJUSTED (adj_close) or UNADJUSTED (close) prices as specified by the CTO.
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -1909,12 +1910,12 @@ const AdminPanel = () => {
                               size="sm"
                               onClick={() => {
                                 if (contentEditableRef.current) {
-                                  const table = contentEditableRef.current.querySelector('table');
+                                  const table = contentEditableRef.current.querySelector('table[data-table]');
                                   if (table) {
                                     const headerRow = table.querySelector('thead tr');
                                     if (headerRow) {
                                       const newHeader = document.createElement('th');
-                                      newHeader.className = 'border border-slate-300 px-3 py-2 text-left font-semibold';
+                                      newHeader.className = 'border border-slate-300 px-3 py-2 text-left font-semibold whitespace-nowrap min-w-[120px]';
                                       newHeader.contentEditable = true;
                                       newHeader.textContent = 'New Column';
                                       headerRow.appendChild(newHeader);
@@ -1922,7 +1923,7 @@ const AdminPanel = () => {
                                     const rows = table.querySelectorAll('tbody tr');
                                     rows.forEach(row => {
                                       const newCell = document.createElement('td');
-                                      newCell.className = 'border border-slate-300 px-3 py-2';
+                                      newCell.className = 'border border-slate-300 px-3 py-2 whitespace-nowrap';
                                       newCell.contentEditable = true;
                                       row.appendChild(newCell);
                                     });
@@ -1938,19 +1939,27 @@ const AdminPanel = () => {
                               size="sm"
                               onClick={() => {
                                 if (contentEditableRef.current) {
-                                  const table = contentEditableRef.current.querySelector('table tbody');
+                                  const table = contentEditableRef.current.querySelector('table[data-table]');
                                   if (table) {
-                                    const headerRow = contentEditableRef.current.querySelector('table thead tr');
-                                    const colCount = headerRow?.querySelectorAll('th').length || 3;
-                                    const newRow = document.createElement('tr');
-                                    for (let i = 0; i < colCount; i++) {
-                                      const cell = document.createElement('td');
-                                      cell.className = 'border border-slate-300 px-3 py-2';
-                                      cell.contentEditable = true;
-                                      newRow.appendChild(cell);
+                                    const tbody = table.querySelector('tbody');
+                                    if (tbody) {
+                                      const headerRow = table.querySelector('thead tr');
+                                      const colCount = headerRow?.querySelectorAll('th').length || 3;
+                                      const newRow = document.createElement('tr');
+                                      // Alternate row background
+                                      const rowCount = tbody.querySelectorAll('tr').length;
+                                      if (rowCount % 2 === 1) {
+                                        newRow.className = 'bg-slate-50';
+                                      }
+                                      for (let i = 0; i < colCount; i++) {
+                                        const cell = document.createElement('td');
+                                        cell.className = 'border border-slate-300 px-3 py-2 whitespace-nowrap';
+                                        cell.contentEditable = true;
+                                        newRow.appendChild(cell);
+                                      }
+                                      tbody.appendChild(newRow);
+                                      setNotebookContent(contentEditableRef.current.innerHTML);
                                     }
-                                    table.appendChild(newRow);
-                                    setNotebookContent(contentEditableRef.current.innerHTML);
                                   }
                                 }
                               }}
@@ -1959,14 +1968,16 @@ const AdminPanel = () => {
                             </Button>
                           </div>
                         </div>
-                        <div 
-                          ref={contentEditableRef}
-                          contentEditable 
-                          suppressContentEditableWarning
-                          onBlur={(e) => setNotebookContent(e.currentTarget.innerHTML)}
-                          onInput={(e) => setNotebookContent(e.currentTarget.innerHTML)}
-                          className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg prose prose-sm max-w-none"
-                        >
+                        <div className="overflow-x-auto -mx-2 px-2">
+                          <div 
+                            ref={contentEditableRef}
+                            contentEditable 
+                            suppressContentEditableWarning
+                            onBlur={(e) => setNotebookContent(e.currentTarget.innerHTML)}
+                            onInput={(e) => setNotebookContent(e.currentTarget.innerHTML)}
+                            className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg prose prose-sm max-w-none"
+                          >
+                          </div>
                         </div>
                       </div>
                     </div>
