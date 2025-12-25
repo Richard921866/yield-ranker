@@ -802,6 +802,19 @@ router.post(
         return;
       }
 
+      // Category is required - must be CEF
+      const categoryCol = findColumn(headerMap, "category");
+      if (!categoryCol) {
+        cleanupFile(filePath);
+        res.status(400).json({
+          error: "CATEGORY column not found (required)",
+          details: `Available columns: ${headers.join(
+            ", "
+          )}. Please add a CATEGORY column with value "CEF".`,
+        });
+        return;
+      }
+
       logger.info(
         "CEF Upload",
         `Found SYMBOL column: ${symbolCol}, Total headers: ${headers.length}`
@@ -1059,6 +1072,19 @@ router.post(
 
         const ticker = String(symbolValue).trim().toUpperCase();
         if (!ticker || ticker.length === 0) {
+          skipped++;
+          continue;
+        }
+
+        // Validate category - must be CEF
+        const categoryValue = categoryCol && row[categoryCol] ? String(row[categoryCol]).trim().toUpperCase() : null;
+        if (!categoryValue) {
+          logger.warn('CEF Upload', `Row with ticker ${ticker} missing CATEGORY - skipping`);
+          skipped++;
+          continue;
+        }
+        if (categoryValue !== 'CEF') {
+          logger.warn('CEF Upload', `Row with ticker ${ticker} has invalid CATEGORY "${categoryValue}" - must be "CEF". Skipping.`);
           skipped++;
           continue;
         }

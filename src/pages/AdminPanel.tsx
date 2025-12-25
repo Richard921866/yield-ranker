@@ -1341,9 +1341,11 @@ const AdminPanel = () => {
                       <p className="text-sm text-muted-foreground mb-4">
                         Upload Covered Call Option ETF data from Excel file.
                         <br /><br />
-                        <strong>Required:</strong> SYMBOL
+                        <strong>Required Fields:</strong> SYMBOL (or TICKER), CATEGORY (must be "CCETF" or "CCEF")
                         <br />
-                        <strong>Optional:</strong> Issuer, Description, Pay Day, # Payments, IPO Price, Div
+                        <strong>Optional Fields:</strong> Issuer, Description, Pay Day (or Pay Day Text), # Payments (or Payments Per Year), IPO Price (or IPO Price), Div (or Dividend)
+                        <br />
+                        <strong>Note:</strong> Field names are case-insensitive and accept spaces/underscores (e.g., "Pay Day" = "Pay Day" or "pay_day")
                       </p>
                     </div>
 
@@ -1419,9 +1421,13 @@ const AdminPanel = () => {
                         <p className="text-sm text-muted-foreground mb-4">
                           Upload Closed End Fund data from Excel file.
                           <br /><br />
-                          <strong>Required:</strong> SYMBOL, Last Div
+                          <strong>Required Fields:</strong> SYMBOL (or TICKER), CATEGORY (must be "CEF"), Last Div (or Last Dividend, Last Div)
                           <br />
-                          <strong>Optional:</strong> NAV Symbol, Description, OPEN (Open Date), DIV HISTORY, IPO PRICE, # (# Payments)
+                          <strong>Optional Fields:</strong> NAV Symbol (or NAV Symbol, NAV Symbol), Description (or Desc), OPEN (or Open Date, Opening Date), DIV HISTORY (or Dividend History - auto-computed if not provided), IPO PRICE (or IPO Price, IPO), # (or # Payments, Payments Per Year)
+                          <br />
+                          <strong>Note:</strong> DIV HISTO is automatically computed from dividend records in the database. The DIV HISTORY field is optional and only used to manually override the computed value.
+                          <br />
+                          Field names are case-insensitive and accept spaces/underscores.
                         </p>
                       </div>
 
