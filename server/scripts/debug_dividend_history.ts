@@ -24,9 +24,7 @@ function calculateDividendHistory(dividends: DividendRecord[]): { result: string
     step1_filtering: {
       description: "Step 1: Filter to regular dividends only (exclude special dividends)",
       allDividends: dividends.map(d => {
-        const exDate = d.ex_date instanceof Date 
-          ? d.ex_date.toISOString().split('T')[0]
-          : new Date(d.ex_date).toISOString().split('T')[0];
+        const exDate = new Date(d.ex_date).toISOString().split('T')[0];
         return {
           exDate,
           divCash: Number(d.div_cash),
@@ -75,9 +73,7 @@ function calculateDividendHistory(dividends: DividendRecord[]): { result: string
                      !d.div_type.toLowerCase().includes('special');
     
     if (isRegular) {
-      const exDate = d.ex_date instanceof Date 
-        ? d.ex_date.toISOString().split('T')[0]
-        : new Date(d.ex_date).toISOString().split('T')[0];
+      const exDate = new Date(d.ex_date).toISOString().split('T')[0];
       details.step1_filtering.regularDividends.push({
         exDate,
         divCash: Number(d.div_cash),
@@ -85,9 +81,7 @@ function calculateDividendHistory(dividends: DividendRecord[]): { result: string
         divType: d.div_type || 'null'
       });
     } else {
-      const exDate = d.ex_date instanceof Date 
-        ? d.ex_date.toISOString().split('T')[0]
-        : new Date(d.ex_date).toISOString().split('T')[0];
+      const exDate = new Date(d.ex_date).toISOString().split('T')[0];
       details.step1_filtering.excludedDividends.push({
         exDate,
         divCash: Number(d.div_cash),
@@ -113,18 +107,14 @@ function calculateDividendHistory(dividends: DividendRecord[]): { result: string
     if (aManual !== bManual) {
       return bManual - aManual; // Manual entries first
     }
-    const aDate = a.ex_date instanceof Date ? a.ex_date : new Date(a.ex_date);
-    const bDate = b.ex_date instanceof Date ? b.ex_date : new Date(b.ex_date);
+    const aDate = new Date(a.ex_date);
+    const bDate = new Date(b.ex_date);
     return bDate.getTime() - aDate.getTime(); // Newest first
   });
 
   details.step2_sorting.sortedDividends = sorted.map(d => {
-    const exDate = d.ex_date instanceof Date 
-      ? d.ex_date.toISOString().split('T')[0]
-      : new Date(d.ex_date).toISOString().split('T')[0];
-    const dateTime = d.ex_date instanceof Date 
-      ? d.ex_date.getTime()
-      : new Date(d.ex_date).getTime();
+    const exDate = new Date(d.ex_date).toISOString().split('T')[0];
+    const dateTime = new Date(d.ex_date).getTime();
     return {
       exDate,
       divCash: Number(d.div_cash),
@@ -138,9 +128,7 @@ function calculateDividendHistory(dividends: DividendRecord[]): { result: string
   const chronological = [...sorted].reverse();
 
   details.step3_chronological.chronologicalDividends = chronological.map(d => {
-    const exDate = d.ex_date instanceof Date 
-      ? d.ex_date.toISOString().split('T')[0]
-      : new Date(d.ex_date).toISOString().split('T')[0];
+    const exDate = new Date(d.ex_date).toISOString().split('T')[0];
     return {
       exDate,
       divCash: Number(d.div_cash),
@@ -161,12 +149,8 @@ function calculateDividendHistory(dividends: DividendRecord[]): { result: string
     const currentAmount = current.adj_amount ?? current.div_cash;
     const previousAmount = previous.adj_amount ?? previous.div_cash;
 
-    const prevDate = previous.ex_date instanceof Date 
-      ? previous.ex_date.toISOString().split('T')[0]
-      : new Date(previous.ex_date).toISOString().split('T')[0];
-    const currDate = current.ex_date instanceof Date 
-      ? current.ex_date.toISOString().split('T')[0]
-      : new Date(current.ex_date).toISOString().split('T')[0];
+    const prevDate = new Date(previous.ex_date).toISOString().split('T')[0];
+    const currDate = new Date(current.ex_date).toISOString().split('T')[0];
     
     const comparison = {
       comparisonNumber: i,
@@ -296,9 +280,11 @@ async function debugTicker(ticker: string): Promise<void> {
 
   } catch (error) {
     console.error(`\n❌ Error processing ${ticker.toUpperCase()}:`, error);
-    if (error instanceof Error) {
-      console.error(`   Message: ${error.message}`);
-      console.error(`   Stack: ${error.stack}`);
+    if (error && typeof error === 'object' && 'message' in error) {
+      console.error(`   Message: ${String(error.message)}`);
+      if ('stack' in error) {
+        console.error(`   Stack: ${String(error.stack)}`);
+      }
     }
   }
 }

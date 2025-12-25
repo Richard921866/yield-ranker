@@ -12,12 +12,14 @@ import { getDividendHistory } from '../src/services/database.js';
 import { getSupabase } from '../src/services/database.js';
 import type { DividendRecord } from '../src/types/index.js';
 
-function calculateDividendHistory(dividends: DividendRecord[]): { result: string; increases: number; decreases: number } {
+function calculateDividendHistory(dividends: DividendRecord[]): { result: string; increases: number; decreases: number; totalDividends: number; regularDividends: number } {
   if (!dividends || dividends.length < 2) {
     return {
       result: dividends.length === 1 ? "1 DIV+" : "0+ 0-",
       increases: dividends.length === 1 ? 1 : 0,
-      decreases: 0
+      decreases: 0,
+      totalDividends: dividends.length,
+      regularDividends: dividends.length
     };
   }
 
@@ -36,7 +38,9 @@ function calculateDividendHistory(dividends: DividendRecord[]): { result: string
     return {
       result: regularDivs.length === 1 ? "1 DIV+" : "0+ 0-",
       increases: regularDivs.length === 1 ? 1 : 0,
-      decreases: 0
+      decreases: 0,
+      totalDividends: dividends.length,
+      regularDividends: regularDivs.length
     };
   }
 
@@ -46,8 +50,8 @@ function calculateDividendHistory(dividends: DividendRecord[]): { result: string
     if (aManual !== bManual) {
       return bManual - aManual;
     }
-    const aDate = a.ex_date instanceof Date ? a.ex_date : new Date(a.ex_date);
-    const bDate = b.ex_date instanceof Date ? b.ex_date : new Date(b.ex_date);
+    const aDate = new Date(a.ex_date);
+    const bDate = new Date(b.ex_date);
     return bDate.getTime() - aDate.getTime();
   });
 
@@ -73,7 +77,9 @@ function calculateDividendHistory(dividends: DividendRecord[]): { result: string
   return {
     result: `${increases}+ ${decreases}-`,
     increases,
-    decreases
+    decreases,
+    totalDividends: dividends.length,
+    regularDividends: regularDivs.length
   };
 }
 
@@ -106,9 +112,7 @@ function calculateDividendHistoryDetailed(dividends: DividendRecord[]): any {
     step1_filtering: {
       description: "Step 1: Filter to regular dividends only (exclude special dividends)",
       allDividends: dividends.map(d => {
-        const exDate = d.ex_date instanceof Date 
-          ? d.ex_date.toISOString().split('T')[0]
-          : new Date(d.ex_date).toISOString().split('T')[0];
+        const exDate = new Date(d.ex_date).toISOString().split('T')[0];
         const isRegular = !d.div_type || 
                          d.div_type.toLowerCase().includes('regular') ||
                          d.div_type.toLowerCase() === 'cash' ||
@@ -161,9 +165,7 @@ function calculateDividendHistoryDetailed(dividends: DividendRecord[]): any {
                      d.div_type === '' ||
                      !d.div_type.toLowerCase().includes('special');
     
-    const exDate = d.ex_date instanceof Date 
-      ? d.ex_date.toISOString().split('T')[0]
-      : new Date(d.ex_date).toISOString().split('T')[0];
+    const exDate = new Date(d.ex_date).toISOString().split('T')[0];
     
     if (isRegular) {
       details.step1_filtering.regularDividends.push({
@@ -198,18 +200,14 @@ function calculateDividendHistoryDetailed(dividends: DividendRecord[]): any {
     if (aManual !== bManual) {
       return bManual - aManual;
     }
-    const aDate = a.ex_date instanceof Date ? a.ex_date : new Date(a.ex_date);
-    const bDate = b.ex_date instanceof Date ? b.ex_date : new Date(b.ex_date);
+    const aDate = new Date(a.ex_date);
+    const bDate = new Date(b.ex_date);
     return bDate.getTime() - aDate.getTime();
   });
 
   details.step2_sorting.sortedDividends = sorted.map(d => {
-    const exDate = d.ex_date instanceof Date 
-      ? d.ex_date.toISOString().split('T')[0]
-      : new Date(d.ex_date).toISOString().split('T')[0];
-    const dateTime = d.ex_date instanceof Date 
-      ? d.ex_date.getTime()
-      : new Date(d.ex_date).getTime();
+    const exDate = new Date(d.ex_date).toISOString().split('T')[0];
+    const dateTime = new Date(d.ex_date).getTime();
     return {
       exDate,
       divCash: Number(d.div_cash),
@@ -223,9 +221,7 @@ function calculateDividendHistoryDetailed(dividends: DividendRecord[]): any {
   const chronological = [...sorted].reverse();
 
   details.step3_chronological.chronologicalDividends = chronological.map(d => {
-    const exDate = d.ex_date instanceof Date 
-      ? d.ex_date.toISOString().split('T')[0]
-      : new Date(d.ex_date).toISOString().split('T')[0];
+    const exDate = new Date(d.ex_date).toISOString().split('T')[0];
     return {
       exDate,
       divCash: Number(d.div_cash),
@@ -246,12 +242,8 @@ function calculateDividendHistoryDetailed(dividends: DividendRecord[]): any {
     const currentAmount = current.adj_amount !== null ? Number(current.adj_amount) : Number(current.div_cash);
     const previousAmount = previous.adj_amount !== null ? Number(previous.adj_amount) : Number(previous.div_cash);
 
-    const prevDate = previous.ex_date instanceof Date 
-      ? previous.ex_date.toISOString().split('T')[0]
-      : new Date(previous.ex_date).toISOString().split('T')[0];
-    const currDate = current.ex_date instanceof Date 
-      ? current.ex_date.toISOString().split('T')[0]
-      : new Date(current.ex_date).toISOString().split('T')[0];
+    const prevDate = new Date(previous.ex_date).toISOString().split('T')[0];
+    const currDate = new Date(current.ex_date).toISOString().split('T')[0];
     
     const comparison = {
       comparisonNumber: i,
@@ -411,7 +403,14 @@ async function debugAllCEFs(): Promise<void> {
   const tickers = await getAllCEFTickers();
   console.log(`Found ${tickers.length} CEFs\n`);
 
-  let fullOutput = '';
+  const results: Array<{
+    ticker: string;
+    result: string;
+    increases: number;
+    decreases: number;
+    totalDividends: number;
+    regularDividends: number;
+  }> = [];
 
   for (let i = 0; i < tickers.length; i++) {
     const ticker = tickers[i];
@@ -419,36 +418,55 @@ async function debugAllCEFs(): Promise<void> {
       console.log(`[${i + 1}/${tickers.length}] Processing ${ticker}...`);
       
       const dividends = await getDividendHistory(ticker);
-      const { result, details } = calculateDividendHistoryDetailed(dividends);
+      const calculated = calculateDividendHistory(dividends);
       
-      const detailedOutput = formatDetailedOutput(ticker, result, details);
-      fullOutput += detailedOutput;
+      results.push({
+        ticker,
+        result: calculated.result,
+        increases: calculated.increases,
+        decreases: calculated.decreases,
+        totalDividends: calculated.totalDividends,
+        regularDividends: calculated.regularDividends
+      });
       
-      console.log(`  ✓ ${result}`);
+      console.log(`  ✓ ${calculated.result}`);
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorMsg = error && typeof error === 'object' && 'message' in error ? String(error.message) : String(error);
       console.log(`  ✗ Error: ${errorMsg}`);
-      fullOutput += `\n${'='.repeat(100)}\n`;
-      fullOutput += `ERROR PROCESSING ${ticker.toUpperCase()}: ${errorMsg}\n`;
-      fullOutput += `${'='.repeat(100)}\n\n`;
+      results.push({
+        ticker,
+        result: 'ERROR',
+        increases: 0,
+        decreases: 0,
+        totalDividends: 0,
+        regularDividends: 0
+      });
     }
   }
 
-  // Output everything at once for easy copy-paste
-  console.log(`\n${'='.repeat(100)}`);
-  console.log('DETAILED CALCULATIONS FOR ALL CEFs');
-  console.log('='.repeat(100));
-  console.log('(Ready to copy-paste into Google Doc)\n');
-  console.log(fullOutput);
+  // Sort by ticker
+  results.sort((a, b) => a.ticker.localeCompare(b.ticker));
 
-  // Also save to file
-  const fs = await import('fs/promises');
-  const outputFile = 'dividend_history_calculations_detailed.txt';
-  await fs.writeFile(outputFile, fullOutput, 'utf-8');
+  // Output in the exact format the user wants
   console.log(`\n${'='.repeat(100)}`);
-  console.log(`Output also saved to: ${outputFile}`);
-  console.log(`You can open this file and copy-paste into Google Doc`);
-  console.log(`${'='.repeat(100)}\n`);
+  console.log('DIVIDEND HISTORY RESULTS');
+  console.log('='.repeat(100));
+  console.log('Ticker');
+  console.log('DIV HISTO');
+  console.log('Increases');
+  console.log('Decreases');
+  console.log('Total Dividends');
+  console.log('Regular Dividends');
+  
+  for (const r of results) {
+    console.log(r.ticker);
+    console.log(r.result);
+    console.log(r.increases);
+    console.log(r.decreases);
+    console.log(r.totalDividends);
+    console.log(r.regularDividends);
+    console.log(''); // blank line between tickers
+  }
 }
 
 async function main() {
