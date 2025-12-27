@@ -72,35 +72,60 @@ export async function calculateCEFZScore(
     const minDateStr = formatDate(sevenDaysAgo);
 
     // Check if we need to fetch from API (data is missing or stale)
-    const priceDataIsCurrent = priceData.length > 0 && 
+    const priceDataIsCurrent =
+      priceData.length > 0 &&
       priceData[priceData.length - 1].date >= minDateStr;
-    const navDataIsCurrent = navData.length > 0 && 
-      navData[navData.length - 1].date >= minDateStr;
+    const navDataIsCurrent =
+      navData.length > 0 && navData[navData.length - 1].date >= minDateStr;
 
     // Fetch from API if data is missing or stale
     if (!priceDataIsCurrent || priceData.length === 0) {
       try {
-        const { getPriceHistoryFromAPI } = await import('../services/tiingo.js');
-        const apiData = await getPriceHistoryFromAPI(ticker, startDateStr, endDateStr);
+        const { getPriceHistoryFromAPI } = await import(
+          "../services/tiingo.js"
+        );
+        const apiData = await getPriceHistoryFromAPI(
+          ticker,
+          startDateStr,
+          endDateStr
+        );
         if (apiData.length > 0) {
-          logger.info('CEF Metrics', `Using API data for ${ticker} (database data was stale)`);
+          logger.info(
+            "CEF Metrics",
+            `Using API data for ${ticker} (database data was stale)`
+          );
           priceData = apiData;
         }
       } catch (apiError) {
-        logger.warn('CEF Metrics', `API fallback failed for ${ticker}: ${(apiError as Error).message}`);
+        logger.warn(
+          "CEF Metrics",
+          `API fallback failed for ${ticker}: ${(apiError as Error).message}`
+        );
       }
     }
 
     if (!navDataIsCurrent || navData.length === 0) {
       try {
-        const { getPriceHistoryFromAPI } = await import('../services/tiingo.js');
-        const apiData = await getPriceHistoryFromAPI(navSymbol.toUpperCase(), startDateStr, endDateStr);
+        const { getPriceHistoryFromAPI } = await import(
+          "../services/tiingo.js"
+        );
+        const apiData = await getPriceHistoryFromAPI(
+          navSymbol.toUpperCase(),
+          startDateStr,
+          endDateStr
+        );
         if (apiData.length > 0) {
-          logger.info('CEF Metrics', `Using API data for ${navSymbol} (database data was stale)`);
+          logger.info(
+            "CEF Metrics",
+            `Using API data for ${navSymbol} (database data was stale)`
+          );
           navData = apiData;
         }
       } catch (apiError) {
-        logger.warn('CEF Metrics', `API fallback failed for ${navSymbol}: ${(apiError as Error).message}`);
+        logger.warn(
+          "CEF Metrics",
+          `API fallback failed for ${navSymbol}: ${(apiError as Error).message}`
+        );
       }
     }
 

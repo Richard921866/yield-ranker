@@ -298,16 +298,15 @@ export async function fetchDividendHistory(
             (attempt, error) => logger.warn('Tiingo', `Retry ${attempt} for dividends ${ticker}: ${error.message}`)
         );
 
-        // Find split information from price data
-        // Look for dates where splitFactor is not 1.0 (indicates a split occurred)
-        // Note: splitFactor appears on the date the split takes effect
+        // Extract all split events (dates where splitFactor is not 1.0)
+        // Sort chronologically (oldest first) to process in order
         const splitEvents = (priceData || [])
             .filter(p => p.splitFactor && p.splitFactor !== 1.0)
             .map(p => ({
                 date: new Date(p.date),
                 splitFactor: p.splitFactor,
             }))
-            .sort((a, b) => a.date.getTime() - b.date.getTime()); // Sort chronologically (oldest first)
+            .sort((a, b) => a.date.getTime() - b.date.getTime());
 
         // Filter to dates where divCash > 0 (ex-dividend dates)
         const dividends = (priceData || [])
@@ -316,37 +315,40 @@ export async function fetchDividendHistory(
                 const divCash = p.divCash || 0;
                 const exDate = new Date(p.date);
                 
-                // Apply split adjustment:
-                // Tiingo's splitFactor represents the ratio of new shares to old shares
-                // - For forward splits (2-for-1): splitFactor = 2, adjustment = 1/2 = 0.5
-                // - For reverse splits (10-for-1): splitFactor = 0.1, adjustment = 1/0.1 = 10
-                // To adjust historical dividends to current share basis:
-                // - Both forward and reverse splits: multiply by (1 / splitFactor)
-                // - Dividends BEFORE split date: apply adjustment
-                // - Dividends ON or AFTER split date: use raw (already adjusted by Tiingo)
-                let adjDividend = divCash; // Default: no adjustment (post-split or no split)
+                // Calculate adjusted dividend: ALWAYS divide raw dividend by cumulative split factor
+                // Formula: adj_amount = div_cash / cumulative_split_factor
+                // 
+                // Logic: Find all splits that occurred AFTER this dividend date
+                // Multiply their split factors together to get cumulative adjustment factor
+                // Then divide: adj = raw / cumulative_factor
+                //
+                // Example: 
+                //   - Raw div on 11/26/25: 0.0594
+                //   - Reverse split (1:10) on 12/1/25: splitFactor = 0.1
+                //   - Since split is AFTER dividend, cumulative_factor = 0.1
+                //   - adj = 0.0594 / 0.1 = 0.594 ✓
+                //
+                // Example with multiple splits:
+                //   - Dividend on 1/1/20: 0.10
+                //   - Split 1 on 1/15/20: 2-for-1 (splitFactor = 2)
+                //   - Split 2 on 2/1/20: 3-for-1 (splitFactor = 3)
+                //   - Cumulative factor = 2 * 3 = 6
+                //   - adj = 0.10 / 6 = 0.0167
                 
-                if (splitEvents.length > 0) {
-                    // Find splits that occurred AFTER this dividend date
-                    // If split date > dividend date, dividend needs adjustment
-                    const applicableSplits = splitEvents.filter(split => split.date > exDate);
-                    
-                    if (applicableSplits.length > 0) {
-                        // For multiple splits, calculate cumulative adjustment
-                        // For both forward and reverse splits: multiply by (1 / splitFactor)
-                        // - Forward split (2-for-1, splitFactor=2): multiply by 1/2 = 0.5
-                        // - Reverse split (10-for-1, splitFactor=0.1): multiply by 1/0.1 = 10
-                        const adjustmentFactor = applicableSplits.reduce(
-                            (factor, split) => {
-                                // Both forward and reverse splits: multiply by (1 / splitFactor)
-                                return factor * (1 / split.splitFactor);
-                            },
-                            1
-                        );
-                        adjDividend = divCash * adjustmentFactor;
-                    }
-                    // If no applicable split found, dividend is post-split (already adjusted)
+                // Find all splits that occurred AFTER this dividend date
+                const applicableSplits = splitEvents.filter(split => split.date > exDate);
+                
+                // Calculate cumulative split factor (product of all applicable splits)
+                let cumulativeSplitFactor = 1.0;
+                if (applicableSplits.length > 0) {
+                    cumulativeSplitFactor = applicableSplits.reduce(
+                        (factor, split) => factor * split.splitFactor,
+                        1.0
+                    );
                 }
+                
+                // ALWAYS divide raw dividend by cumulative split factor
+                const adjDividend = cumulativeSplitFactor > 0 ? divCash / cumulativeSplitFactor : divCash;
 
                 // Calculate scaled dividend: divCash × (adjClose / close)
                 // This scales dividends to match the adjusted price series scale

@@ -104,8 +104,7 @@ const Contact = () => {
                   Message Sent Successfully
                 </h3>
                 <p className="text-muted-foreground">
-                  Thank you for contacting us. We'll get back to you within
-                  24-48 hours.
+                  Thank you for contacting us. We'll get back to you soon.
                 </p>
               </div>
             ) : (

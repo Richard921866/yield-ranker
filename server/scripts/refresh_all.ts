@@ -420,17 +420,20 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
     console.log(`  Dividends: ${dividendStartDate} to today`);
 
     // This script only processes ETFs (CEFs are excluded at query level)
-    // Fetch and upsert prices
-    console.log(`  Fetching market prices...`);
-    const prices = await fetchPriceHistory(ticker, priceStartDate);
-    const pricesAdded = await upsertPrices(ticker, prices, dryRun);
-    console.log(`  ✓ Added/updated ${pricesAdded} price records`);
-
-    // Fetch and upsert dividends (extended history for split adjustments)
-    console.log(`  Fetching dividends (with split adjustments)...`);
-    const dividends = await fetchDividendHistory(ticker, dividendStartDate);
-    const dividendsAdded = await upsertDividends(ticker, dividends, dryRun);
-    console.log(`  ✓ Added/updated ${dividendsAdded} dividend records (with adj_amount for splits)`);
+    // PARALLELIZE price and dividend fetching for speed
+    console.log(`  Fetching prices and dividends in parallel...`);
+    const [prices, dividends] = await Promise.all([
+      fetchPriceHistory(ticker, priceStartDate),
+      fetchDividendHistory(ticker, dividendStartDate)
+    ]);
+    
+    // Upsert in parallel
+    const [pricesAdded, dividendsAdded] = await Promise.all([
+      upsertPrices(ticker, prices, dryRun),
+      upsertDividends(ticker, dividends, dryRun)
+    ]);
+    
+    console.log(`  ✓ Prices: ${pricesAdded} records | Dividends: ${dividendsAdded} records (with adj_amount for splits)`);
 
     // Recalculate metrics
     console.log(`  Recalculating metrics...`);
@@ -583,15 +586,42 @@ async function main() {
     skipped: 0,
   };
 
-  for (const ticker of tickers) {
-    try {
-      await refreshTicker(ticker, options.dryRun);
-      results.success++;
-    } catch (error) {
-      console.error(`Failed to refresh ${ticker}:`, error);
-      results.failed++;
+  // Process tickers in parallel batches for maximum speed
+  const BATCH_SIZE = 10; // Process 10 tickers simultaneously
+  const startTime = Date.now();
+  
+  console.log(`\n🚀 Processing ${tickers.length} ticker(s) in parallel batches of ${BATCH_SIZE}...\n`);
+
+  for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
+    const batch = tickers.slice(i, i + BATCH_SIZE);
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(tickers.length / BATCH_SIZE);
+    
+    console.log(`📦 Batch ${batchNum}/${totalBatches} (${batch.length} tickers)`);
+    
+    // Process batch in parallel
+    const batchResults = await Promise.allSettled(
+      batch.map((ticker) => refreshTicker(ticker, options.dryRun))
+    );
+    
+    // Count results
+    for (const result of batchResults) {
+      if (result.status === 'fulfilled') {
+        results.success++;
+      } else {
+        results.failed++;
+        console.error(`Failed: ${result.reason}`);
+      }
+    }
+    
+    // Small delay between batches to avoid overwhelming API
+    if (i + BATCH_SIZE < tickers.length) {
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
+
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`\n⚡ Completed in ${elapsed}s (avg: ${(parseFloat(elapsed) / tickers.length).toFixed(1)}s per ticker)`);
 
   // Summary
   console.log('\n' + '='.repeat(60));

@@ -321,7 +321,15 @@ export async function updateETFMetricsPreservingCEFFields(
         const divHistValue = retryDataWithoutDivHist.dividend_history;
         delete retryDataWithoutDivHist.dividend_history;
         
-        // First update without dividend_history
+        // Ensure last_updated is always set (critical for tracking when data was refreshed)
+        if (!retryDataWithoutDivHist.last_updated) {
+          retryDataWithoutDivHist.last_updated = new Date().toISOString();
+        }
+        if (!retryDataWithoutDivHist.updated_at) {
+          retryDataWithoutDivHist.updated_at = new Date().toISOString();
+        }
+        
+        // First update without dividend_history (but WITH last_updated)
         const { error: retryError1 } = await db
           .from('etf_static')
           .update(retryDataWithoutDivHist)
@@ -329,6 +337,7 @@ export async function updateETFMetricsPreservingCEFFields(
         
         if (retryError1) {
           logger.error('Database', `Failed to update ${ticker} even without dividend_history: ${retryError1.message}`);
+          throw retryError1; // Re-throw if we can't save at all
         } else {
           logger.info('Database', `✅ Updated ${ticker} successfully (without dividend_history due to schema cache)`);
           
@@ -356,7 +365,7 @@ export async function updateETFMetricsPreservingCEFFields(
             }
           }
         }
-        // Don't throw - continue as other data was saved
+        // Don't throw - continue as other data (including last_updated) was saved
         return;
       }
       

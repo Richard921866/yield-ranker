@@ -59,7 +59,7 @@ import {
   getDividendHistory,
 } from "../src/services/database.js";
 import { formatDate } from "../src/utils/index.js";
-import { fetchPriceHistory } from "../src/services/tiingo.js";
+import { fetchPriceHistory, fetchDividendHistory } from "../src/services/tiingo.js";
 import type { TiingoPriceData } from "../src/types/index.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
@@ -69,6 +69,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 // 15 years lookback for CEF metrics
 const LOOKBACK_DAYS = 5475; // 15 years = 15 * 365 = 5475 days
+// Extended dividend lookback to ensure split adjustments work correctly
+const DIVIDEND_LOOKBACK_DAYS = 5475; // 15 years for complete dividend history with splits
 
 function getDateDaysAgo(days: number): string {
   const date = new Date();
@@ -137,6 +139,168 @@ async function upsertPrices(
   }
 
   return records.length;
+}
+
+/**
+ * Upsert dividend records with split-adjusted amounts
+ */
+async function upsertDividends(ticker: string, dividends: any[]): Promise<number> {
+  if (dividends.length === 0) return 0;
+
+  const exDatesToUpdate = dividends.map(d => d.date.split('T')[0]);
+
+  // Check if is_manual column exists by trying to query it
+  let allManualUploads: any[] = [];
+  try {
+    const { data, error } = await supabase
+      .from('dividends_detail')
+      .select('*')
+      .eq('ticker', ticker.toUpperCase())
+      .or('is_manual.eq.true,description.ilike.%Manual upload%,description.ilike.%Early announcement%');
+    if (!error) {
+      allManualUploads = data || [];
+    }
+  } catch (e) {
+    // Column doesn't exist, fallback to description-based check
+    const { data } = await supabase
+      .from('dividends_detail')
+      .select('*')
+      .eq('ticker', ticker.toUpperCase())
+      .or('description.ilike.%Manual upload%,description.ilike.%Early announcement%');
+    allManualUploads = data || [];
+  }
+
+  const manualUploadsMap = new Map<string, any>();
+  (allManualUploads || []).forEach(d => {
+    const exDate = d.ex_date.split('T')[0];
+    manualUploadsMap.set(exDate, d);
+  });
+
+  const { data: allExistingDividends } = await supabase
+    .from('dividends_detail')
+    .select('*')
+    .eq('ticker', ticker.toUpperCase())
+    .in('ex_date', exDatesToUpdate);
+
+  const existingDividendsMap = new Map<string, any>();
+  (allExistingDividends || []).forEach(d => {
+    const exDate = d.ex_date.split('T')[0];
+    existingDividendsMap.set(exDate, d);
+  });
+
+  const isManualUpload = (record: any): boolean => {
+    if (record?.is_manual === true) return true;
+    const desc = record?.description || '';
+    return desc.includes('Manual upload') || desc.includes('Early announcement');
+  };
+
+  const tiingoRecordsToUpsert: Array<any> = [];
+  const manualUploadsToPreserve: Array<any> = [];
+
+  for (const d of dividends) {
+    const exDate = d.date.split('T')[0];
+    const existing = existingDividendsMap.get(exDate);
+    const manualUpload = manualUploadsMap.get(exDate) || (existing && isManualUpload(existing) ? existing : null);
+
+    if (manualUpload) {
+      const tiingoDivCash = d.dividend;
+      const tiingoAdjAmount = d.adjDividend > 0 ? d.adjDividend : null;
+      const manualDivCash = parseFloat(manualUpload.div_cash);
+      const manualAdjAmount = manualUpload.adj_amount ? parseFloat(manualUpload.adj_amount) : null;
+      const tolerance = 0.001;
+
+      let isAligned = false;
+      if (tiingoAdjAmount && manualAdjAmount !== null) {
+        isAligned = Math.abs(manualAdjAmount - tiingoAdjAmount) < tolerance;
+      } else {
+        isAligned = Math.abs(manualDivCash - tiingoDivCash) < tolerance;
+      }
+
+      tiingoRecordsToUpsert.push({
+        ticker: ticker.toUpperCase(),
+        ex_date: exDate,
+        pay_date: d.paymentDate?.split('T')[0] || manualUpload.pay_date,
+        record_date: d.recordDate?.split('T')[0] || manualUpload.record_date,
+        declare_date: d.declarationDate?.split('T')[0] || manualUpload.declare_date,
+        div_cash: isAligned ? d.dividend : manualUpload.div_cash,
+        adj_amount: isAligned ? (d.adjDividend > 0 ? d.adjDividend : null) : manualUpload.adj_amount,
+        scaled_amount: d.scaledDividend > 0 ? d.scaledDividend : manualUpload.scaled_amount,
+        split_factor: d.adjDividend > 0 ? d.dividend / d.adjDividend : (manualUpload.split_factor || 1),
+        description: manualUpload.description,
+        div_type: manualUpload.div_type,
+        frequency: manualUpload.frequency,
+        currency: manualUpload.currency || 'USD',
+        is_manual: true,
+      });
+    } else {
+      tiingoRecordsToUpsert.push({
+        ticker: ticker.toUpperCase(),
+        ex_date: exDate,
+        pay_date: d.paymentDate?.split('T')[0] || null,
+        record_date: d.recordDate?.split('T')[0] || null,
+        declare_date: d.declarationDate?.split('T')[0] || null,
+        div_cash: d.dividend,
+        adj_amount: d.adjDividend > 0 ? d.adjDividend : null,
+        scaled_amount: d.scaledDividend > 0 ? d.scaledDividend : null,
+        split_factor: d.adjDividend > 0 ? d.dividend / d.adjDividend : 1,
+        div_type: null,
+        frequency: null,
+        description: null,
+        currency: 'USD',
+        is_manual: false,
+      });
+    }
+  }
+
+  (allManualUploads || []).forEach(existing => {
+    const exDate = existing.ex_date.split('T')[0];
+    if (!exDatesToUpdate.includes(exDate)) {
+      manualUploadsToPreserve.push({
+        ticker: ticker.toUpperCase(),
+        ex_date: existing.ex_date,
+        pay_date: existing.pay_date,
+        record_date: existing.record_date,
+        declare_date: existing.declare_date,
+        div_cash: existing.div_cash,
+        adj_amount: existing.adj_amount,
+        scaled_amount: existing.scaled_amount,
+        split_factor: existing.split_factor,
+        description: existing.description,
+        div_type: existing.div_type,
+        frequency: existing.frequency,
+        currency: existing.currency || 'USD',
+      });
+    }
+  });
+
+  if (tiingoRecordsToUpsert.length === 0 && manualUploadsToPreserve.length === 0) {
+    return 0;
+  }
+
+  const allRecordsToUpsert = [
+    ...tiingoRecordsToUpsert,
+    ...manualUploadsToPreserve
+  ];
+
+  const recordsWithoutIsManual = allRecordsToUpsert.map(({ is_manual, ...rest }) => rest);
+  
+  const { error } = await supabase
+    .from('dividends_detail')
+    .upsert(recordsWithoutIsManual, {
+      onConflict: 'ticker,ex_date',
+      ignoreDuplicates: false,
+    });
+
+  if (error) {
+    console.error(`    Error upserting dividends: ${error.message}`);
+    return 0;
+  }
+
+  if (manualUploadsToPreserve.length > 0) {
+    console.log(`    Preserved ${manualUploadsToPreserve.length} manual upload(s) not yet in Tiingo data`);
+  }
+
+  return tiingoRecordsToUpsert.length;
 }
 
 /**
@@ -412,45 +576,47 @@ async function refreshCEF(ticker: string): Promise<void> {
     console.log(`  Using NAV symbol: ${navSymbolForCalc}`);
 
     // Step 1: Fetch and store price data for both CEF ticker and NAV symbol
+    // PARALLELIZE all data fetching for maximum speed
     const priceStartDate = getDateDaysAgo(LOOKBACK_DAYS);
-    console.log(
-      `  📥 Fetching price data (${LOOKBACK_DAYS} days lookback from ${priceStartDate})...`
-    );
+    const dividendStartDate = getDateDaysAgo(DIVIDEND_LOOKBACK_DAYS);
+    
+    console.log(`  📥 Fetching data in parallel...`);
 
-    // Fetch CEF market prices
-    try {
-      console.log(`    Fetching market prices for ${ticker}...`);
-      const marketPrices = await fetchPriceHistory(ticker, priceStartDate);
-      const marketPricesAdded = await upsertPrices(ticker, marketPrices);
-      console.log(
-        `    ✓ Added/updated ${marketPricesAdded} market price records for ${ticker}`
-      );
-    } catch (error) {
-      console.warn(
-        `    ⚠ Failed to fetch market prices for ${ticker}: ${
-          (error as Error).message
-        }`
+    // Fetch all data in parallel (market prices, NAV prices, dividends)
+    const fetchPromises: Array<Promise<any>> = [
+      fetchPriceHistory(ticker, priceStartDate)
+        .then(prices => upsertPrices(ticker, prices))
+        .then(count => ({ type: 'market', count, ticker }))
+        .catch(err => ({ type: 'market', count: 0, ticker, error: err.message }))
+    ];
+
+    if (navSymbolForCalc !== ticker) {
+      fetchPromises.push(
+        fetchPriceHistory(navSymbolForCalc, priceStartDate)
+          .then(prices => upsertPrices(navSymbolForCalc, prices))
+          .then(count => ({ type: 'nav', count, ticker: navSymbolForCalc }))
+          .catch(err => ({ type: 'nav', count: 0, ticker: navSymbolForCalc, error: err.message }))
       );
     }
 
-    // Fetch NAV symbol prices (if different from ticker)
-    if (navSymbolForCalc !== ticker) {
-      try {
-        console.log(`    Fetching NAV prices for ${navSymbolForCalc}...`);
-        const navPrices = await fetchPriceHistory(
-          navSymbolForCalc,
-          priceStartDate
-        );
-        const navPricesAdded = await upsertPrices(navSymbolForCalc, navPrices);
-        console.log(
-          `    ✓ Added/updated ${navPricesAdded} NAV price records for ${navSymbolForCalc}`
-        );
-      } catch (error) {
-        console.warn(
-          `    ⚠ Failed to fetch NAV prices for ${navSymbolForCalc}: ${
-            (error as Error).message
-          }`
-        );
+    fetchPromises.push(
+      fetchDividendHistory(ticker, dividendStartDate)
+        .then(dividends => upsertDividends(ticker, dividends))
+        .then(count => ({ type: 'dividends', count, ticker }))
+        .catch(err => ({ type: 'dividends', count: 0, ticker, error: err.message }))
+    );
+
+    const fetchResults = await Promise.allSettled(fetchPromises);
+    
+    // Log results
+    for (const result of fetchResults) {
+      if (result.status === 'fulfilled') {
+        const res = result.value;
+        if (res.error) {
+          console.warn(`    ⚠ Failed to fetch ${res.type} for ${res.ticker}: ${res.error}`);
+        } else {
+          console.log(`    ✓ ${res.type === 'market' ? 'Market' : res.type === 'nav' ? 'NAV' : 'Dividend'} prices: ${res.count} records for ${res.ticker}`);
+        }
       }
     }
 
@@ -465,65 +631,40 @@ async function refreshCEF(ticker: string): Promise<void> {
     const updateData: any = {};
 
     // Calculate all CEF metrics
+    // PARALLELIZE independent calculations for speed
     console.log(`  📊 Calculating CEF metrics...`);
 
-    // 1. Calculate 5-Year Z-Score
-    let fiveYearZScore: number | null = null;
-    try {
-      fiveYearZScore = await calculateCEFZScore(ticker, navSymbolForCalc);
-      updateData.five_year_z_score = fiveYearZScore;
-      if (fiveYearZScore !== null) {
-        console.log(`    ✓ 5Y Z-Score: ${fiveYearZScore.toFixed(2)}`);
-      } else {
-        console.log(
-          `    ⚠ 5Y Z-Score: N/A (insufficient data) - clearing old value`
-        );
-      }
-    } catch (error) {
-      updateData.five_year_z_score = null;
-      console.warn(
-        `    ⚠ Failed to calculate Z-Score: ${
-          (error as Error).message
-        } - clearing old value`
+    // Run Z-Score, NAV Trend 6M, and NAV Return 12M in parallel (they're independent)
+    const [fiveYearZScore, navTrend6M, navTrend12M] = await Promise.all([
+      calculateCEFZScore(ticker, navSymbolForCalc).catch(() => null),
+      calculateNAVTrend6M(navSymbolForCalc).catch(() => null),
+      calculateNAVReturn12M(navSymbolForCalc).catch(() => null),
+    ]);
+
+    // 1. Process 5-Year Z-Score result
+    updateData.five_year_z_score = fiveYearZScore;
+    if (fiveYearZScore !== null) {
+      console.log(`    ✓ 5Y Z-Score: ${fiveYearZScore.toFixed(2)}`);
+    } else {
+      console.log(
+        `    ⚠ 5Y Z-Score: N/A (insufficient data) - clearing old value`
       );
     }
 
-    // 2. Calculate NAV Trend 6M (using our correct calculation)
-    let navTrend6M: number | null = null;
-    try {
-      navTrend6M = await calculateNAVTrend6M(navSymbolForCalc);
-      updateData.nav_trend_6m = navTrend6M;
-      if (navTrend6M !== null) {
-        console.log(`    ✓ 6M NAV Trend: ${navTrend6M.toFixed(2)}%`);
-      } else {
-        console.log(`    ⚠ 6M NAV Trend: N/A - clearing old value`);
-      }
-    } catch (error) {
-      updateData.nav_trend_6m = null;
-      console.warn(
-        `    ⚠ Failed to calculate 6M NAV Trend: ${
-          (error as Error).message
-        } - clearing old value`
-      );
+    // 2. Process NAV Trend 6M result
+    updateData.nav_trend_6m = navTrend6M;
+    if (navTrend6M !== null) {
+      console.log(`    ✓ 6M NAV Trend: ${navTrend6M.toFixed(2)}%`);
+    } else {
+      console.log(`    ⚠ 6M NAV Trend: N/A - clearing old value`);
     }
 
-    // 3. Calculate NAV Return 12M (using our correct calculation)
-    let navTrend12M: number | null = null;
-    try {
-      navTrend12M = await calculateNAVReturn12M(navSymbolForCalc);
-      updateData.nav_trend_12m = navTrend12M;
-      if (navTrend12M !== null) {
-        console.log(`    ✓ 12M NAV Return: ${navTrend12M.toFixed(2)}%`);
-      } else {
-        console.log(`    ⚠ 12M NAV Return: N/A - clearing old value`);
-      }
-    } catch (error) {
-      updateData.nav_trend_12m = null;
-      console.warn(
-        `    ⚠ Failed to calculate 12M NAV Return: ${
-          (error as Error).message
-        } - clearing old value`
-      );
+    // 3. Process NAV Return 12M result
+    updateData.nav_trend_12m = navTrend12M;
+    if (navTrend12M !== null) {
+      console.log(`    ✓ 12M NAV Return: ${navTrend12M.toFixed(2)}%`);
+    } else {
+      console.log(`    ⚠ 12M NAV Return: N/A - clearing old value`);
     }
 
     // 4. Calculate Signal
@@ -636,13 +777,16 @@ async function refreshCEF(ticker: string): Promise<void> {
     }
 
     // 7. Calculate TOTAL RETURNS (3Y, 5Y, 10Y, 15Y) - NAV-based annualized returns
+    // PARALLELIZE for speed - all 4 calculations can run simultaneously
     console.log(
       `  📊 Calculating NAV-based total returns (3Y, 5Y, 10Y, 15Y)...`
     );
-    const return3Yr = await calculateNAVReturns(navSymbolForCalc, "3Y");
-    const return5Yr = await calculateNAVReturns(navSymbolForCalc, "5Y");
-    const return10Yr = await calculateNAVReturns(navSymbolForCalc, "10Y");
-    const return15Yr = await calculateNAVReturns(navSymbolForCalc, "15Y");
+    const [return3Yr, return5Yr, return10Yr, return15Yr] = await Promise.all([
+      calculateNAVReturns(navSymbolForCalc, "3Y"),
+      calculateNAVReturns(navSymbolForCalc, "5Y"),
+      calculateNAVReturns(navSymbolForCalc, "10Y"),
+      calculateNAVReturns(navSymbolForCalc, "15Y"),
+    ]);
 
     updateData.return_3yr = return3Yr;
     updateData.return_5yr = return5Yr;
@@ -668,61 +812,46 @@ async function refreshCEF(ticker: string): Promise<void> {
     );
 
     // 8. Update NAV, Market Price, and Premium/Discount from latest prices
+    // PARALLELIZE database queries for speed
     console.log(`  📊 Updating NAV, Market Price, and Premium/Discount...`);
     let currentNav: number | null = cef.nav ?? null;
     let marketPrice: number | null = cef.price ?? null;
 
-    // Get latest NAV from nav_symbol
-    if (navSymbolForCalc) {
-      try {
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - 30);
-        const navHistory = await getPriceHistory(
-          navSymbolForCalc.toUpperCase(),
-          formatDate(startDate),
-          formatDate(endDate)
-        );
-        if (navHistory.length > 0) {
-          navHistory.sort((a, b) => a.date.localeCompare(b.date));
-          const latestNav = navHistory[navHistory.length - 1];
-          // Use unadjusted close for NAV display (home page table)
-          currentNav = latestNav.close ?? null;
-          if (currentNav !== null) {
-            updateData.nav = currentNav;
-            console.log(`    ✓ NAV: $${currentNav.toFixed(2)}`);
-          }
-        }
-      } catch (error) {
-        console.warn(`    ⚠ Failed to fetch NAV: ${(error as Error).message}`);
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - 30);
+    const startDateStr = formatDate(startDate);
+    const endDateStr = formatDate(endDate);
+
+    // Fetch NAV and market price in parallel
+    const [navHistory, priceHistory] = await Promise.all([
+      navSymbolForCalc
+        ? getPriceHistory(navSymbolForCalc.toUpperCase(), startDateStr, endDateStr).catch(() => [])
+        : Promise.resolve([]),
+      getPriceHistory(ticker.toUpperCase(), startDateStr, endDateStr).catch(() => [])
+    ]);
+
+    // Process NAV
+    if (navHistory.length > 0) {
+      navHistory.sort((a, b) => a.date.localeCompare(b.date));
+      const latestNav = navHistory[navHistory.length - 1];
+      currentNav = latestNav.close ?? null;
+      if (currentNav !== null) {
+        updateData.nav = currentNav;
+        console.log(`    ✓ NAV: $${currentNav.toFixed(2)}`);
       }
     }
 
-    // ALWAYS fetch latest market price (don't rely on stale database value)
-    try {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(endDate.getDate() - 30);
-      const priceHistory = await getPriceHistory(
-        ticker.toUpperCase(),
-        formatDate(startDate),
-        formatDate(endDate)
-      );
-      if (priceHistory.length > 0) {
-        priceHistory.sort((a, b) => a.date.localeCompare(b.date));
-        const latestPrice = priceHistory[priceHistory.length - 1];
-        // Use unadjusted close for market price display (home page table)
-        const fetchedPrice = latestPrice.close ?? null;
-        if (fetchedPrice !== null) {
-          marketPrice = fetchedPrice;
-          updateData.price = marketPrice;
-          console.log(`    ✓ Market Price: $${marketPrice.toFixed(2)}`);
-        }
+    // Process Market Price
+    if (priceHistory.length > 0) {
+      priceHistory.sort((a, b) => a.date.localeCompare(b.date));
+      const latestPrice = priceHistory[priceHistory.length - 1];
+      const fetchedPrice = latestPrice.close ?? null;
+      if (fetchedPrice !== null) {
+        marketPrice = fetchedPrice;
+        updateData.price = marketPrice;
+        console.log(`    ✓ Market Price: $${marketPrice.toFixed(2)}`);
       }
-    } catch (error) {
-      console.warn(
-        `    ⚠ Failed to fetch market price: ${(error as Error).message}`
-      );
     }
 
     // Calculate premium/discount: ((MP / NAV - 1) * 100)
@@ -856,13 +985,34 @@ async function main() {
     console.log(`\nFound ${tickers.length} CEF(s) to refresh\n`);
   }
 
-  // Refresh each CEF
-  for (const ticker of tickers) {
-    await refreshCEF(ticker);
+  // Process CEFs in parallel batches for maximum speed
+  const BATCH_SIZE = 5; // Process 5 CEFs simultaneously
+  const startTime = Date.now();
+  
+  console.log(`\n🚀 Processing ${tickers.length} CEF(s) in parallel batches of ${BATCH_SIZE}...\n`);
+
+  for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
+    const batch = tickers.slice(i, i + BATCH_SIZE);
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(tickers.length / BATCH_SIZE);
+    
+    console.log(`\n📦 Batch ${batchNum}/${totalBatches} (${batch.length} CEFs): ${batch.join(", ")}`);
+    
+    // Process batch in parallel
+    await Promise.allSettled(
+      batch.map((ticker) => refreshCEF(ticker))
+    );
+    
+    // Small delay between batches to avoid overwhelming API
+    if (i + BATCH_SIZE < tickers.length) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
   }
 
-  console.log("=".repeat(60));
-  console.log(`✅ Completed processing ${tickers.length} CEF(s)`);
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log("\n" + "=".repeat(60));
+  console.log(`✅ Completed processing ${tickers.length} CEF(s) in ${elapsed}s`);
+  console.log(`⚡ Average: ${(parseFloat(elapsed) / tickers.length).toFixed(1)}s per CEF`);
   console.log("=".repeat(60));
 }
 

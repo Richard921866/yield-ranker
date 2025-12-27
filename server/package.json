@@ -33,6 +33,8 @@
     "refresh:cefs:ticker": "tsx scripts/refresh_cefs.ts --ticker",
     "refresh:cef": "tsx scripts/refresh_cef.ts",
     "refresh:cef:ticker": "tsx scripts/refresh_cef.ts --ticker",
+    "find-splits": "tsx scripts/find_funds_with_splits.ts",
+    "find-splits:ticker": "tsx scripts/find_funds_with_splits.ts --ticker",
     "test:dvi": "tsx scripts/test_dvi_calculation.ts",
     "breakdown:dvi": "tsx scripts/dvi_breakdown.ts",
     "analyze:dvi": "tsx scripts/dvi_analysis.ts",
