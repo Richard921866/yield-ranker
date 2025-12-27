@@ -23,30 +23,29 @@ const Contact = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/send-email`, {
+      const formDataToSend = new FormData();
+      formDataToSend.append("access_key", "f0e9a906-dffb-4d24-9234-5f4a31ae34a8");
+      formDataToSend.append("name", formData.name);
+      formDataToSend.append("email", formData.email);
+      formDataToSend.append("subject", formData.subject);
+      formDataToSend.append("message", formData.message);
+      formDataToSend.append("from_name", formData.name);
+
+      const response = await fetch("https://api.web3forms.com/submit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject: `Contact Form: ${formData.subject}`,
-          html: `
-            <h3>New Contact Form Submission</h3>
-            <p><strong>Name:</strong> ${formData.name}</p>
-            <p><strong>Email:</strong> ${formData.email}</p>
-            <p><strong>Subject:</strong> ${formData.subject}</p>
-            <p><strong>Message:</strong></p>
-            <p>${formData.message.replace(/\n/g, "<br>")}</p>
-          `,
-          name: formData.name,
-          email: formData.email,
-        }),
+        body: formDataToSend,
       });
 
-      if (response.ok) {
+      const result = await response.json();
+
+      if (response.ok && result.success) {
         setSubmitted(true);
         setTimeout(() => {
           setSubmitted(false);
           setFormData({ name: "", email: "", subject: "", message: "" });
         }, 3000);
+      } else {
+        console.error("Error sending email:", result.message || "Failed to send message");
       }
     } catch (error) {
       console.error("Error sending email:", error);
