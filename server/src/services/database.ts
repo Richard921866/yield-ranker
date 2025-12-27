@@ -278,8 +278,12 @@ export async function updateETFMetricsPreservingCEFFields(
   if ('dividend_history' in updateData) safeUpdateData.dividend_history = updateData.dividend_history;
   // CRITICAL: Always ensure last_updated and updated_at are explicitly set
   // Use the value from updateData if provided, otherwise use current timestamp
-  safeUpdateData.last_updated = updateData.last_updated || new Date().toISOString();
-  safeUpdateData.updated_at = updateData.updated_at || new Date().toISOString();
+  const now = new Date().toISOString();
+  safeUpdateData.last_updated = updateData.last_updated || now;
+  safeUpdateData.updated_at = updateData.updated_at || now;
+  
+  // Log that we're updating last_updated (critical for CEF tracking)
+  logger.debug('Database', `Updating ${ticker} with last_updated=${safeUpdateData.last_updated}`);
   
   // Log what we're trying to update
   if ('return_3yr' in safeUpdateData || 'return_5yr' in safeUpdateData || 'return_10yr' in safeUpdateData || 'return_15yr' in safeUpdateData) {
@@ -343,7 +347,7 @@ export async function updateETFMetricsPreservingCEFFields(
           logger.error('Database', `Failed to update ${ticker} even without dividend_history: ${retryError1.message}`);
           throw retryError1; // Re-throw if we can't save at all
         } else {
-          logger.info('Database', `✅ Updated ${ticker} successfully (without dividend_history due to schema cache)`);
+          logger.info('Database', `✅ Updated ${ticker} successfully (without dividend_history due to schema cache, last_updated=${retryDataWithoutDivHist.last_updated})`);
           
           // Try to update dividend_history with retries (Supabase schema cache can take time to refresh)
           if (divHistValue !== undefined && divHistValue !== null) {
@@ -352,13 +356,21 @@ export async function updateETFMetricsPreservingCEFFields(
             for (let attempt = 1; attempt <= 3; attempt++) {
               await new Promise(resolve => setTimeout(resolve, attempt * 2000)); // 2s, 4s, 6s delays
               
+              // CRITICAL: Always include last_updated when updating dividend_history
+              // This ensures the timestamp is refreshed even if dividend_history update succeeds later
+              const divHistUpdateData: any = {
+                dividend_history: divHistValue,
+                last_updated: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              };
+              
               const { error: divHistError } = await db
                 .from('etf_static')
-                .update({ dividend_history: divHistValue })
+                .update(divHistUpdateData)
                 .eq('ticker', ticker.toUpperCase());
               
               if (!divHistError) {
-                logger.info('Database', `✅ Successfully saved dividend_history "${divHistValue}" for ${ticker} on attempt ${attempt}`);
+                logger.info('Database', `✅ Successfully saved dividend_history "${divHistValue}" for ${ticker} on attempt ${attempt} (last_updated also refreshed)`);
                 saved = true;
                 break;
               }
@@ -378,6 +390,14 @@ export async function updateETFMetricsPreservingCEFFields(
       optionalColumns.forEach(col => {
         delete retryData[col];
       });
+      
+      // CRITICAL: Ensure last_updated is always set in retry
+      if (!retryData.last_updated) {
+        retryData.last_updated = new Date().toISOString();
+      }
+      if (!retryData.updated_at) {
+        retryData.updated_at = new Date().toISOString();
+      }
       
       logger.debug('Database', `Retrying update for ${ticker} without optional columns: ${optionalColumns.join(', ')}`);
       const { error: retryError } = await db
