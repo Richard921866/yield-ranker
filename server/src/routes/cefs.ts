@@ -59,30 +59,70 @@ export async function calculateCEFZScore(
     const endDateStr = formatDate(endDate);
 
     // Get price data for main ticker and NAV symbol
-    const [priceData, navData] = await Promise.all([
+    // First try database, but if data is stale (more than 7 days old), fetch from API
+    let [priceData, navData] = await Promise.all([
       getPriceHistory(ticker, startDateStr, endDateStr),
       getPriceHistory(navSymbol.toUpperCase(), startDateStr, endDateStr),
     ]);
 
+    // Check if we have current data (within last 7 days)
+    const today = new Date();
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const minDateStr = formatDate(sevenDaysAgo);
+
+    // Check if we need to fetch from API (data is missing or stale)
+    const priceDataIsCurrent = priceData.length > 0 && 
+      priceData[priceData.length - 1].date >= minDateStr;
+    const navDataIsCurrent = navData.length > 0 && 
+      navData[navData.length - 1].date >= minDateStr;
+
+    // Fetch from API if data is missing or stale
+    if (!priceDataIsCurrent || priceData.length === 0) {
+      try {
+        const { getPriceHistoryFromAPI } = await import('../services/tiingo.js');
+        const apiData = await getPriceHistoryFromAPI(ticker, startDateStr, endDateStr);
+        if (apiData.length > 0) {
+          logger.info('CEF Metrics', `Using API data for ${ticker} (database data was stale)`);
+          priceData = apiData;
+        }
+      } catch (apiError) {
+        logger.warn('CEF Metrics', `API fallback failed for ${ticker}: ${(apiError as Error).message}`);
+      }
+    }
+
+    if (!navDataIsCurrent || navData.length === 0) {
+      try {
+        const { getPriceHistoryFromAPI } = await import('../services/tiingo.js');
+        const apiData = await getPriceHistoryFromAPI(navSymbol.toUpperCase(), startDateStr, endDateStr);
+        if (apiData.length > 0) {
+          logger.info('CEF Metrics', `Using API data for ${navSymbol} (database data was stale)`);
+          navData = apiData;
+        }
+      } catch (apiError) {
+        logger.warn('CEF Metrics', `API fallback failed for ${navSymbol}: ${(apiError as Error).message}`);
+      }
+    }
+
     if (priceData.length === 0 || navData.length === 0) return null;
 
     // Create maps by date for efficient lookup
-    // Use UNADJUSTED close for Z-Score calculation
+    // USE UNADJUSTED PRICE AND UNADJUSTED NAV ONLY (per requirements)
     // Premium/Discount analysis should use raw prices to avoid distortion from historical dividend adjustments
     const priceMap = new Map<string, number>();
     priceData.forEach((p: PriceRecord) => {
-      // Z-Score uses UNADJUSTED prices - adjusted prices distort historical discount calculations
-      const price = p.close ?? p.adj_close ?? null;
+      // CRITICAL: Z-Score uses UNADJUSTED prices ONLY (p.close) - do NOT use adj_close
+      const price = p.close ?? null;
       if (price !== null && price > 0) {
         priceMap.set(p.date, price);
       }
     });
 
-    // Use UNADJUSTED close for NAV as well
+    // Use UNADJUSTED close for NAV as well (ONLY p.close, NOT adj_close)
     const navMap = new Map<string, number>();
     navData.forEach((p: PriceRecord) => {
-      // Z-Score uses UNADJUSTED NAV - adjusted prices distort historical data
-      const nav = p.close ?? p.adj_close ?? null;
+      // CRITICAL: Z-Score uses UNADJUSTED NAV ONLY (p.close) - do NOT use adj_close
+      const nav = p.close ?? null;
       if (nav !== null && nav > 0) {
         navMap.set(p.date, nav);
       }
