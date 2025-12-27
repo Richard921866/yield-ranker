@@ -276,6 +276,10 @@ export async function updateETFMetricsPreservingCEFFields(
   if ('annual_dividend' in updateData) safeUpdateData.annual_dividend = updateData.annual_dividend;
   // Dividend history - always save (even if null) to clear stale values
   if ('dividend_history' in updateData) safeUpdateData.dividend_history = updateData.dividend_history;
+  // CRITICAL: Always ensure last_updated and updated_at are explicitly set
+  // Use the value from updateData if provided, otherwise use current timestamp
+  safeUpdateData.last_updated = updateData.last_updated || new Date().toISOString();
+  safeUpdateData.updated_at = updateData.updated_at || new Date().toISOString();
   
   // Log what we're trying to update
   if ('return_3yr' in safeUpdateData || 'return_5yr' in safeUpdateData || 'return_10yr' in safeUpdateData || 'return_15yr' in safeUpdateData) {

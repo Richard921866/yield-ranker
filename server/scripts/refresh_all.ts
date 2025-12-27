@@ -643,6 +643,30 @@ async function main() {
     }
   }
 
+  // After updating ETFs, automatically run CEF refresh
+  if (!options.dryRun && !options.ticker) {
+    console.log('\n' + '='.repeat(60));
+    console.log('CEF REFRESH');
+    console.log('='.repeat(60));
+    console.log('Now refreshing all CEFs (Closed-End Funds)...\n');
+    
+    try {
+      // Run the CEF refresh script using npm script
+      const { execSync } = await import('child_process');
+      console.log('Running npm run refresh:cef...');
+      execSync('npm run refresh:cef', {
+        stdio: 'inherit',
+        cwd: path.resolve(__dirname, '..'),
+        env: process.env,
+      });
+      console.log('\n✅ CEF refresh completed successfully');
+    } catch (error) {
+      console.error('\n❌ CEF refresh failed:', (error as Error).message);
+      console.warn('⚠️  ETFs were updated successfully, but CEFs need to be refreshed separately');
+      // Don't exit with error - ETFs were updated successfully
+    }
+  }
+
   if (results.failed > 0) {
     process.exit(1);
   }
