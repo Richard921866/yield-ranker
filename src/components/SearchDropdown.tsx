@@ -87,13 +87,27 @@ export const SearchDropdown = () => {
   };
 
   const handleETFSelect = (symbol: string) => {
-    const isHomePage = location.pathname === "/";
-    const isDashboard = location.pathname === "/dashboard";
-    const isDividendHistoryPage = location.pathname.includes("/dividends");
+    const pathname = location.pathname;
+    const isHomePage = pathname === "/";
+    const isDashboard = pathname === "/dashboard";
+    
+    // Check if on ETF dividend history page (must check first to prioritize)
+    const isETFDividendPage = /^\/etf\/[^/]+\/dividends$/.test(pathname);
+    
+    // Check if on ETF detail page (total return chart)
+    const isETFDetailPage = /^\/etf\/[^/]+$/.test(pathname) && !pathname.includes("/dividends");
     
     // If on dividend history page, stay on dividend history page with new symbol
-    if (isDividendHistoryPage) {
+    if (isETFDividendPage) {
       navigate(`/etf/${symbol}/dividends`);
+      setQuery("");
+      setIsOpen(false);
+      return;
+    }
+    
+    // If on total return chart page, stay on total return chart page with new symbol
+    if (isETFDetailPage) {
+      navigate(`/etf/${symbol}`);
       setQuery("");
       setIsOpen(false);
       return;
@@ -134,12 +148,26 @@ export const SearchDropdown = () => {
   };
 
   const handleCEFSelect = (symbol: string) => {
-    const isCEFPage = location.pathname === "/cef";
-    const isDividendHistoryPage = location.pathname.includes("/dividends");
+    const pathname = location.pathname;
+    const isCEFPage = pathname === "/cef";
+    
+    // Check if on CEF dividend history page (must check first to prioritize)
+    const isCEFDividendPage = /^\/cef\/[^/]+\/dividends$/.test(pathname);
+    
+    // Check if on CEF detail page (total return chart / price/NAV chart)
+    const isCEFDetailPage = /^\/cef\/[^/]+$/.test(pathname) && !pathname.includes("/dividends");
     
     // If on dividend history page, stay on dividend history page with new symbol
-    if (isDividendHistoryPage) {
+    if (isCEFDividendPage) {
       navigate(`/cef/${symbol}/dividends`);
+      setQuery("");
+      setIsOpen(false);
+      return;
+    }
+    
+    // If on price/NAV chart page, stay on price/NAV chart page with new symbol
+    if (isCEFDetailPage) {
+      navigate(`/cef/${symbol}`);
       setQuery("");
       setIsOpen(false);
       return;
