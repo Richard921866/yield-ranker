@@ -129,28 +129,38 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
 
     const dividends = getFilteredDividends.slice().reverse();
 
-    // Detect if frequency changed using both API frequency field and actual payment intervals
-    const frequencies = dividends
-      .map(div => {
-        const freq = div.frequency || '';
-        // Normalize frequency strings for comparison
-        const normalized = freq.toLowerCase();
-        if (normalized.includes('week') || normalized === 'weekly') return 'weekly';
-        if (normalized.includes('month') || normalized === 'monthly' || normalized === 'mo') return 'monthly';
-        if (normalized.includes('quarter') || normalized === 'quarterly' || normalized.includes('qtr')) return 'quarterly';
-        if (normalized.includes('semi') || normalized.includes('semi-annual')) return 'semi-annual';
-        if (normalized.includes('annual') || normalized === 'annual' || normalized === 'yearly') return 'annual';
-        return null;
-      })
-      .filter((f): f is 'weekly' | 'monthly' | 'quarterly' | 'semi-annual' | 'annual' => f !== null);
+    // Detect if frequency changed using backend-provided frequencyNum field
+    // Or fall back to API frequency field detection
+    const frequencyNums = dividends
+      .map(div => div.frequencyNum)
+      .filter((f): f is number => f !== undefined && f !== null);
 
-    // Check if frequency changed based on API frequency field
-    const uniqueFrequencies = new Set(frequencies);
-    let frequencyChanged = uniqueFrequencies.size > 1;
+    const uniqueFrequencyNums = new Set(frequencyNums);
+    let frequencyChanged = uniqueFrequencyNums.size > 1;
+
+    // Also check using frequency string field as fallback
+    if (!frequencyChanged) {
+      const frequencies = dividends
+        .map(div => {
+          const freq = div.frequency || '';
+          // Normalize frequency strings for comparison
+          const normalized = freq.toLowerCase();
+          if (normalized.includes('week') || normalized === 'weekly') return 'weekly';
+          if (normalized.includes('month') || normalized === 'monthly' || normalized === 'mo') return 'monthly';
+          if (normalized.includes('quarter') || normalized === 'quarterly' || normalized.includes('qtr')) return 'quarterly';
+          if (normalized.includes('semi') || normalized.includes('semi-annual')) return 'semi-annual';
+          if (normalized.includes('annual') || normalized === 'annual' || normalized === 'yearly') return 'annual';
+          return null;
+        })
+        .filter((f): f is 'weekly' | 'monthly' | 'quarterly' | 'semi-annual' | 'annual' => f !== null);
+
+      const uniqueFrequencies = new Set(frequencies);
+      frequencyChanged = uniqueFrequencies.size > 1;
+    }
 
     // Also check actual payment intervals to verify frequency change
     // If all intervals are similar, frequency hasn't actually changed
-    if (dividends.length >= 3) {
+    if (dividends.length >= 3 && frequencyChanged) {
       const intervals: number[] = [];
       for (let i = 0; i < dividends.length - 1; i++) {
         const currentDate = new Date(dividends[i].exDate);
@@ -171,30 +181,38 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
         });
 
         // Only show frequency change if intervals are NOT consistent
-        // AND we have different frequency labels
-        frequencyChanged = !isConsistent && uniqueFrequencies.size > 1;
-      } else {
-        // Not enough intervals to determine, rely on frequency field
-        frequencyChanged = uniqueFrequencies.size > 1;
+        if (isConsistent) {
+          frequencyChanged = false;
+        }
       }
-    } else {
-      // Not enough data points, rely on frequency field
-      frequencyChanged = uniqueFrequencies.size > 1;
     }
 
-    // Use backend-calculated normalized amounts for the line chart
-    // The backend calculates: days_since_prev, div_frequency, annualized_amount, normalized_amount
-    // normalized_amount uses the most recent payment frequency as baseline for proper comparison
+    // Map dividends to chart data using backend-provided normalized values
     const chartData = dividends.map((div) => {
       // Always use adjAmount for dividend history charts (no fallback to amount)
+      // This ensures accuracy and consistency with split-adjusted amounts
       const amount = (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
         ? div.adjAmount
         : 0;
 
-      // Use backend-calculated normalized amount if available
-      const normalizedRate = (typeof div.normalizedAmount === 'number' && !isNaN(div.normalizedAmount) && isFinite(div.normalizedAmount) && div.normalizedAmount > 0)
-        ? div.normalizedAmount
-        : null;
+      // Use backend-provided normalized/annualized value
+      // Only show normalized line for Regular dividends (not Special or Initial)
+      let normalizedRate: number | null = null;
+
+      if (frequencyChanged && amount > 0) {
+        // Use backend-provided annualized value for Regular dividends
+        // Filter out Special dividends from the line (they would spike artificially)
+        const pmtType = div.pmtType || (div.daysSincePrev !== undefined && div.daysSincePrev !== null && div.daysSincePrev <= 5 ? 'Special' : 'Regular');
+
+        if (pmtType === 'Regular' && div.annualized !== null && div.annualized !== undefined && div.annualized > 0) {
+          normalizedRate = div.annualized;
+        } else if (pmtType === 'Regular') {
+          // Fallback: calculate locally if backend didn't provide value
+          const freqNum = div.frequencyNum || numPayments || 12;
+          normalizedRate = amount * freqNum;
+        }
+        // For Special/Initial dividends, normalizedRate stays null (skip in line chart)
+      }
 
       // Ensure amount is a valid number
       const validAmount = typeof amount === 'number' && !isNaN(amount) && isFinite(amount) && amount > 0
@@ -219,10 +237,8 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
         description: div.description,
         currency: div.currency,
         normalizedRate: validNormalizedRate,
-        // Include the new backend fields for debugging/display if needed
-        daysSincePrev: div.daysSincePrev,
-        divFrequency: div.divFrequency,
-        annualizedAmount: div.annualizedAmount,
+        pmtType: div.pmtType,
+        frequencyNum: div.frequencyNum,
       };
     }).filter(item => {
       // Filter out items with invalid amounts or NaN values
@@ -234,7 +250,8 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
     });
 
     return { chartData, frequencyChanged };
-  }, [getFilteredDividends]);
+  }, [getFilteredDividends, numPayments]);
+
 
   const chartData = useMemo(() => {
     // Determine how many years to show based on available data

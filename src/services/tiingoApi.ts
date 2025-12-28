@@ -50,12 +50,14 @@ export interface DividendRecord {
   frequency: string;         // Mo, Qtr, Week, Annual, etc.
   description: string | null;
   currency: string;
-  // Normalized dividend calculation fields
-  daysSincePrev?: number | null;       // Days from previous dividend to current
-  divFrequency?: number | null;        // Payment frequency: 52 (weekly), 12 (monthly), 4 (quarterly), 1 (annual)
-  annualizedAmount?: number | null;    // adjAmount × divFrequency
-  normalizedAmount?: number | null;    // Normalized to last frequency for comparison
+  // Normalized dividend fields for line chart
+  pmtType?: 'Regular' | 'Special' | 'Initial';  // Payment type for normalization
+  frequencyNum?: number;                         // 52=weekly, 12=monthly, 4=quarterly, 1=annual
+  daysSincePrev?: number | null;                 // Days since previous dividend
+  annualized?: number | null;                    // Annualized dividend value
+  normalizedDiv?: number | null;                 // Normalized value for line chart
 }
+
 
 export interface DividendData {
   ticker: string;
