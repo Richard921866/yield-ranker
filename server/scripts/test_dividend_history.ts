@@ -33,15 +33,11 @@ for (const envPath of envPaths) {
 }
 
 import { getDividendHistory } from "../src/services/database.js";
-import type { DividendRecord } from "../src/types/index.js";
+import { calculateDividendHistory } from "../src/routes/cefs.js";
 
-/**
- * Calculate Dividend History using "Verified Date" rule
- * Uses UNADJUSTED dividends (div_cash) from 2009-01-01 onwards
- */
-function calculateDividendHistory(dividends: DividendRecord[]): string {
+function calculateDividendHistoryDetailed(dividends: DividendRecord[]): any {
   if (!dividends || dividends.length < 2) {
-    return dividends.length === 1 ? "1 DIV+" : "0+ 0-";
+    return { result: dividends.length === 1 ? "1 DIV+" : "0+ 0-", details: [] };
   }
 
   // Step 1: Filter to regular dividends only (exclude special dividends)
@@ -66,7 +62,7 @@ function calculateDividendHistory(dividends: DividendRecord[]): string {
     });
 
   if (regularDivs.length < 2) {
-    return regularDivs.length === 1 ? "1 DIV+" : "0+ 0-";
+    return { result: regularDivs.length === 1 ? "1 DIV+" : "0+ 0-", details: [] };
   }
 
   // Step 2: Sort to chronological order (oldest first)
@@ -80,14 +76,13 @@ function calculateDividendHistory(dividends: DividendRecord[]): string {
   });
 
   if (filteredChronological.length < 2) {
-    return filteredChronological.length === 1 ? "1 DIV+" : "0+ 0-";
+    return { result: filteredChronological.length === 1 ? "1 DIV+" : "0+ 0-", details: [] };
   }
 
-  // Step 4: Use "Verified Date" rule to count increases/decreases
-  // IMPORTANT: Use UNADJUSTED dividends (div_cash) only - not adj_amount
-  // Logic: A change is only counted if the NEXT payment verifies it
-  // - Increase: if prev < current AND next >= current (verified)
-  // - Decrease: if prev > current AND next <= current (verified)
+  // Step 4: Two-Payment Confirmation rule with base tracking
+  const firstPayment = filteredChronological[0].div_cash ?? 0;
+  let base = firstPayment > 0 ? firstPayment : 0.20;
+  const threshold = 0.011;
   let increases = 0;
   let decreases = 0;
 

@@ -1011,8 +1011,13 @@ function findColumn(
 
 // ============================================================================
 // Helper: Calculate Dividend History (X+ Y- format)
-// Uses "Verified Date" rule: Only count changes confirmed by the next payment
-// Uses UNADJUSTED dividends (div_cash) from Tiingo data
+// Uses "Two-Payment Confirmation" rule with base tracking
+// Matches Python script logic:
+// - INCREASE: p1 > (base + threshold) AND p2 > base (both payments higher than base)
+// - DECREASE: p1 < base AND p2 < base (both payments lower than base)
+// - Base updates to confirmed new level (p1)
+// - Threshold: 0.011 to filter out 1-cent fluctuations/noise
+// Uses UNADJUSTED dividends (div_cash) from Tiingo data - NOT adj_amount
 // Date range: From 2009-01-01 through today
 // ============================================================================
 
@@ -1060,45 +1065,46 @@ export function calculateDividendHistory(dividends: DividendRecord[]): string {
     return filteredChronological.length === 1 ? "1 DIV+" : "0+ 0-";
   }
 
-  // Step 4: Use "Verified Date" rule to count increases/decreases
-  // IMPORTANT: Use UNADJUSTED dividends (div_cash) only - not adj_amount
-  // Logic: A change is only counted if the NEXT payment verifies it
-  // - Increase: if prev < current AND next >= current (verified)
-  // - Decrease: if prev > current AND next <= current (verified)
+  // Step 4: Two-Payment Confirmation rule with base tracking
+  // IMPORTANT: Use UNADJUSTED dividends (div_cash) only - NOT adj_amount
+  // Initialize base to 0.20 (matching Python script initial_base parameter)
+  // This represents the base level from before 2009-01-01
+  let base = 0.20; // Initial base (from pre-2009 level)
+  const threshold = 0.011; // Threshold to filter out 1-cent fluctuations/noise
+  
   let increases = 0;
   let decreases = 0;
 
-  for (let i = 1; i < filteredChronological.length - 1; i++) {
-    const previous = filteredChronological[i - 1];
-    const current = filteredChronological[i];
-    const next = filteredChronological[i + 1];
+  // Iterate with 2-payment window (i and i+1)
+  for (let i = 0; i < filteredChronological.length - 1; i++) {
+    const p1Record = filteredChronological[i];
+    const p2Record = filteredChronological[i + 1];
 
     // Use UNADJUSTED div_cash only (from Tiingo table data)
-    const prevAmount = previous.div_cash ?? 0;
-    const currentAmount = current.div_cash ?? 0;
-    const nextAmount = next.div_cash ?? 0;
+    const p1 = Math.round((p1Record.div_cash ?? 0) * 1000) / 1000; // Round to 3 decimals
+    const p2 = Math.round((p2Record.div_cash ?? 0) * 1000) / 1000; // Round to 3 decimals
 
     // Skip if any amount is invalid
-    if (
-      !prevAmount ||
-      !currentAmount ||
-      !nextAmount ||
-      prevAmount <= 0 ||
-      currentAmount <= 0 ||
-      nextAmount <= 0
-    ) {
+    if (!p1 || !p2 || p1 <= 0 || p2 <= 0) {
       continue;
     }
 
-    // Check for increase: previous < current AND next >= current (verified by next payment)
-    if (prevAmount < currentAmount && nextAmount >= currentAmount) {
+    // INCREASE LOGIC: Both payments in the pair must be higher than base
+    // p1 must be > (base + threshold) AND p2 must be > base
+    // We use p1 as the new base candidate
+    // Note: The threshold ensures small fluctuations aren't counted as increases
+    if (p1 > (base + threshold) && p2 > base) {
       increases++;
+      base = p1; // Update base to the confirmed new level (p1)
     }
-    // Check for decrease: previous > current AND next <= current (verified by next payment)
-    else if (prevAmount > currentAmount && nextAmount <= currentAmount) {
+    // DECREASE LOGIC: Both payments in the pair must be lower than base
+    // p1 < base AND p2 < base
+    // Note: No threshold for decreases (both just need to be below base)
+    else if (p1 < base && p2 < base) {
       decreases++;
+      base = p1; // Update base to the confirmed new level (p1)
     }
-    // If amounts are equal or change is not verified, don't count
+    // If conditions not met, base remains unchanged (noise/flicker is ignored)
   }
 
   return `${increases}+ ${decreases}-`;
