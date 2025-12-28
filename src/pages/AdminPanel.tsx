@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/Logo";
@@ -33,7 +33,9 @@ import {
   SiteSetting,
   getNotebook,
   saveNotebook,
+  NotebookData,
 } from "@/services/admin";
+import { NotebookEditor } from "@/components/NotebookEditor";
 import { clearETFCache } from "@/services/etfData";
 import { clearCEFCache } from "@/services/cefData";
 import {
@@ -55,6 +57,7 @@ import {
   Upload,
   Users,
   Globe,
+  BookOpen,
 } from "lucide-react";
 
 const formatDate = (value: string) =>
@@ -84,7 +87,7 @@ const AdminPanel = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "users" | "upload" | "delete" | "favorites" | "site-settings" | "price-reference"
+    "users" | "upload" | "delete" | "favorites" | "site-settings" | "notebook"
   >("users");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -110,12 +113,9 @@ const AdminPanel = () => {
   const [loadingTickers, setLoadingTickers] = useState(false);
   const [selectedTickers, setSelectedTickers] = useState<Set<string>>(new Set());
   const [deletingMultiple, setDeletingMultiple] = useState(false);
-  const [notebookContent, setNotebookContent] = useState("");
+  const [notebookData, setNotebookData] = useState<NotebookData | null>(null);
   const [notebookLoading, setNotebookLoading] = useState(false);
   const [notebookSaving, setNotebookSaving] = useState(false);
-  const [notebookLastSaved, setNotebookLastSaved] = useState<string | null>(null);
-  const [selectedTableId, setSelectedTableId] = useState<string>("summary-table");
-  const contentEditableRef = useRef<HTMLDivElement>(null);
 
   const userMetadata =
     (user?.user_metadata as {
@@ -176,8 +176,8 @@ const AdminPanel = () => {
       setActiveTab("upload"); // Legacy support - redirect data to upload
     } else if (path.endsWith("/settings")) {
       setActiveTab("site-settings");
-    } else if (path.endsWith("/price-reference")) {
-      setActiveTab("price-reference");
+    } else if (path.endsWith("/notebook")) {
+      setActiveTab("notebook");
     } else {
       const params = new URLSearchParams(location.search);
       const tab = params.get("tab");
@@ -193,8 +193,8 @@ const AdminPanel = () => {
         setActiveTab("upload"); // Legacy support
       } else if (tab === "settings") {
         setActiveTab("site-settings");
-      } else if (tab === "price-reference") {
-        setActiveTab("price-reference");
+      } else if (tab === "notebook") {
+        setActiveTab("notebook");
       } else {
         setActiveTab("users");
       }
@@ -227,51 +227,13 @@ const AdminPanel = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
-  // Load notebook when price-reference tab becomes active
+  // Load notebook when notebook tab becomes active
   useEffect(() => {
-    if (isAdmin && activeTab === "price-reference" && !notebookLoading) {
+    if (isAdmin && activeTab === "notebook" && !notebookLoading && !notebookData) {
       loadNotebook();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAdmin]);
-
-  // Set content in contentEditable when it loads or when tab becomes active
-  useEffect(() => {
-    if (activeTab === "price-reference" && contentEditableRef.current && !notebookLoading) {
-      // Always set content, even if empty, to ensure it renders
-      if (notebookContent) {
-        // Use requestAnimationFrame to ensure DOM is ready
-        requestAnimationFrame(() => {
-          if (contentEditableRef.current && contentEditableRef.current.innerHTML !== notebookContent) {
-            contentEditableRef.current.innerHTML = notebookContent;
-          }
-        });
-      } else {
-        // If no content, set empty string to clear any previous content
-        requestAnimationFrame(() => {
-          if (contentEditableRef.current) {
-            contentEditableRef.current.innerHTML = '';
-          }
-        });
-      }
-    }
-  }, [notebookContent, notebookLoading, activeTab]);
-
-  // Keyboard shortcut for saving notebook (Ctrl+S / Cmd+S)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's' && activeTab === "price-reference") {
-        e.preventDefault();
-        if (!notebookSaving && !notebookLoading) {
-          handleSaveNotebook();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, notebookSaving, notebookLoading]);
 
   const fetchSiteSettings = async () => {
     setSettingsLoading(true);
@@ -347,69 +309,8 @@ const AdminPanel = () => {
   const loadNotebook = async () => {
     setNotebookLoading(true);
     try {
-      let content = await getNotebook();
-      // Always reset to clean table content (image 1) - just the Summary Table
-      // If notebook is empty or has old content, reset to clean version
-      if (!content || content.trim() === "" || content.includes("Total Returns Calculation") || content.includes("Common Mistakes")) {
-        // Use string concatenation to avoid template literal parsing issues in build
-        content = [
-          '<h1>Adjusted vs Unadjusted Price Reference</h1>',
-          '<p class="mb-6">This reference document defines which metrics use ADJUSTED (adj_close) or UNADJUSTED (close) prices as specified by the CTO.</p>',
-          '',
-          '<h2 data-table-id="summary-table" class="text-lg font-bold text-foreground mb-4">Summary Table</h2>',
-          '<div class="overflow-x-auto -mx-2 px-2">',
-          '<table data-table="summary-table" class="min-w-full text-sm border-collapse table-auto">',
-          '<thead>',
-          '<tr class="bg-slate-100">',
-          '<th class="border border-slate-300 px-3 py-2 text-left font-semibold whitespace-nowrap min-w-[200px]">Metric</th>',
-          '<th class="border border-slate-300 px-3 py-2 text-left font-semibold whitespace-nowrap min-w-[120px]">Type</th>',
-          '<th class="border border-slate-300 px-3 py-2 text-left font-semibold whitespace-nowrap min-w-[100px]">Price Field</th>',
-          '</tr>',
-          '</thead>',
-          '<tbody>',
-          '<tr>',
-          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap">MARKET PRICE (HOME PAGE TABLE)</td>',
-          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap"><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">UNADJUSTED</span></td>',
-          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs whitespace-nowrap">`close`</td>',
-          '</tr>',
-          '<tr class="bg-slate-50">',
-          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap">NAV (HOME PAGE)</td>',
-          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap"><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">UNADJUSTED</span></td>',
-          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs whitespace-nowrap">`close`</td>',
-          '</tr>',
-          '<tr>',
-          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap">PRICE (CHART)</td>',
-          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap"><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">UNADJUSTED</span></td>',
-          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs whitespace-nowrap">`close`</td>',
-          '</tr>',
-          '<tr class="bg-slate-50">',
-          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap">NAV (CHART)</td>',
-          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap"><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">UNADJUSTED</span></td>',
-          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs whitespace-nowrap">`close`</td>',
-          '</tr>',
-          '<tr>',
-          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap">TOTAL RETURNS</td>',
-          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap"><span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">ADJUSTED</span></td>',
-          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs whitespace-nowrap">`adj_close`</td>',
-          '</tr>',
-          '<tr class="bg-slate-50">',
-          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap">6 MO NAV TREND</td>',
-          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap"><span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">ADJUSTED</span></td>',
-          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs whitespace-nowrap">`adj_close`</td>',
-          '</tr>',
-          '<tr>',
-          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap">12 MO NAV TREND</td>',
-          '<td class="border border-slate-300 px-3 py-2 whitespace-nowrap"><span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">ADJUSTED</span></td>',
-          '<td class="border border-slate-300 px-3 py-2 font-mono text-xs whitespace-nowrap">`adj_close`</td>',
-          '</tr>',
-          '</tbody>',
-          '</table>',
-          '</div>'
-        ].join('\n');
-        // Save the default content
-        await saveNotebook(content, profile?.id ?? null);
-      }
-      setNotebookContent(content);
+      const data = await getNotebook();
+      setNotebookData(data);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -421,16 +322,13 @@ const AdminPanel = () => {
     }
   };
 
-  const handleSaveNotebook = async () => {
+  const handleSaveNotebook = useCallback(async (data: NotebookData) => {
     setNotebookSaving(true);
     try {
-      // Get the current HTML content from the contentEditable div
-      const contentToSave = contentEditableRef.current?.innerHTML || notebookContent;
-      await saveNotebook(contentToSave, profile?.id ?? null);
-      setNotebookContent(contentToSave);
-      setNotebookLastSaved(new Date().toLocaleString());
+      await saveNotebook(data, profile?.id ?? null);
+      setNotebookData(data);
       toast({
-        title: "Price Reference saved",
+        title: "Notebook saved",
         description: "Your changes have been saved successfully",
       });
     } catch (error) {
@@ -442,7 +340,7 @@ const AdminPanel = () => {
     } finally {
       setNotebookSaving(false);
     }
-  };
+  }, [profile?.id, toast]);
 
   const filteredAndSortedProfiles = useMemo(() => {
     const term = searchQuery.trim().toLowerCase();
@@ -981,18 +879,18 @@ const AdminPanel = () => {
             {!sidebarCollapsed && "Site Settings"}
           </button>
           <button
-            onClick={() => navigate("/admin/price-reference")}
+            onClick={() => navigate("/admin/notebook")}
             className={`w-full flex items-center ${sidebarCollapsed
               ? "justify-center px-0 py-2.5"
               : "gap-3 px-4 py-3"
-              } rounded-lg text-sm font-medium ${activeTab === "price-reference"
+              } rounded-lg text-sm font-medium ${activeTab === "notebook"
                 ? "bg-primary text-white"
                 : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
               } transition-colors`}
-            title={sidebarCollapsed ? "Price Reference" : ""}
+            title={sidebarCollapsed ? "Notebook" : ""}
           >
-            <Database className="w-5 h-5" />
-            {!sidebarCollapsed && "Price Reference"}
+            <BookOpen className="w-5 h-5" />
+            {!sidebarCollapsed && "Notebook"}
           </button>
           <button
             onClick={() => navigate("/settings")}
@@ -1044,8 +942,8 @@ const AdminPanel = () => {
                       ? "Delete Data"
                       : activeTab === "favorites"
                         ? "Favorites"
-                        : activeTab === "price-reference"
-                          ? "Price Reference"
+                        : activeTab === "notebook"
+                          ? "Notebook"
                           : "Site Settings"}
               </h1>
             </div>
@@ -1761,256 +1659,142 @@ const AdminPanel = () => {
                       </Button>
                     </div>
 
-                  {settingsLoading ? (
-                    <div className="text-center py-8">
-                      <RefreshCw className="w-8 h-8 animate-spin mx-auto text-primary" />
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Loading settings...
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {/* Category-specific messages */}
-                      {CATEGORIES.map((category) => (
-                        <div key={category.id} className="space-y-4 p-4 bg-slate-50 rounded-lg border-2 border-slate-200">
-                          <h3 className="text-base font-bold text-foreground border-b border-slate-300 pb-2">
-                            {category.name}
-                          </h3>
-                          
-                          {/* Guest Message for this category */}
-                          <div className="space-y-2">
-                            <label className="block text-sm font-semibold text-foreground">
-                              Message for Guests (without account)
-                            </label>
-                            <Input
-                              value={settingsValues[`guest_message_${category.id}`] || ""}
-                              onChange={(event) =>
-                                setSettingsValues((prev) => ({
-                                  ...prev,
-                                  [`guest_message_${category.id}`]: event.target.value,
-                                }))
-                              }
-                              placeholder={`Enter message to display for guests above the ${category.label} chart`}
-                              className="border-2"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              This message appears above the {category.label} chart for users without an account
-                            </p>
-                          </div>
+                    {settingsLoading ? (
+                      <div className="text-center py-8">
+                        <RefreshCw className="w-8 h-8 animate-spin mx-auto text-primary" />
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Loading settings...
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Category-specific messages */}
+                        {CATEGORIES.map((category) => (
+                          <div key={category.id} className="space-y-4 p-4 bg-slate-50 rounded-lg border-2 border-slate-200">
+                            <h3 className="text-base font-bold text-foreground border-b border-slate-300 pb-2">
+                              {category.name}
+                            </h3>
 
-                          {/* Premium Message for this category */}
-                          <div className="space-y-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
-                            <label className="block text-sm font-semibold text-foreground">
-                              Premium Banner Message
-                            </label>
-                            <Input
-                              value={settingsValues[`premium_message_${category.id}`] || ""}
-                              onChange={(event) =>
-                                setSettingsValues((prev) => ({
-                                  ...prev,
-                                  [`premium_message_${category.id}`]: event.target.value,
-                                }))
-                              }
-                              placeholder={`Enter message to display for premium subscribers above the ${category.label} chart`}
-                              className="border-2"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              This message appears above the {category.label} chart for premium subscribers
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Other settings */}
-                      {siteSettings
-                        .filter((s) => 
-                          !s.key.startsWith("guest_message_") && 
-                          !s.key.startsWith("premium_message_") &&
-                          s.key !== "guest_message" &&
-                          s.key !== "premium_message" &&
-                          s.key !== "admin_notebook"
-                        )
-                        .map((setting) => (
-                          <div key={setting.key} className="space-y-2">
-                            <label className="block text-sm font-medium text-foreground">
-                              {setting.description || setting.key}
-                            </label>
-                            {setting.key === "data_last_updated" ? (
+                            {/* Guest Message for this category */}
+                            <div className="space-y-2">
+                              <label className="block text-sm font-semibold text-foreground">
+                                Message for Guests (without account)
+                              </label>
                               <Input
-                                type="datetime-local"
-                                value={settingsValues[setting.key] || ""}
+                                value={settingsValues[`guest_message_${category.id}`] || ""}
                                 onChange={(event) =>
                                   setSettingsValues((prev) => ({
                                     ...prev,
-                                    [setting.key]: event.target.value,
+                                    [`guest_message_${category.id}`]: event.target.value,
                                   }))
                                 }
+                                placeholder={`Enter message to display for guests above the ${category.label} chart`}
                                 className="border-2"
                               />
-                            ) : (
+                              <p className="text-xs text-muted-foreground">
+                                This message appears above the {category.label} chart for users without an account
+                              </p>
+                            </div>
+
+                            {/* Premium Message for this category */}
+                            <div className="space-y-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                              <label className="block text-sm font-semibold text-foreground">
+                                Premium Banner Message
+                              </label>
                               <Input
-                                value={settingsValues[setting.key] || ""}
+                                value={settingsValues[`premium_message_${category.id}`] || ""}
                                 onChange={(event) =>
                                   setSettingsValues((prev) => ({
                                     ...prev,
-                                    [setting.key]: event.target.value,
+                                    [`premium_message_${category.id}`]: event.target.value,
                                   }))
                                 }
-                                placeholder={`Enter ${setting.description || setting.key
-                                  }`}
+                                placeholder={`Enter message to display for premium subscribers above the ${category.label} chart`}
                                 className="border-2"
                               />
-                            )}
-                            <p className="text-xs text-muted-foreground">
-                              Last updated: {formatDate(setting.updated_at)}
-                              {setting.updated_by && ` by ${setting.updated_by}`}
-                            </p>
+                              <p className="text-xs text-muted-foreground">
+                                This message appears above the {category.label} chart for premium subscribers
+                              </p>
+                            </div>
                           </div>
                         ))}
 
-                    </div>
-                  )}
-                </div>
-              </Card>
+                        {/* Other settings */}
+                        {siteSettings
+                          .filter((s) =>
+                            !s.key.startsWith("guest_message_") &&
+                            !s.key.startsWith("premium_message_") &&
+                            s.key !== "guest_message" &&
+                            s.key !== "premium_message" &&
+                            s.key !== "admin_notebook"
+                          )
+                          .map((setting) => (
+                            <div key={setting.key} className="space-y-2">
+                              <label className="block text-sm font-medium text-foreground">
+                                {setting.description || setting.key}
+                              </label>
+                              {setting.key === "data_last_updated" ? (
+                                <Input
+                                  type="datetime-local"
+                                  value={settingsValues[setting.key] || ""}
+                                  onChange={(event) =>
+                                    setSettingsValues((prev) => ({
+                                      ...prev,
+                                      [setting.key]: event.target.value,
+                                    }))
+                                  }
+                                  className="border-2"
+                                />
+                              ) : (
+                                <Input
+                                  value={settingsValues[setting.key] || ""}
+                                  onChange={(event) =>
+                                    setSettingsValues((prev) => ({
+                                      ...prev,
+                                      [setting.key]: event.target.value,
+                                    }))
+                                  }
+                                  placeholder={`Enter ${setting.description || setting.key
+                                    }`}
+                                  className="border-2"
+                                />
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                Last updated: {formatDate(setting.updated_at)}
+                                {setting.updated_by && ` by ${setting.updated_by}`}
+                              </p>
+                            </div>
+                          ))}
 
-            </div>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+
+              </div>
             )}
 
-            {activeTab === "price-reference" && (
+            {activeTab === "notebook" && (
               <Card className="border-2 border-slate-200">
                 <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div className="flex-1">
                       <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-2 flex items-center gap-2">
-                        <Database className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-                        Adjusted vs Unadjusted Price Reference
+                        <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                        Admin Notebook
                       </h2>
                       <p className="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6">
-                        This reference document defines which metrics use ADJUSTED (adj_close) or UNADJUSTED (close) prices as specified by the CTO.
+                        Document formulas, calculations, ideas, and notes. Add different block types using the toolbar.
                       </p>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                      {notebookLastSaved && (
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          Last saved: {notebookLastSaved}
-                        </span>
-                      )}
-                      <Button
-                        onClick={handleSaveNotebook}
-                        disabled={notebookSaving || notebookLoading}
-                        className="min-w-[100px] w-full sm:w-auto"
-                      >
-                        {notebookSaving ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <Database className="w-4 h-4 mr-2" />
-                            Save
-                          </>
-                        )}
-                      </Button>
                     </div>
                   </div>
 
-                  {notebookLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
-                      <span className="ml-2 text-muted-foreground">Loading...</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {/* Summary Table - Fully Editable */}
-                      <div className="bg-white rounded-lg border-2 border-slate-200 p-4 sm:p-6 space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                          <h3 className="text-base sm:text-lg font-bold text-foreground">Summary Table</h3>
-                          <div className="flex gap-2 flex-wrap">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                if (contentEditableRef.current) {
-                                  const table = contentEditableRef.current.querySelector('table[data-table]');
-                                  if (table) {
-                                    const headerRow = table.querySelector('thead tr');
-                                    if (headerRow) {
-                                      const newHeader = document.createElement('th');
-                                      newHeader.className = 'border border-slate-300 px-3 py-2 text-left font-semibold whitespace-nowrap min-w-[120px]';
-                                      newHeader.contentEditable = true;
-                                      newHeader.textContent = 'New Column';
-                                      headerRow.appendChild(newHeader);
-                                    }
-                                    const rows = table.querySelectorAll('tbody tr');
-                                    rows.forEach(row => {
-                                      const newCell = document.createElement('td');
-                                      newCell.className = 'border border-slate-300 px-3 py-2 whitespace-nowrap';
-                                      newCell.contentEditable = true;
-                                      row.appendChild(newCell);
-                                    });
-                                    setNotebookContent(contentEditableRef.current.innerHTML);
-                                  }
-                                }
-                              }}
-                            >
-                              + Add Column
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                if (contentEditableRef.current) {
-                                  const table = contentEditableRef.current.querySelector('table[data-table]');
-                                  if (table) {
-                                    const tbody = table.querySelector('tbody');
-                                    if (tbody) {
-                                      const headerRow = table.querySelector('thead tr');
-                                      const colCount = headerRow?.querySelectorAll('th').length || 3;
-                                      const newRow = document.createElement('tr');
-                                      // Alternate row background
-                                      const rowCount = tbody.querySelectorAll('tr').length;
-                                      if (rowCount % 2 === 1) {
-                                        newRow.className = 'bg-slate-50';
-                                      }
-                                      for (let i = 0; i < colCount; i++) {
-                                        const cell = document.createElement('td');
-                                        cell.className = 'border border-slate-300 px-3 py-2 whitespace-nowrap';
-                                        cell.contentEditable = true;
-                                        newRow.appendChild(cell);
-                                      }
-                                      tbody.appendChild(newRow);
-                                      setNotebookContent(contentEditableRef.current.innerHTML);
-                                    }
-                                  }
-                                }
-                              }}
-                            >
-                              + Add Row
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="overflow-x-auto -mx-2 px-2 w-full">
-                          {notebookLoading ? (
-                            <div className="flex items-center justify-center py-8">
-                              <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground mr-2" />
-                              <span className="text-muted-foreground">Loading...</span>
-                            </div>
-                          ) : (
-                            <div 
-                              ref={contentEditableRef}
-                              contentEditable 
-                              suppressContentEditableWarning
-                              onBlur={(e) => setNotebookContent(e.currentTarget.innerHTML)}
-                              onInput={(e) => setNotebookContent(e.currentTarget.innerHTML)}
-                              className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg prose prose-sm max-w-none w-full min-h-[200px]"
-                            >
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <NotebookEditor
+                    initialData={notebookData || undefined}
+                    onSave={handleSaveNotebook}
+                    saving={notebookSaving}
+                    loading={notebookLoading}
+                  />
                 </div>
               </Card>
             )}

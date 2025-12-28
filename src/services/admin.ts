@@ -57,12 +57,12 @@ export const trackUserLogin = async (): Promise<void> => {
     if (!user?.id) {
       return;
     }
-    
+
     const { error } = await supabase
       .from("profiles")
       .update({ last_login: new Date().toISOString() })
       .eq("id", user.id);
-    
+
     if (error) {
       console.error("Failed to track login:", error);
     }
@@ -114,7 +114,7 @@ export const deleteProfile = async (id: string): Promise<void> => {
     .delete()
     .eq("id", id)
     .select();
-  
+
   if (profileError) {
     console.error("Delete profile error:", profileError);
     throw new Error(
@@ -123,39 +123,146 @@ export const deleteProfile = async (id: string): Promise<void> => {
         : profileError.message || "Unable to delete user profile"
     );
   }
-  
+
   // Log successful deletion (data should be empty array on success)
   if (data && data.length > 0) {
     console.log("Profile deleted:", data);
   }
-  
+
   // Note: Auth user deletion requires backend function with service role key
   // The profile deletion above is sufficient to remove the user from the app
 };
 
-export const getNotebook = async (): Promise<string> => {
+// Notebook types
+export type BlockType = 'text' | 'heading1' | 'heading2' | 'heading3' | 'table' | 'formula' | 'comment';
+
+export type NotebookBlock = {
+  id: string;
+  type: BlockType;
+  content: string;
+  metadata?: {
+    createdAt: string;
+    updatedAt: string;
+    author?: string;
+    color?: 'yellow' | 'blue' | 'green' | 'red' | 'purple';
+    tableData?: {
+      headers: string[];
+      rows: string[][];
+    };
+  };
+};
+
+export type NotebookData = {
+  blocks: NotebookBlock[];
+  lastUpdated: string;
+  version: number;
+};
+
+// Generate unique ID
+const generateId = () => Math.random().toString(36).substring(2, 9);
+
+// Create default notebook with welcome content
+export const createDefaultNotebook = (): NotebookData => ({
+  blocks: [
+    {
+      id: generateId(),
+      type: 'heading1',
+      content: 'Admin Notebook',
+      metadata: {
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    {
+      id: generateId(),
+      type: 'text',
+      content: 'Use this notebook to document formulas, calculations, ideas, and notes. Add different block types using the toolbar above.',
+      metadata: {
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    {
+      id: generateId(),
+      type: 'heading2',
+      content: 'Adjusted vs Unadjusted Price Reference',
+      metadata: {
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    {
+      id: generateId(),
+      type: 'table',
+      content: '',
+      metadata: {
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        tableData: {
+          headers: ['Metric', 'Type', 'Price Field'],
+          rows: [
+            ['MARKET PRICE (HOME PAGE)', 'UNADJUSTED', 'close'],
+            ['NAV (HOME PAGE)', 'UNADJUSTED', 'close'],
+            ['PRICE (CHART)', 'UNADJUSTED', 'close'],
+            ['NAV (CHART)', 'UNADJUSTED', 'close'],
+            ['TOTAL RETURNS', 'ADJUSTED', 'adj_close'],
+            ['6 MO NAV TREND', 'ADJUSTED', 'adj_close'],
+            ['12 MO NAV TREND', 'ADJUSTED', 'adj_close'],
+          ],
+        },
+      },
+    },
+    {
+      id: generateId(),
+      type: 'comment',
+      content: 'Remember: Adjusted prices account for dividends and splits. Use adjusted for performance calculations, unadjusted for current market prices.',
+      metadata: {
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        color: 'blue',
+      },
+    },
+  ],
+  lastUpdated: new Date().toISOString(),
+  version: 1,
+});
+
+export const getNotebook = async (): Promise<NotebookData> => {
   const { data, error } = await supabase
     .from("site_settings")
     .select("value")
     .eq("key", "admin_notebook")
     .maybeSingle();
-  
+
   if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
     throw error;
   }
-  
-  return data?.value || "";
+
+  if (!data?.value) {
+    return createDefaultNotebook();
+  }
+
+  // Try to parse as JSON (new format)
+  try {
+    const parsed = JSON.parse(data.value);
+    // Check if it's the new format
+    if (parsed.blocks && Array.isArray(parsed.blocks)) {
+      return parsed as NotebookData;
+    }
+  } catch {
+    // Not JSON, might be old HTML format - migrate to new format
+  }
+
+  // If we get here, it's old HTML format or invalid - return default
+  return createDefaultNotebook();
 };
 
 export const saveNotebook = async (
-  content: string,
+  notebookData: NotebookData,
   updatedBy?: string | null
 ): Promise<SiteSetting> => {
-  return updateSiteSetting("admin_notebook", content, updatedBy);
+  const jsonContent = JSON.stringify(notebookData);
+  return updateSiteSetting("admin_notebook", jsonContent, updatedBy);
 };
-
-
-
-
 
 
