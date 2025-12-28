@@ -117,125 +117,133 @@ const PageLoading = () => (
 // Regular page routing - no transitions, no effects, just clean navigation
 const AppRoutes = () => {
   return (
-    <div 
-      className="min-h-screen w-full" 
-      style={{ 
+    <div
+      className="min-h-screen w-full"
+      style={{
         backgroundColor: 'hsl(var(--background))',
         minHeight: '100vh'
       }}
     >
       <Suspense fallback={<PageLoading />}>
         <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/cef" element={<CEFIndex />} />
-              <Route path="/cef/:symbol" element={<CEFDetail />} />
-              <Route path="/cef/:symbol/dividends" element={<CEFDividendHistoryPage />} />
-              <Route path="/etf/:symbol" element={<ETFDetail />} />
-              <Route path="/etf/:symbol/dividends" element={<DividendHistoryPage />} />
-              <Route path="/our-focus" element={<OurFocus />} />
-              <Route path="/focus" element={<Focus />} />
-              <Route path="/covered-call-etfs" element={<CoveredCallETFs />} />
-              <Route path="/closed-end-funds" element={<ClosedEndFunds />} />
-              <Route path="/plans" element={<Plans />} />
-              <Route path="/resources" element={<Navigate to="/resources-cc" replace />} />
-              <Route path="/resources-cc" element={<Resources />} />
-              <Route path="/resources-cef" element={<Resources />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/favorites" element={<Favorites />} />
-              <Route path="/terms" element={<TermsOfService />} />
-              <Route path="/privacy" element={<PrivacyPolicy />} />
-              <Route path="/do-not-sell" element={<DoNotSell />} />
-              <Route path="/login" element={<Auth />} />
-              <Route path="/auth" element={<Navigate to="/login" replace />} />
-              <Route
-                path="/profile"
-                element={
-                  <RequireAuth>
-                    <Profile />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/dashboard"
-                element={
-                  <RequireAuth>
-                    <Dashboard />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/admin"
-                element={
-                  <RequireAuth>
-                    <Navigate to="/admin/users" replace />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/admin/users"
-                element={
-                  <RequireAuth>
-                    <AdminPanel />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/admin/data"
-                element={
-                  <RequireAuth>
-                    <Navigate to="/admin/upload" replace />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/admin/upload"
-                element={
-                  <RequireAuth>
-                    <AdminPanel />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/admin/delete"
-                element={
-                  <RequireAuth>
-                    <AdminPanel />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/admin/favorites"
-                element={
-                  <RequireAuth>
-                    <AdminPanel />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/admin/settings"
-                element={
-                  <RequireAuth>
-                    <AdminPanel />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/admin/price-reference"
-                element={
-                  <RequireAuth>
-                    <AdminPanel />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <RequireAuth>
-                    <Settings />
-                  </RequireAuth>
-                }
-              />
-              <Route path="*" element={<NotFound />} />
+          <Route path="/" element={<Index />} />
+          <Route path="/cef" element={<CEFIndex />} />
+          <Route path="/cef/:symbol" element={<CEFDetail />} />
+          <Route path="/cef/:symbol/dividends" element={<CEFDividendHistoryPage />} />
+          <Route path="/etf/:symbol" element={<ETFDetail />} />
+          <Route path="/etf/:symbol/dividends" element={<DividendHistoryPage />} />
+          <Route path="/our-focus" element={<OurFocus />} />
+          <Route path="/focus" element={<Focus />} />
+          <Route path="/covered-call-etfs" element={<CoveredCallETFs />} />
+          <Route path="/closed-end-funds" element={<ClosedEndFunds />} />
+          <Route path="/plans" element={<Plans />} />
+          <Route path="/resources" element={<Navigate to="/resources-cc" replace />} />
+          <Route path="/resources-cc" element={<Resources />} />
+          <Route path="/resources-cef" element={<Resources />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/favorites" element={<Favorites />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/do-not-sell" element={<DoNotSell />} />
+          <Route path="/login" element={<Auth />} />
+          <Route path="/auth" element={<Navigate to="/login" replace />} />
+          <Route
+            path="/profile"
+            element={
+              <RequireAuth>
+                <Profile />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <Dashboard />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <RequireAuth>
+                <Navigate to="/admin/users" replace />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <RequireAuth>
+                <AdminPanel />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/data"
+            element={
+              <RequireAuth>
+                <Navigate to="/admin/upload" replace />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/upload"
+            element={
+              <RequireAuth>
+                <AdminPanel />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/delete"
+            element={
+              <RequireAuth>
+                <AdminPanel />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/favorites"
+            element={
+              <RequireAuth>
+                <AdminPanel />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <RequireAuth>
+                <AdminPanel />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/price-reference"
+            element={
+              <RequireAuth>
+                <AdminPanel />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/notebook"
+            element={
+              <RequireAuth>
+                <AdminPanel />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <RequireAuth>
+                <Settings />
+              </RequireAuth>
+            }
+          />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
     </div>
