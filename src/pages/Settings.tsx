@@ -67,7 +67,7 @@ export default function Settings() {
   }, [profile]);
 
   const userMetadata =
-    (user?.user_metadata as { display_name?: string; name?: string }) ?? {};
+    (user?.user_metadata as { display_name?: string; name?: string; role?: string }) ?? {};
   const appMetadata = (user?.app_metadata as { role?: string }) ?? {};
   const currentDisplayName =
     profile?.display_name ??
@@ -181,8 +181,8 @@ export default function Settings() {
           <button
             onClick={() => navigate("/")}
             className={`w-full flex items-center ${sidebarCollapsed
-                ? "justify-center px-0 py-2.5"
-                : "gap-3 px-4 py-3"
+              ? "justify-center px-0 py-2.5"
+              : "gap-3 px-4 py-3"
               } rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-100 hover:text-foreground`}
             title={sidebarCollapsed ? "Home" : ""}
           >
@@ -192,8 +192,8 @@ export default function Settings() {
           <button
             onClick={() => navigate("/dashboard")}
             className={`w-full flex items-center ${sidebarCollapsed
-                ? "justify-center px-0 py-2.5"
-                : "gap-3 px-4 py-3"
+              ? "justify-center px-0 py-2.5"
+              : "gap-3 px-4 py-3"
               } rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-100 hover:text-foreground`}
             title={sidebarCollapsed ? "Dashboard" : ""}
           >
@@ -203,8 +203,8 @@ export default function Settings() {
           <button
             onClick={() => navigate("/dashboard")}
             className={`w-full flex items-center ${sidebarCollapsed
-                ? "justify-center px-0 py-2.5"
-                : "gap-3 px-4 py-3"
+              ? "justify-center px-0 py-2.5"
+              : "gap-3 px-4 py-3"
               } rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-100 hover:text-foreground`}
             title={sidebarCollapsed ? "Favorites" : ""}
           >
@@ -225,8 +225,8 @@ export default function Settings() {
               <button
                 onClick={() => navigate("/admin/users")}
                 className={`w-full flex items-center ${sidebarCollapsed
-                    ? "justify-center px-0 py-2.5"
-                    : "gap-3 px-4 py-3"
+                  ? "justify-center px-0 py-2.5"
+                  : "gap-3 px-4 py-3"
                   } rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-100 hover:text-foreground`}
                 title={sidebarCollapsed ? "Users" : ""}
               >
@@ -236,8 +236,8 @@ export default function Settings() {
               <button
                 onClick={() => navigate("/admin/upload")}
                 className={`w-full flex items-center ${sidebarCollapsed
-                    ? "justify-center px-0 py-2.5"
-                    : "gap-3 px-4 py-3"
+                  ? "justify-center px-0 py-2.5"
+                  : "gap-3 px-4 py-3"
                   } rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-100 hover:text-foreground`}
                 title={sidebarCollapsed ? "Upload" : ""}
               >
@@ -247,8 +247,8 @@ export default function Settings() {
               <button
                 onClick={() => navigate("/admin/delete")}
                 className={`w-full flex items-center ${sidebarCollapsed
-                    ? "justify-center px-0 py-2.5"
-                    : "gap-3 px-4 py-3"
+                  ? "justify-center px-0 py-2.5"
+                  : "gap-3 px-4 py-3"
                   } rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-100 hover:text-foreground`}
                 title={sidebarCollapsed ? "Delete" : ""}
               >
@@ -258,8 +258,8 @@ export default function Settings() {
               <button
                 onClick={() => navigate("/admin/favorites")}
                 className={`w-full flex items-center ${sidebarCollapsed
-                    ? "justify-center px-0 py-2.5"
-                    : "gap-3 px-4 py-3"
+                  ? "justify-center px-0 py-2.5"
+                  : "gap-3 px-4 py-3"
                   } rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-100 hover:text-foreground`}
                 title={sidebarCollapsed ? "Admin Favorites" : ""}
               >
@@ -269,8 +269,8 @@ export default function Settings() {
               <button
                 onClick={() => navigate("/admin/settings")}
                 className={`w-full flex items-center ${sidebarCollapsed
-                    ? "justify-center px-0 py-2.5"
-                    : "gap-3 px-4 py-3"
+                  ? "justify-center px-0 py-2.5"
+                  : "gap-3 px-4 py-3"
                   } rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-100 hover:text-foreground`}
                 title={sidebarCollapsed ? "Site Settings" : ""}
               >
@@ -280,8 +280,8 @@ export default function Settings() {
               <button
                 onClick={() => navigate("/admin/notebook")}
                 className={`w-full flex items-center ${sidebarCollapsed
-                    ? "justify-center px-0 py-2.5"
-                    : "gap-3 px-4 py-3"
+                  ? "justify-center px-0 py-2.5"
+                  : "gap-3 px-4 py-3"
                   } rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-100 hover:text-foreground`}
                 title={sidebarCollapsed ? "Notebook" : ""}
               >
@@ -293,8 +293,8 @@ export default function Settings() {
           <button
             onClick={() => navigate("/settings")}
             className={`w-full flex items-center ${sidebarCollapsed
-                ? "justify-center px-0 py-2.5"
-                : "gap-3 px-4 py-3"
+              ? "justify-center px-0 py-2.5"
+              : "gap-3 px-4 py-3"
               } rounded-lg text-sm font-medium bg-primary text-white`}
             title={sidebarCollapsed ? "Settings" : ""}
           >
@@ -310,8 +310,8 @@ export default function Settings() {
           <button
             onClick={logout}
             className={`w-full flex items-center ${sidebarCollapsed
-                ? "justify-center px-0 py-2.5"
-                : "gap-3 px-4 py-3"
+              ? "justify-center px-0 py-2.5"
+              : "gap-3 px-4 py-3"
               } rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors`}
             title={sidebarCollapsed ? "Logout" : ""}
           >
