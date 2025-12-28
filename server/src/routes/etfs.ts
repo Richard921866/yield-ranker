@@ -23,6 +23,203 @@ import type { TiingoPriceData } from '../types/index.js';
 const router: Router = Router();
 
 // ============================================================================
+// ETF Ranking Calculation
+// ============================================================================
+
+/**
+ * Calculate Weighted Rank for CC ETFs using 1-N scoring system
+ * Matches spreadsheet ranking methodology:
+ * - YIELD: 25% (higher is better, rank 1 = highest)
+ * - DVI: 50% (lower is better, rank 1 = lowest DVI)
+ * - TR 3MO: 5% (higher is better, rank 1 = highest)
+ * - TR 6MO: 25% (higher is better, rank 1 = highest)
+ * - TR 12MO: 1% (higher is better, rank 1 = highest)
+ * 
+ * Returns Map<ticker, weightedRank> where lower rank = better (1 = best)
+ */
+export async function calculateETFRankings(): Promise<Map<string, number>> {
+  try {
+    const db = getSupabase();
+
+    // Get all ETFs (those without nav_symbol or without NAV data - CC ETFs)
+    // This matches the filter logic used in GET / route
+    const { data: allETFs, error: fetchError } = await db
+      .from("etf_static")
+      .select("ticker, forward_yield, dividend_cv_percent, tr_drip_3m, tr_drip_6m, tr_drip_12m, nav_symbol, nav, issuer, description")
+      .order("ticker", { ascending: true })
+      .limit(10000);
+
+    if (fetchError || !allETFs || allETFs.length === 0) {
+      logger.warn("ETF Rankings", "No ETFs found or error fetching ETFs");
+      return new Map();
+    }
+
+    // Filter to CC ETFs only (same logic as GET / route)
+    const etfs = allETFs.filter((etf: any) => {
+      const ticker = etf.ticker || '';
+      const navSymbol = etf.nav_symbol || '';
+      const issuer = etf.issuer || '';
+      const description = etf.description || '';
+
+      // Exclude NAV symbol records (where ticker === nav_symbol)
+      if (ticker === navSymbol && navSymbol !== '') {
+        return false;
+      }
+
+      // Exclude NAV proxy symbols by pattern
+      const isNavProxySymbol = ticker.length >= 4 && ticker.startsWith('X') && ticker.endsWith('X');
+      if (isNavProxySymbol) {
+        return false;
+      }
+
+      // Exclude auto-created CEF placeholder records
+      const isAutoCreatedRecord = !issuer && description.toLowerCase().includes('auto-created for nav');
+      if (isAutoCreatedRecord) {
+        return false;
+      }
+
+      // Exclude records with blank issuer AND have a nav_symbol set (these are CEFs)
+      if (!issuer && navSymbol) {
+        return false;
+      }
+
+      const hasNavSymbol = etf.nav_symbol !== null && etf.nav_symbol !== undefined && etf.nav_symbol !== '';
+      const hasNAVData = etf.nav !== null && etf.nav !== undefined && etf.nav !== 0;
+
+      // If it has nav_symbol AND NAV data, it's a CEF (exclude from ETFs)
+      if (hasNavSymbol && hasNAVData) {
+        return false;
+      }
+
+      // Include everything else: CCETFs
+      return true;
+    });
+
+    if (etfs.length === 0) {
+      logger.warn("ETF Rankings", "No CC ETFs found after filtering");
+      return new Map();
+    }
+
+    // Prepare data
+    interface ETFData {
+      ticker: string;
+      yield: number | null;
+      dvi: number | null;  // dividend_cv_percent
+      return3Mo: number | null;
+      return6Mo: number | null;
+      return12Mo: number | null;
+    }
+
+    const etfData: ETFData[] = etfs.map((etf: any) => ({
+      ticker: etf.ticker,
+      yield: etf.forward_yield ?? null,
+      dvi: etf.dividend_cv_percent ?? null,  // DVI (Dividend Volatility Index)
+      return3Mo: etf.tr_drip_3m ?? null,
+      return6Mo: etf.tr_drip_6m ?? null,
+      return12Mo: etf.tr_drip_12m ?? null,
+    }));
+
+    // Weights from spreadsheet
+    const weights = {
+      yield: 25,      // 25%
+      dvi: 50,        // 50%
+      return3Mo: 5,   // 5%
+      return6Mo: 25,  // 25%
+      return12Mo: 1,  // 1%
+    };
+
+    // Rank each metric from 1 (best) to N (worst)
+    // YIELD: Higher is better (rank 1 = highest yield)
+    const yieldRanked = [...etfData]
+      .filter((e) => e.yield !== null && !isNaN(e.yield) && e.yield > 0)
+      .sort((a, b) => (b.yield ?? 0) - (a.yield ?? 0))
+      .map((e, index) => ({ ticker: e.ticker, rank: index + 1 }));
+
+    // DVI: Lower is better (rank 1 = lowest DVI, least volatile)
+    const dviRanked = [...etfData]
+      .filter((e) => e.dvi !== null && !isNaN(e.dvi) && e.dvi >= 0)
+      .sort((a, b) => (a.dvi ?? 0) - (b.dvi ?? 0))
+      .map((e, index) => ({ ticker: e.ticker, rank: index + 1 }));
+
+    // TR 3MO: Higher is better (rank 1 = highest return)
+    const return3MoRanked = [...etfData]
+      .filter((e) => e.return3Mo !== null && !isNaN(e.return3Mo))
+      .sort((a, b) => (b.return3Mo ?? 0) - (a.return3Mo ?? 0))
+      .map((e, index) => ({ ticker: e.ticker, rank: index + 1 }));
+
+    // TR 6MO: Higher is better (rank 1 = highest return)
+    const return6MoRanked = [...etfData]
+      .filter((e) => e.return6Mo !== null && !isNaN(e.return6Mo))
+      .sort((a, b) => (b.return6Mo ?? 0) - (a.return6Mo ?? 0))
+      .map((e, index) => ({ ticker: e.ticker, rank: index + 1 }));
+
+    // TR 12MO: Higher is better (rank 1 = highest return)
+    const return12MoRanked = [...etfData]
+      .filter((e) => e.return12Mo !== null && !isNaN(e.return12Mo))
+      .sort((a, b) => (b.return12Mo ?? 0) - (a.return12Mo ?? 0))
+      .map((e, index) => ({ ticker: e.ticker, rank: index + 1 }));
+
+    // Create maps for quick lookup
+    const yieldRankMap = new Map(yieldRanked.map((r) => [r.ticker, r.rank]));
+    const dviRankMap = new Map(dviRanked.map((r) => [r.ticker, r.rank]));
+    const return3MoRankMap = new Map(return3MoRanked.map((r) => [r.ticker, r.rank]));
+    const return6MoRankMap = new Map(return6MoRanked.map((r) => [r.ticker, r.rank]));
+    const return12MoRankMap = new Map(return12MoRanked.map((r) => [r.ticker, r.rank]));
+
+    // Calculate total scores for each ETF
+    // Use worst rank (total number of ETFs) for missing data
+    const maxRank = etfData.length;
+
+    interface ETFScore {
+      ticker: string;
+      totalScore: number;
+    }
+
+    const etfScores: ETFScore[] = etfData.map((etf) => {
+      const yieldRank = yieldRankMap.get(etf.ticker) ?? maxRank;
+      const dviRank = dviRankMap.get(etf.ticker) ?? maxRank;
+      const return3MoRank = return3MoRankMap.get(etf.ticker) ?? maxRank;
+      const return6MoRank = return6MoRankMap.get(etf.ticker) ?? maxRank;
+      const return12MoRank = return12MoRankMap.get(etf.ticker) ?? maxRank;
+
+      // Calculate weighted total score
+      const totalScore =
+        yieldRank * (weights.yield / 100) +
+        dviRank * (weights.dvi / 100) +
+        return3MoRank * (weights.return3Mo / 100) +
+        return6MoRank * (weights.return6Mo / 100) +
+        return12MoRank * (weights.return12Mo / 100);
+
+      return {
+        ticker: etf.ticker,
+        totalScore,
+      };
+    });
+
+    // Sort by total score (lower is better) and assign final ranks (1 = best)
+    etfScores.sort((a, b) => a.totalScore - b.totalScore);
+
+    const finalRanks = new Map<string, number>();
+    etfScores.forEach((etf, index) => {
+      finalRanks.set(etf.ticker, index + 1);
+    });
+
+    logger.info(
+      "ETF Rankings",
+      `Calculated weighted ranks for ${finalRanks.size} CC ETFs`
+    );
+
+    return finalRanks;
+  } catch (error) {
+    logger.warn(
+      "ETF Rankings",
+      `Failed to calculate ETF rankings: ${error}`
+    );
+    return new Map();
+  }
+}
+
+// ============================================================================
 // File Upload Configuration
 // ============================================================================
 

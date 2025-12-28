@@ -644,6 +644,36 @@ async function main() {
     }
   }
 
+  // Calculate and update ETF rankings after refresh
+  if (!options.dryRun && results.success > 0) {
+    try {
+      console.log('\n[ETF Rankings] Calculating weighted ranks for CC ETFs...');
+      const { calculateETFRankings } = await import('../src/routes/etfs.js');
+      const rankings = await calculateETFRankings();
+      
+      if (rankings.size > 0) {
+        console.log(`[ETF Rankings] Calculated ranks for ${rankings.size} CC ETFs`);
+        
+        // Update ranks in database
+        let updated = 0;
+        for (const [ticker, rank] of rankings.entries()) {
+          const { error } = await supabase
+            .from('etf_static')
+            .update({ weighted_rank: rank })
+            .eq('ticker', ticker);
+          
+          if (!error) {
+            updated++;
+          }
+        }
+        console.log(`[ETF Rankings] ✅ Updated ${updated}/${rankings.size} ETF rankings in database`);
+      }
+    } catch (error) {
+      console.error('[ETF Rankings] ❌ Failed to calculate ETF rankings:', (error as Error).message);
+      // Don't exit with error - ETFs were updated successfully
+    }
+  }
+
   // After updating ETFs, automatically run CEF refresh
   if (!options.dryRun && !options.ticker) {
     console.log('\n' + '='.repeat(60));
