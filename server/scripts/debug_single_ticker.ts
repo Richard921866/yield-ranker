@@ -14,13 +14,13 @@ async function debugTicker(ticker: string) {
   // Show first and last 5 dividends
   console.log('\nFirst 5 dividends (newest):');
   dividends.slice(0, 5).forEach((d, i) => {
-    const date = new Date(d.ex_date).toISOString().split('T')[0];
+    const date = d.ex_date instanceof Date ? d.ex_date.toISOString().split('T')[0] : new Date(d.ex_date).toISOString().split('T')[0];
     console.log(`  ${i + 1}. ${date}: div_cash=$${d.div_cash}, adj_amount=${d.adj_amount !== null ? '$' + d.adj_amount : 'null'}, type=${d.div_type || 'null'}`);
   });
 
   console.log('\nLast 5 dividends (oldest):');
   dividends.slice(-5).forEach((d, i) => {
-    const date = new Date(d.ex_date).toISOString().split('T')[0];
+    const date = d.ex_date instanceof Date ? d.ex_date.toISOString().split('T')[0] : new Date(d.ex_date).toISOString().split('T')[0];
     console.log(`  ${i + 1}. ${date}: div_cash=$${d.div_cash}, adj_amount=${d.adj_amount !== null ? '$' + d.adj_amount : 'null'}, type=${d.div_type || 'null'}`);
   });
 
@@ -42,7 +42,7 @@ async function debugTicker(ticker: string) {
   // Show date range
   if (regularDivs.length > 0) {
     const dates = regularDivs.map(d => {
-      return new Date(d.ex_date);
+      return d.ex_date instanceof Date ? d.ex_date : new Date(d.ex_date);
     }).sort((a, b) => a.getTime() - b.getTime());
 
     const oldest = dates[0];

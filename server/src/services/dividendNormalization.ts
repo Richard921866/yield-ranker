@@ -1,0 +1,288 @@
+/**
+ * Dividend Normalization Service
+ * 
+ * Calculates normalized dividend values to handle ETF payment frequency changes.
+ * This service can be used during EOD ingestion or on-demand when fetching dividends.
+ * 
+ * Logic Rules (from requirements):
+ * 1. DAYS: days_since_prev = current_ex_date - previous_ex_date
+ * 2. TYPE (pmt_type):
+ *    - null days → "Initial" (first dividend for ticker)
+ *    - ≤5 days → "Special" (too close to previous, likely special dividend)
+ *    - >5 days → "Regular"
+ * 3. FREQUENCY (frequency_num): Based on gap detection
+ *    - 7-10 days → 52 (Weekly)
+ *    - 25-35 days → 12 (Monthly)
+ *    - 80-100 days → 4 (Quarterly)
+ *    - else → 1 (Annual/Irregular)
+ * 4. ANNUALIZED: adj_amount × frequency_num
+ * 5. NORMALIZED: annualized value for line chart (only for Regular dividends)
+ */
+
+export interface DividendInput {
+    id: number;
+    ticker: string;
+    ex_date: string;
+    div_cash: number;
+    adj_amount: number | null;
+}
+
+export interface NormalizedDividend {
+    id: number;
+    days_since_prev: number | null;
+    pmt_type: 'Regular' | 'Special' | 'Initial';
+    frequency_num: number;
+    annualized: number | null;
+    normalized_div: number | null;
+}
+
+/**
+ * Determine frequency based on days between payments
+ * Using ranges to account for weekends/holidays
+ */
+export function getFrequencyFromDays(days: number): number {
+    if (days >= 7 && days <= 10) return 52;    // Weekly
+    if (days >= 25 && days <= 35) return 12;   // Monthly  
+    if (days >= 80 && days <= 100) return 4;   // Quarterly
+    if (days >= 170 && days <= 200) return 2;  // Semi-annual
+    if (days > 200) return 1;                   // Annual or irregular
+
+    // Edge cases: handle transition periods
+    if (days > 10 && days < 25) return 52;     // Likely weekly with holiday gap
+    if (days > 35 && days < 80) return 12;     // Likely monthly with irregularity
+    if (days > 100 && days < 170) return 4;    // Likely quarterly with irregularity
+
+    return 12; // Default to monthly
+}
+
+/**
+ * Determine payment type based on days gap
+ */
+export function getPaymentType(daysSincePrev: number | null): 'Regular' | 'Special' | 'Initial' {
+    if (daysSincePrev === null) return 'Initial';
+    if (daysSincePrev <= 5) return 'Special';
+    return 'Regular';
+}
+
+/**
+ * Find the last Regular dividend before the given index
+ * Used when we need to look back past Special dividends for frequency calculation
+ */
+function findLastRegularDividend(
+    dividends: DividendInput[],
+    currentIndex: number,
+    calculatedTypes: ('Regular' | 'Special' | 'Initial')[]
+): { dividend: DividendInput; index: number } | null {
+    for (let i = currentIndex - 1; i >= 0; i--) {
+        if (calculatedTypes[i] === 'Regular') {
+            return { dividend: dividends[i], index: i };
+        }
+    }
+    return null;
+}
+
+/**
+ * Calculate normalized dividend values for a list of dividends
+ * Input dividends should be sorted by date ASCENDING (oldest first)
+ */
+export function calculateNormalizedDividends(dividends: DividendInput[]): NormalizedDividend[] {
+    if (!dividends || dividends.length === 0) {
+        return [];
+    }
+
+    // Ensure sorted by date ascending
+    const sortedDividends = [...dividends].sort(
+        (a, b) => new Date(a.ex_date).getTime() - new Date(b.ex_date).getTime()
+    );
+
+    const results: NormalizedDividend[] = [];
+    const calculatedTypes: ('Regular' | 'Special' | 'Initial')[] = [];
+
+    for (let i = 0; i < sortedDividends.length; i++) {
+        const current = sortedDividends[i];
+        const previous = i > 0 ? sortedDividends[i - 1] : null;
+
+        // Calculate days since previous dividend
+        let daysSincePrev: number | null = null;
+        if (previous) {
+            const currentDate = new Date(current.ex_date);
+            const prevDate = new Date(previous.ex_date);
+            daysSincePrev = Math.round((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+        }
+
+        // Determine payment type
+        const pmtType = getPaymentType(daysSincePrev);
+        calculatedTypes.push(pmtType);
+
+        // Determine frequency
+        let frequencyNum = 12; // Default to monthly
+
+        if (daysSincePrev !== null && daysSincePrev > 5) {
+            // Normal case: use the gap from previous dividend
+            frequencyNum = getFrequencyFromDays(daysSincePrev);
+        } else if (pmtType === 'Special' || pmtType === 'Initial') {
+            // For Special dividends, look back to last Regular dividend for stable frequency
+            const lastRegular = findLastRegularDividend(sortedDividends, i, calculatedTypes);
+
+            if (lastRegular) {
+                // Calculate gap from last Regular to current
+                const currentDate = new Date(current.ex_date);
+                const lastRegularDate = new Date(lastRegular.dividend.ex_date);
+                const gapToLastRegular = Math.round(
+                    (currentDate.getTime() - lastRegularDate.getTime()) / (1000 * 60 * 60 * 24)
+                );
+
+                // If there are multiple payments between, derive frequency
+                const paymentsBetween = i - lastRegular.index;
+                if (paymentsBetween > 0) {
+                    const avgGap = gapToLastRegular / paymentsBetween;
+                    frequencyNum = getFrequencyFromDays(avgGap);
+                }
+            } else if (i < sortedDividends.length - 1) {
+                // Look ahead to next payment for frequency estimation
+                const nextDiv = sortedDividends[i + 1];
+                const nextDate = new Date(nextDiv.ex_date);
+                const currentDate = new Date(current.ex_date);
+                const daysToNext = Math.round(
+                    (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
+                );
+                if (daysToNext > 5) {
+                    frequencyNum = getFrequencyFromDays(daysToNext);
+                }
+            }
+        }
+
+        // Calculate annualized and normalized values
+        // Use adj_amount if available, otherwise use div_cash
+        const amount = current.adj_amount !== null && current.adj_amount > 0
+            ? Number(current.adj_amount)
+            : Number(current.div_cash);
+
+        let annualized: number | null = null;
+        let normalizedDiv: number | null = null;
+
+        // Only calculate for Regular dividends with valid amounts
+        if (pmtType === 'Regular' && amount > 0) {
+            annualized = amount * frequencyNum;
+            // Normalized value is the annualized rate for consistent line chart display
+            normalizedDiv = annualized;
+        }
+
+        results.push({
+            id: current.id,
+            days_since_prev: daysSincePrev,
+            pmt_type: pmtType,
+            frequency_num: frequencyNum,
+            annualized: annualized !== null ? Number(annualized.toFixed(6)) : null,
+            normalized_div: normalizedDiv !== null ? Number(normalizedDiv.toFixed(6)) : null,
+        });
+    }
+
+    return results;
+}
+
+/**
+ * Calculate normalized values for dividends returned from API
+ * Works with the dividend response format from tiingo.ts
+ */
+export function calculateNormalizedForResponse(
+    dividends: Array<{
+        exDate: string;
+        amount: number;
+        adjAmount: number;
+        type?: string;
+        frequency?: string;
+    }>
+): Array<{
+    pmtType: 'Regular' | 'Special' | 'Initial';
+    frequencyNum: number;
+    daysSincePrev: number | null;
+    annualized: number | null;
+    normalizedDiv: number | null;
+}> {
+    if (!dividends || dividends.length === 0) {
+        return [];
+    }
+
+    // Sort by date ascending for proper calculation
+    const sorted = [...dividends].sort(
+        (a, b) => new Date(a.exDate).getTime() - new Date(b.exDate).getTime()
+    );
+
+    const results: Array<{
+        pmtType: 'Regular' | 'Special' | 'Initial';
+        frequencyNum: number;
+        daysSincePrev: number | null;
+        annualized: number | null;
+        normalizedDiv: number | null;
+    }> = [];
+
+    const calculatedTypes: ('Regular' | 'Special' | 'Initial')[] = [];
+
+    for (let i = 0; i < sorted.length; i++) {
+        const current = sorted[i];
+        const previous = i > 0 ? sorted[i - 1] : null;
+
+        // Calculate days since previous dividend
+        let daysSincePrev: number | null = null;
+        if (previous) {
+            const currentDate = new Date(current.exDate);
+            const prevDate = new Date(previous.exDate);
+            daysSincePrev = Math.round(
+                (currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
+            );
+        }
+
+        // Determine payment type
+        const pmtType = getPaymentType(daysSincePrev);
+        calculatedTypes.push(pmtType);
+
+        // Determine frequency
+        let frequencyNum = 12; // Default to monthly
+
+        if (daysSincePrev !== null && daysSincePrev > 5) {
+            frequencyNum = getFrequencyFromDays(daysSincePrev);
+        } else if (i < sorted.length - 1) {
+            // Look ahead for Initial/Special
+            const nextDiv = sorted[i + 1];
+            const nextDate = new Date(nextDiv.exDate);
+            const currentDate = new Date(current.exDate);
+            const daysToNext = Math.round(
+                (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
+            );
+            if (daysToNext > 5) {
+                frequencyNum = getFrequencyFromDays(daysToNext);
+            }
+        }
+
+        // Calculate annualized and normalized values
+        const amount = current.adjAmount > 0 ? current.adjAmount : current.amount;
+
+        let annualized: number | null = null;
+        let normalizedDiv: number | null = null;
+
+        if (pmtType === 'Regular' && amount > 0) {
+            annualized = amount * frequencyNum;
+            normalizedDiv = annualized;
+        }
+
+        results.push({
+            pmtType,
+            frequencyNum,
+            daysSincePrev,
+            annualized: annualized !== null ? Number(annualized.toFixed(6)) : null,
+            normalizedDiv: normalizedDiv !== null ? Number(normalizedDiv.toFixed(6)) : null,
+        });
+    }
+
+    // Results are in ascending order but dividends endpoint returns descending
+    // Return in same order as input (descending - most recent first)
+    return results.reverse();
+}
+
+export default {
+    calculateNormalizedDividends,
+    calculateNormalizedForResponse,
+    getFrequencyFromDays,
+    getPaymentType,
+};
