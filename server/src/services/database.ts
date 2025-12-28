@@ -321,10 +321,13 @@ export async function updateETFMetricsPreservingCEFFields(
         throw new Error(`Return columns do not exist in database. Please add return_3yr, return_5yr, return_10yr, return_15yr columns.`);
       }
       
-      // Check if error is about dividend_history - Supabase schema cache issue
+      // Check if error is about dividend_history - Supabase schema cache issue OR column doesn't exist
       // Try updating without dividend_history first, then retry with dividend_history after a delay
       if (error.message.includes('dividend_history')) {
-        logger.warn('Database', `⚠️ Supabase schema cache issue with dividend_history for ${ticker}. Trying workaround...`);
+        logger.warn('Database', `⚠️ Schema issue with dividend_history for ${ticker}: ${error.message}`);
+        logger.warn('Database', `⚠️ This could be a schema cache issue or the column doesn't exist yet.`);
+        logger.warn('Database', `⚠️ Attempting workaround: Update other fields first, then retry dividend_history...`);
+        
         const retryDataWithoutDivHist = { ...safeUpdateData };
         const divHistValue = retryDataWithoutDivHist.dividend_history;
         delete retryDataWithoutDivHist.dividend_history;
@@ -337,7 +340,7 @@ export async function updateETFMetricsPreservingCEFFields(
           retryDataWithoutDivHist.updated_at = new Date().toISOString();
         }
         
-        // First update without dividend_history (but WITH last_updated)
+        // First update without dividend_history (but WITH last_updated and all other fields)
         const { error: retryError1 } = await db
           .from('etf_static')
           .update(retryDataWithoutDivHist)
@@ -347,14 +350,15 @@ export async function updateETFMetricsPreservingCEFFields(
           logger.error('Database', `Failed to update ${ticker} even without dividend_history: ${retryError1.message}`);
           throw retryError1; // Re-throw if we can't save at all
         } else {
-          logger.info('Database', `✅ Updated ${ticker} successfully (without dividend_history due to schema cache, last_updated=${retryDataWithoutDivHist.last_updated})`);
+          logger.info('Database', `✅ Updated ${ticker} successfully (without dividend_history due to schema issue, last_updated=${retryDataWithoutDivHist.last_updated})`);
           
           // Try to update dividend_history with retries (Supabase schema cache can take time to refresh)
+          // OR if column doesn't exist, this will fail but other data is saved
           if (divHistValue !== undefined && divHistValue !== null) {
             let saved = false;
-            // Try up to 3 times with increasing delays
-            for (let attempt = 1; attempt <= 3; attempt++) {
-              await new Promise(resolve => setTimeout(resolve, attempt * 2000)); // 2s, 4s, 6s delays
+            // Try up to 5 times with increasing delays (more attempts for schema cache)
+            for (let attempt = 1; attempt <= 5; attempt++) {
+              await new Promise(resolve => setTimeout(resolve, attempt * 1000)); // 1s, 2s, 3s, 4s, 5s delays
               
               // CRITICAL: Always include last_updated when updating dividend_history
               // This ensures the timestamp is refreshed even if dividend_history update succeeds later
@@ -375,8 +379,14 @@ export async function updateETFMetricsPreservingCEFFields(
                 break;
               }
               
-              if (attempt === 3) {
-                logger.warn('Database', `⚠️ Cannot save dividend_history for ${ticker} after ${attempt} attempts. Value "${divHistValue}" was calculated correctly. The Supabase schema cache needs to refresh (usually takes 1-5 minutes). The value will be saved automatically on the next script run.`);
+              logger.debug('Database', `Attempt ${attempt}/5 failed for dividend_history on ${ticker}: ${(divHistError as any)?.message || 'unknown error'}`);
+              
+              if (attempt === 5) {
+                logger.warn('Database', `⚠️ Cannot save dividend_history for ${ticker} after ${attempt} attempts.`);
+                logger.warn('Database', `⚠️ Calculated value: "${divHistValue}"`);
+                logger.warn('Database', `⚠️ ERROR: ${(divHistError as any)?.message || 'unknown'}`);
+                logger.warn('Database', `⚠️ ACTION REQUIRED: Please add dividend_history column to etf_static table if it doesn't exist.`);
+                logger.warn('Database', `⚠️ SQL: ALTER TABLE etf_static ADD COLUMN IF NOT EXISTS dividend_history TEXT;`);
               }
             }
           }
