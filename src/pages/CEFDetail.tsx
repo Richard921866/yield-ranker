@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { ReturnsComparisonChart } from "@/components/ReturnsComparisonChart";
 import { fetchCEFData } from "@/services/cefData";
+import { SEO, getFinancialProductSchema } from "@/components/SEO";
 
 type Timeframe = "1M" | "3M" | "6M" | "1Y" | "3Y" | "5Y" | "10Y" | "20Y";
 type ChartType = "priceNAV" | "totalReturn" | "priceReturn";
@@ -53,10 +54,10 @@ const CEFDetail = () => {
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error("Chart data fetch timeout")), 30000); // 30 second timeout
       });
-      
+
       const fetchPromise = fetchCEFPriceNAV(symbol, selectedTimeframe);
       const data = await Promise.race([fetchPromise, timeoutPromise]) as Awaited<ReturnType<typeof fetchCEFPriceNAV>>;
-      
+
       if (!data.data || data.data.length === 0) {
         setChartError("Chart data is not available for this timeframe.");
         setChartData([]);
@@ -75,7 +76,7 @@ const CEFDetail = () => {
           const dateStr = typeof d.date === 'string' ? d.date : d.date.toString();
           const priceValue = d.price !== null && d.price !== undefined ? Number(d.price) : null;
           const navValue = d.nav !== null && d.nav !== undefined ? Number(d.nav) : null;
-          
+
           return {
             date: new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
             fullDate: dateStr,
@@ -97,7 +98,7 @@ const CEFDetail = () => {
   useEffect(() => {
     const loadData = async () => {
       if (!symbol) return;
-      
+
       setIsLoading(true);
       try {
         const [singleData, metadata, allCEFsData] = await Promise.all([
@@ -105,13 +106,13 @@ const CEFDetail = () => {
           fetchCEFDataWithMetadata(),
           fetchCEFData()
         ]);
-        
+
         if (singleData) {
           setCef(singleData);
         }
-        
+
         setAllCEFs(allCEFsData);
-        
+
         if (metadata.lastUpdatedTimestamp) {
           const date = new Date(metadata.lastUpdatedTimestamp);
           const formatted = date.toLocaleString('en-US', {
@@ -208,6 +209,12 @@ const CEFDetail = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title={`${cef.symbol} CEF Analysis - Premium/Discount & Returns`}
+        description={`Analyze ${cef.symbol} (${cef.name || cef.description}) closed-end fund with NAV trends, premium/discount metrics, and dividend history.`}
+        keywords={`${cef.symbol}, closed-end fund, CEF analysis, NAV discount, dividend yield, ${cef.name || ''}`}
+        structuredData={getFinancialProductSchema(cef.symbol, cef.name || cef.description || '', 'CEF')}
+      />
       <Header />
 
       <main className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -247,9 +254,8 @@ const CEFDetail = () => {
                   {cef.marketPrice != null ? `$${cef.marketPrice.toFixed(2)}` : (cef.nav != null ? `$${cef.nav.toFixed(2)}` : 'N/A')}
                 </span>
                 {currentReturn != null && (
-                  <span className={`text-lg font-semibold flex items-center ${
-                    isPositive ? "text-green-600" : "text-red-600"
-                  }`}>
+                  <span className={`text-lg font-semibold flex items-center ${isPositive ? "text-green-600" : "text-red-600"
+                    }`}>
                     {isPositive ? <TrendingUp className="w-5 h-5 mr-1" /> : <TrendingDown className="w-5 h-5 mr-1" />}
                     {`${currentReturn >= 0 ? '+' : ''}${currentReturn.toFixed(2)}%`}
                   </span>
@@ -274,73 +280,64 @@ const CEFDetail = () => {
                 <span className="font-semibold text-foreground">Total Return:</span>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">15 Yr:</span>
-                  <span className={`font-semibold ${
-                    cef.return15Yr != null && cef.return15Yr >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
+                  <span className={`font-semibold ${cef.return15Yr != null && cef.return15Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
                     {cef.return15Yr != null ? `${cef.return15Yr >= 0 ? '+' : ''}${cef.return15Yr.toFixed(1)}%` : 'N/A'}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">10 Yr:</span>
-                  <span className={`font-semibold ${
-                    cef.return10Yr != null && cef.return10Yr >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
+                  <span className={`font-semibold ${cef.return10Yr != null && cef.return10Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
                     {cef.return10Yr != null ? `${cef.return10Yr >= 0 ? '+' : ''}${cef.return10Yr.toFixed(1)}%` : 'N/A'}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">5 Yr:</span>
-                  <span className={`font-semibold ${
-                    cef.return5Yr != null && cef.return5Yr >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
+                  <span className={`font-semibold ${cef.return5Yr != null && cef.return5Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
                     {cef.return5Yr != null ? `${cef.return5Yr >= 0 ? '+' : ''}${cef.return5Yr.toFixed(1)}%` : 'N/A'}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">3 Yr:</span>
-                  <span className={`font-semibold ${
-                    cef.return3Yr != null && cef.return3Yr >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
+                  <span className={`font-semibold ${cef.return3Yr != null && cef.return3Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
                     {cef.return3Yr != null ? `${cef.return3Yr >= 0 ? '+' : ''}${cef.return3Yr.toFixed(1)}%` : 'N/A'}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">12 Mo:</span>
-                  <span className={`font-semibold ${
-                    cef.return12Mo != null && cef.return12Mo >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
+                  <span className={`font-semibold ${cef.return12Mo != null && cef.return12Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
                     {cef.return12Mo != null ? `${cef.return12Mo >= 0 ? '+' : ''}${cef.return12Mo.toFixed(1)}%` : 'N/A'}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">6 Mo:</span>
-                  <span className={`font-semibold ${
-                    cef.return6Mo != null && cef.return6Mo >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
+                  <span className={`font-semibold ${cef.return6Mo != null && cef.return6Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
                     {cef.return6Mo != null ? `${cef.return6Mo >= 0 ? '+' : ''}${cef.return6Mo.toFixed(1)}%` : 'N/A'}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">3 Mo:</span>
-                  <span className={`font-semibold ${
-                    cef.return3Mo != null && cef.return3Mo >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
+                  <span className={`font-semibold ${cef.return3Mo != null && cef.return3Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
                     {cef.return3Mo != null ? `${cef.return3Mo >= 0 ? '+' : ''}${cef.return3Mo.toFixed(1)}%` : 'N/A'}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">1 Mo:</span>
-                  <span className={`font-semibold ${
-                    cef.return1Mo != null && cef.return1Mo >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
+                  <span className={`font-semibold ${cef.return1Mo != null && cef.return1Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
                     {cef.return1Mo != null ? `${cef.return1Mo >= 0 ? '+' : ''}${cef.return1Mo.toFixed(1)}%` : 'N/A'}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">1 Wk:</span>
-                  <span className={`font-semibold ${
-                    cef.return1Wk != null && cef.return1Wk >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
+                  <span className={`font-semibold ${cef.return1Wk != null && cef.return1Wk >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
                     {cef.return1Wk != null ? `${cef.return1Wk >= 0 ? '+' : ''}${cef.return1Wk.toFixed(1)}%` : 'N/A'}
                   </span>
                 </div>
@@ -364,8 +361,8 @@ const CEFDetail = () => {
                   <div>
                     <span className="text-muted-foreground font-bold">Div Volatility: </span>
                     <span className="font-semibold">
-                      {cef.dividendCVPercent != null && cef.dividendCVPercent > 0 
-                        ? `${cef.dividendCVPercent.toFixed(1)}%` 
+                      {cef.dividendCVPercent != null && cef.dividendCVPercent > 0
+                        ? `${cef.dividendCVPercent.toFixed(1)}%`
                         : (cef.dividendVolatilityIndex || 'N/A')}
                     </span>
                   </div>
@@ -447,94 +444,94 @@ const CEFDetail = () => {
                     <p>{chartError}</p>
                   </div>
                 ) : chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="#94a3b8" 
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    interval={
-                      chartData.length <= 30 ? 0 :
-                      chartData.length <= 90 ? Math.floor(chartData.length / 6) :
-                      chartData.length <= 365 ? Math.floor(chartData.length / 8) :
-                      Math.floor(chartData.length / 10)
-                    }
-                    tickFormatter={(value) => value || ''}
-                  />
-                  <YAxis 
-                    domain={[minValue, maxValue]}
-                    stroke="#94a3b8" 
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => {
-                      if (typeof value === 'number' && !isNaN(value)) {
-                        return `$${value.toFixed(2)}`;
-                      }
-                      return '';
-                    }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "rgba(255, 255, 255, 0.98)",
-                      border: "none",
-                      borderRadius: "12px",
-                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-                      padding: "12px 16px",
-                    }}
-                    labelStyle={{ color: "#64748b", fontSize: "12px", marginBottom: "4px" }}
-                    labelFormatter={(label) => {
-                      const dataPoint = chartData.find(d => d.date === label);
-                      if (dataPoint?.fullDate) {
-                        const date = new Date(dataPoint.fullDate);
-                        return date.toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric', 
-                          year: 'numeric' 
-                        });
-                      }
-                      return label;
-                    }}
-                    formatter={(value: number | null, name: string) => {
-                      if (value === null || value === undefined) return 'N/A';
-                      if (typeof value === 'number' && !isNaN(value)) {
-                        // name is "Price" or "NAV" from the Line component's name prop
-                        return [`$${value.toFixed(2)}`, name];
-                      }
-                      return ['N/A', name];
-                    }}
-                  />
-                  <Legend 
-                    verticalAlign="top"
-                    align="left"
-                    iconType="line"
-                    wrapperStyle={{ paddingBottom: '10px', fontSize: '12px', color: '#64748b' }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="price"
-                    stroke="#1f2937"
-                    strokeWidth={3}
-                    dot={false}
-                    activeDot={{ r: 5 }}
-                    name="Price"
-                    connectNulls={true}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="nav"
-                    stroke="#3b82f6"
-                    strokeWidth={3}
-                    dot={false}
-                    activeDot={{ r: 5 }}
-                    name="NAV"
-                    connectNulls={true}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <LineChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                      <XAxis
+                        dataKey="date"
+                        stroke="#94a3b8"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                        interval={
+                          chartData.length <= 30 ? 0 :
+                            chartData.length <= 90 ? Math.floor(chartData.length / 6) :
+                              chartData.length <= 365 ? Math.floor(chartData.length / 8) :
+                                Math.floor(chartData.length / 10)
+                        }
+                        tickFormatter={(value) => value || ''}
+                      />
+                      <YAxis
+                        domain={[minValue, maxValue]}
+                        stroke="#94a3b8"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(value) => {
+                          if (typeof value === 'number' && !isNaN(value)) {
+                            return `$${value.toFixed(2)}`;
+                          }
+                          return '';
+                        }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "rgba(255, 255, 255, 0.98)",
+                          border: "none",
+                          borderRadius: "12px",
+                          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                          padding: "12px 16px",
+                        }}
+                        labelStyle={{ color: "#64748b", fontSize: "12px", marginBottom: "4px" }}
+                        labelFormatter={(label) => {
+                          const dataPoint = chartData.find(d => d.date === label);
+                          if (dataPoint?.fullDate) {
+                            const date = new Date(dataPoint.fullDate);
+                            return date.toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            });
+                          }
+                          return label;
+                        }}
+                        formatter={(value: number | null, name: string) => {
+                          if (value === null || value === undefined) return 'N/A';
+                          if (typeof value === 'number' && !isNaN(value)) {
+                            // name is "Price" or "NAV" from the Line component's name prop
+                            return [`$${value.toFixed(2)}`, name];
+                          }
+                          return ['N/A', name];
+                        }}
+                      />
+                      <Legend
+                        verticalAlign="top"
+                        align="left"
+                        iconType="line"
+                        wrapperStyle={{ paddingBottom: '10px', fontSize: '12px', color: '#64748b' }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="price"
+                        stroke="#1f2937"
+                        strokeWidth={3}
+                        dot={false}
+                        activeDot={{ r: 5 }}
+                        name="Price"
+                        connectNulls={true}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="nav"
+                        stroke="#3b82f6"
+                        strokeWidth={3}
+                        dot={false}
+                        activeDot={{ r: 5 }}
+                        name="NAV"
+                        connectNulls={true}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
                 ) : (
                   <div className="flex items-center justify-center h-96 text-muted-foreground">
                     <p>No chart data available</p>

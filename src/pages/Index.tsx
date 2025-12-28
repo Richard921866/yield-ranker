@@ -20,6 +20,7 @@ import { supabase } from "@/lib/supabase";
 import { getSiteSettings } from "@/services/admin";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
+import { SEO, getWebApplicationSchema } from "@/components/SEO";
 import {
   saveRankingPreset,
   loadRankingPresets,
@@ -398,6 +399,12 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title="Covered Call ETFs - Rankings & Analysis"
+        description="Compare and rank covered call option ETFs by yield, dividend volatility, and total returns. Advanced screening for income-focused investors."
+        keywords="covered call ETF, option income ETF, JEPI, QYLD, dividend ETF, income investing, ETF rankings"
+        structuredData={getWebApplicationSchema()}
+      />
       <Header />
 
       <section className="relative border-b overflow-hidden">

@@ -37,6 +37,7 @@ import {
   AreaChart,
   ComposedChart,
 } from "recharts";
+import { SEO, getFinancialProductSchema } from "@/components/SEO";
 
 const ETFDetail = () => {
   const { symbol } = useParams<{ symbol: string }>();
@@ -99,7 +100,7 @@ const ETFDetail = () => {
         if (found) {
           setEtf(found);
         }
-        
+
         // Format the last updated timestamp from database
         if (result.lastUpdatedTimestamp) {
           const date = new Date(result.lastUpdatedTimestamp);
@@ -206,13 +207,19 @@ const ETFDetail = () => {
   };
   const currentReturn = getReturnForTimeframe();
   const isPositive = currentReturn != null && currentReturn >= 0;
-  
+
   const chartValues = (chartData && Array.isArray(chartData) ? chartData : []).map(d => d.price).filter(v => typeof v === 'number' && !isNaN(v));
   const minValue = chartValues.length > 0 ? Math.min(...chartValues, 0) : -10;
   const maxValue = chartValues.length > 0 ? Math.max(...chartValues, 0) : 10;
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title={`${etf.symbol} ETF Analysis - Total Returns & Dividends`}
+        description={`Analyze ${etf.symbol} (${etf.name}) covered call ETF with yield, dividend volatility, and total return charts.`}
+        keywords={`${etf.symbol}, covered call ETF, dividend yield, total return, ETF analysis, ${etf.name}`}
+        structuredData={getFinancialProductSchema(etf.symbol, etf.name || '', 'ETF')}
+      />
       <Header />
 
       <main className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -249,9 +256,8 @@ const ETFDetail = () => {
               </div>
               <div className="flex items-center gap-3 mt-1">
                 <span className="text-xl sm:text-2xl font-bold">${etf.price.toFixed(2)}</span>
-                <span className={`text-lg font-semibold flex items-center ${
-                  currentReturn != null && currentReturn >= 0 ? "text-green-600" : "text-red-600"
-                }`}>
+                <span className={`text-lg font-semibold flex items-center ${currentReturn != null && currentReturn >= 0 ? "text-green-600" : "text-red-600"
+                  }`}>
                   {currentReturn != null && currentReturn >= 0 ? <TrendingUp className="w-5 h-5 mr-1" /> : <TrendingDown className="w-5 h-5 mr-1" />}
                   {currentReturn != null ? `${currentReturn >= 0 ? '+' : ''}${currentReturn.toFixed(2)}%` : 'N/A'}
                 </span>
@@ -277,11 +283,10 @@ const ETFDetail = () => {
                 </span>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">3 Yr:</span>
-                  <span className={`font-semibold ${
-                    chartType === "price" 
-                      ? (etf.priceReturn3Yr != null && etf.priceReturn3Yr >= 0 ? 'text-green-600' : 'text-red-600')
-                      : ((etf.trDrip3Yr ?? etf.totalReturn3Yr) != null && (etf.trDrip3Yr ?? etf.totalReturn3Yr)! >= 0 ? 'text-green-600' : 'text-red-600')
-                  }`}>
+                  <span className={`font-semibold ${chartType === "price"
+                    ? (etf.priceReturn3Yr != null && etf.priceReturn3Yr >= 0 ? 'text-green-600' : 'text-red-600')
+                    : ((etf.trDrip3Yr ?? etf.totalReturn3Yr) != null && (etf.trDrip3Yr ?? etf.totalReturn3Yr)! >= 0 ? 'text-green-600' : 'text-red-600')
+                    }`}>
                     {chartType === "price"
                       ? (etf.priceReturn3Yr != null ? `${etf.priceReturn3Yr >= 0 ? '+' : ''}${etf.priceReturn3Yr.toFixed(1)}%` : 'N/A')
                       : ((etf.trDrip3Yr ?? etf.totalReturn3Yr) != null ? `${(etf.trDrip3Yr ?? etf.totalReturn3Yr)! >= 0 ? '+' : ''}${(etf.trDrip3Yr ?? etf.totalReturn3Yr)!.toFixed(1)}%` : 'N/A')
@@ -290,11 +295,10 @@ const ETFDetail = () => {
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">12 Mo:</span>
-                  <span className={`font-semibold ${
-                    chartType === "price" 
-                      ? (etf.priceReturn12Mo != null && etf.priceReturn12Mo >= 0 ? 'text-green-600' : 'text-red-600')
-                      : ((etf.trDrip12Mo ?? etf.totalReturn12Mo) != null && (etf.trDrip12Mo ?? etf.totalReturn12Mo)! >= 0 ? 'text-green-600' : 'text-red-600')
-                  }`}>
+                  <span className={`font-semibold ${chartType === "price"
+                    ? (etf.priceReturn12Mo != null && etf.priceReturn12Mo >= 0 ? 'text-green-600' : 'text-red-600')
+                    : ((etf.trDrip12Mo ?? etf.totalReturn12Mo) != null && (etf.trDrip12Mo ?? etf.totalReturn12Mo)! >= 0 ? 'text-green-600' : 'text-red-600')
+                    }`}>
                     {chartType === "price"
                       ? (etf.priceReturn12Mo != null ? `${etf.priceReturn12Mo >= 0 ? '+' : ''}${etf.priceReturn12Mo.toFixed(1)}%` : 'N/A')
                       : ((etf.trDrip12Mo ?? etf.totalReturn12Mo) != null ? `${(etf.trDrip12Mo ?? etf.totalReturn12Mo)! >= 0 ? '+' : ''}${(etf.trDrip12Mo ?? etf.totalReturn12Mo)!.toFixed(1)}%` : 'N/A')
@@ -303,11 +307,10 @@ const ETFDetail = () => {
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">6 Mo:</span>
-                  <span className={`font-semibold ${
-                    chartType === "price" 
-                      ? (etf.priceReturn6Mo != null && etf.priceReturn6Mo >= 0 ? 'text-green-600' : 'text-red-600')
-                      : ((etf.trDrip6Mo ?? etf.totalReturn6Mo) != null && (etf.trDrip6Mo ?? etf.totalReturn6Mo)! >= 0 ? 'text-green-600' : 'text-red-600')
-                  }`}>
+                  <span className={`font-semibold ${chartType === "price"
+                    ? (etf.priceReturn6Mo != null && etf.priceReturn6Mo >= 0 ? 'text-green-600' : 'text-red-600')
+                    : ((etf.trDrip6Mo ?? etf.totalReturn6Mo) != null && (etf.trDrip6Mo ?? etf.totalReturn6Mo)! >= 0 ? 'text-green-600' : 'text-red-600')
+                    }`}>
                     {chartType === "price"
                       ? (etf.priceReturn6Mo != null ? `${etf.priceReturn6Mo >= 0 ? '+' : ''}${etf.priceReturn6Mo.toFixed(1)}%` : 'N/A')
                       : ((etf.trDrip6Mo ?? etf.totalReturn6Mo) != null ? `${(etf.trDrip6Mo ?? etf.totalReturn6Mo)! >= 0 ? '+' : ''}${(etf.trDrip6Mo ?? etf.totalReturn6Mo)!.toFixed(1)}%` : 'N/A')
@@ -316,11 +319,10 @@ const ETFDetail = () => {
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">3 Mo:</span>
-                  <span className={`font-semibold ${
-                    chartType === "price" 
-                      ? (etf.priceReturn3Mo != null && etf.priceReturn3Mo >= 0 ? 'text-green-600' : 'text-red-600')
-                      : ((etf.trDrip3Mo ?? etf.totalReturn3Mo) != null && (etf.trDrip3Mo ?? etf.totalReturn3Mo)! >= 0 ? 'text-green-600' : 'text-red-600')
-                  }`}>
+                  <span className={`font-semibold ${chartType === "price"
+                    ? (etf.priceReturn3Mo != null && etf.priceReturn3Mo >= 0 ? 'text-green-600' : 'text-red-600')
+                    : ((etf.trDrip3Mo ?? etf.totalReturn3Mo) != null && (etf.trDrip3Mo ?? etf.totalReturn3Mo)! >= 0 ? 'text-green-600' : 'text-red-600')
+                    }`}>
                     {chartType === "price"
                       ? (etf.priceReturn3Mo != null ? `${etf.priceReturn3Mo >= 0 ? '+' : ''}${etf.priceReturn3Mo.toFixed(1)}%` : 'N/A')
                       : ((etf.trDrip3Mo ?? etf.totalReturn3Mo) != null ? `${(etf.trDrip3Mo ?? etf.totalReturn3Mo)! >= 0 ? '+' : ''}${(etf.trDrip3Mo ?? etf.totalReturn3Mo)!.toFixed(1)}%` : 'N/A')
@@ -329,11 +331,10 @@ const ETFDetail = () => {
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">1 Mo:</span>
-                  <span className={`font-semibold ${
-                    chartType === "price" 
-                      ? (etf.priceReturn1Mo != null && etf.priceReturn1Mo >= 0 ? 'text-green-600' : 'text-red-600')
-                      : ((etf.trDrip1Mo ?? etf.totalReturn1Mo) != null && (etf.trDrip1Mo ?? etf.totalReturn1Mo)! >= 0 ? 'text-green-600' : 'text-red-600')
-                  }`}>
+                  <span className={`font-semibold ${chartType === "price"
+                    ? (etf.priceReturn1Mo != null && etf.priceReturn1Mo >= 0 ? 'text-green-600' : 'text-red-600')
+                    : ((etf.trDrip1Mo ?? etf.totalReturn1Mo) != null && (etf.trDrip1Mo ?? etf.totalReturn1Mo)! >= 0 ? 'text-green-600' : 'text-red-600')
+                    }`}>
                     {chartType === "price"
                       ? (etf.priceReturn1Mo != null ? `${etf.priceReturn1Mo >= 0 ? '+' : ''}${etf.priceReturn1Mo.toFixed(1)}%` : 'N/A')
                       : ((etf.trDrip1Mo ?? etf.totalReturn1Mo) != null ? `${(etf.trDrip1Mo ?? etf.totalReturn1Mo)! >= 0 ? '+' : ''}${(etf.trDrip1Mo ?? etf.totalReturn1Mo)!.toFixed(1)}%` : 'N/A')
@@ -342,11 +343,10 @@ const ETFDetail = () => {
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">1 Wk:</span>
-                  <span className={`font-semibold ${
-                    chartType === "price" 
-                      ? (etf.priceReturn1Wk != null && etf.priceReturn1Wk >= 0 ? 'text-green-600' : 'text-red-600')
-                      : ((etf.trDrip1Wk ?? etf.totalReturn1Wk) != null && (etf.trDrip1Wk ?? etf.totalReturn1Wk)! >= 0 ? 'text-green-600' : 'text-red-600')
-                  }`}>
+                  <span className={`font-semibold ${chartType === "price"
+                    ? (etf.priceReturn1Wk != null && etf.priceReturn1Wk >= 0 ? 'text-green-600' : 'text-red-600')
+                    : ((etf.trDrip1Wk ?? etf.totalReturn1Wk) != null && (etf.trDrip1Wk ?? etf.totalReturn1Wk)! >= 0 ? 'text-green-600' : 'text-red-600')
+                    }`}>
                     {chartType === "price"
                       ? (etf.priceReturn1Wk != null ? `${etf.priceReturn1Wk >= 0 ? '+' : ''}${etf.priceReturn1Wk.toFixed(1)}%` : 'N/A')
                       : ((etf.trDrip1Wk ?? etf.totalReturn1Wk) != null ? `${(etf.trDrip1Wk ?? etf.totalReturn1Wk)! >= 0 ? '+' : ''}${(etf.trDrip1Wk ?? etf.totalReturn1Wk)!.toFixed(1)}%` : 'N/A')
@@ -370,8 +370,8 @@ const ETFDetail = () => {
                 <div>
                   <span className="text-muted-foreground font-bold">Div Volatility: </span>
                   <span className="font-semibold">
-                    {etf.dividendCVPercent != null && etf.dividendCVPercent > 0 
-                      ? `${etf.dividendCVPercent.toFixed(1)}%` 
+                    {etf.dividendCVPercent != null && etf.dividendCVPercent > 0
+                      ? `${etf.dividendCVPercent.toFixed(1)}%`
                       : (etf.dividendVolatilityIndex || 'N/A')}
                   </span>
                 </div>
@@ -449,7 +449,7 @@ const ETFDetail = () => {
                   if (!compareETF) return null;
                   const colors = ["#3b82f6", "#f97316", "#8b5cf6", "#10b981", "#ef4444"];
                   const color = colors[index % colors.length];
-                  
+
                   let displayValue = "N/A";
                   if (chartType === "totalReturn") {
                     let returnValue: number | null | undefined;
@@ -506,7 +506,7 @@ const ETFDetail = () => {
                       ? `${returnValue > 0 ? "+" : ""}${returnValue.toFixed(2)}%`
                       : "N/A";
                   }
-                  
+
                   return (
                     <div
                       key={sym}
@@ -559,7 +559,7 @@ const ETFDetail = () => {
                     placeholder="Search ETFs..."
                     value={comparisonSearchQuery}
                     onChange={(e) => setComparisonSearchQuery(e.target.value)}
-                    onFocus={() => {}}
+                    onFocus={() => { }}
                     className="pl-10 pr-10 h-12 bg-background border-2 border-border focus:border-primary text-base rounded-xl"
                   />
                   {comparisonSearchQuery && (
@@ -580,7 +580,7 @@ const ETFDetail = () => {
                           const searchLower = comparisonSearchQuery.toLowerCase();
                           return e.symbol !== etf.symbol &&
                             (e.symbol.toLowerCase().includes(searchLower) ||
-                             (e.name && e.name.toLowerCase().includes(searchLower)));
+                              (e.name && e.name.toLowerCase().includes(searchLower)));
                         })
                         .slice(0, 10)
                         .map((e) => {
@@ -596,9 +596,8 @@ const ETFDetail = () => {
                                 }
                               }}
                               disabled={isDisabled}
-                              className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors text-left border-b border-slate-100 last:border-0 ${
-                                isDisabled ? "opacity-50 cursor-not-allowed" : ""
-                              }`}
+                              className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors text-left border-b border-slate-100 last:border-0 ${isDisabled ? "opacity-50 cursor-not-allowed" : ""
+                                }`}
                             >
                               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
                                 <TrendingUp className="w-5 h-5 text-primary" />
@@ -672,24 +671,24 @@ const ETFDetail = () => {
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                      <XAxis 
-                        dataKey="time" 
-                        stroke="#94a3b8" 
+                      <XAxis
+                        dataKey="time"
+                        stroke="#94a3b8"
                         fontSize={12}
                         tickLine={false}
                         axisLine={false}
                         interval={
                           // Calculate tick interval based on data length and timeframe
                           chartData.length <= 30 ? 0 :
-                          chartData.length <= 90 ? Math.floor(chartData.length / 6) :
-                          chartData.length <= 365 ? Math.floor(chartData.length / 8) :
-                          Math.floor(chartData.length / 10)
+                            chartData.length <= 90 ? Math.floor(chartData.length / 6) :
+                              chartData.length <= 365 ? Math.floor(chartData.length / 8) :
+                                Math.floor(chartData.length / 10)
                         }
                         tickFormatter={(value) => value || ''}
                       />
-                      <YAxis 
-                        stroke="#94a3b8" 
-                        fontSize={12} 
+                      <YAxis
+                        stroke="#94a3b8"
+                        fontSize={12}
                         domain={chartType === "totalReturn" ? [minValue, maxValue] : [minValue, maxValue]}
                         tickLine={false}
                         axisLine={false}
@@ -712,10 +711,10 @@ const ETFDetail = () => {
                         labelFormatter={(label, payload) => {
                           if (payload && payload[0]?.payload?.fullDate) {
                             const date = new Date(payload[0].payload.fullDate);
-                            return date.toLocaleDateString('en-US', { 
-                              month: 'short', 
-                              day: 'numeric', 
-                              year: 'numeric' 
+                            return date.toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
                             });
                           }
                           return label;
@@ -776,16 +775,16 @@ const ETFDetail = () => {
                 </ResponsiveContainer>
               </div>
             </div>
-            
+
             {/* Trading Volume Chart - Section 3.4: gray vertical volume bars */}
             {chartData.length > 0 && chartData.some(d => d.volume && d.volume > 0) && (
               <div className="mt-6 pt-4 border-t">
                 <h3 className="text-sm font-semibold mb-3">Trading Volume</h3>
                 <ResponsiveContainer width="100%" height={80}>
                   <BarChart data={chartData}>
-                    <XAxis 
-                      dataKey="time" 
-                      stroke="#94a3b8" 
+                    <XAxis
+                      dataKey="time"
+                      stroke="#94a3b8"
                       fontSize={10}
                       tickLine={false}
                       axisLine={false}
@@ -795,8 +794,8 @@ const ETFDetail = () => {
                         return value;
                       }}
                     />
-                    <YAxis 
-                      stroke="#94a3b8" 
+                    <YAxis
+                      stroke="#94a3b8"
                       fontSize={10}
                       tickLine={false}
                       axisLine={false}
@@ -817,8 +816,8 @@ const ETFDetail = () => {
                       }}
                       formatter={(value: number) => [value.toLocaleString(), "Volume"]}
                     />
-                    <Bar 
-                      dataKey="volume" 
+                    <Bar
+                      dataKey="volume"
                       fill="#94a3b8"
                       radius={[2, 2, 0, 0]}
                     />
@@ -826,16 +825,16 @@ const ETFDetail = () => {
                 </ResponsiveContainer>
               </div>
             )}
-            
+
             {/* Dividend Volume Chart */}
             {chartData.length > 0 && chartData.some(d => d.divCash && d.divCash > 0) && (
               <div className="mt-4 pt-4 border-t">
                 <h3 className="text-sm font-semibold mb-3">Dividend Payments</h3>
                 <ResponsiveContainer width="100%" height={80}>
                   <BarChart data={chartData.filter(d => d.divCash && d.divCash > 0)}>
-                    <XAxis 
-                      dataKey="time" 
-                      stroke="#94a3b8" 
+                    <XAxis
+                      dataKey="time"
+                      stroke="#94a3b8"
                       fontSize={10}
                       tickLine={false}
                       axisLine={false}
@@ -845,8 +844,8 @@ const ETFDetail = () => {
                         return value;
                       }}
                     />
-                    <YAxis 
-                      stroke="#94a3b8" 
+                    <YAxis
+                      stroke="#94a3b8"
                       fontSize={10}
                       tickLine={false}
                       axisLine={false}
@@ -863,8 +862,8 @@ const ETFDetail = () => {
                       }}
                       formatter={(value: number) => [`$${value.toFixed(4)}`, "Dividend"]}
                     />
-                    <Bar 
-                      dataKey="divCash" 
+                    <Bar
+                      dataKey="divCash"
                       fill="#22c55e"
                       radius={[2, 2, 0, 0]}
                     />

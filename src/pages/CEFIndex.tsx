@@ -16,6 +16,7 @@ import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
+import { SEO, getWebApplicationSchema } from "@/components/SEO";
 import {
   loadRankingWeights,
   saveRankingWeights,
@@ -370,6 +371,12 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO
+        title="Closed-End Funds - Premium/Discount Analysis"
+        description="Analyze closed-end funds with NAV trends, premium/discount metrics, and dividend analysis. Advanced CEF screening for income investors."
+        keywords="closed-end funds, CEF, NAV discount, premium discount, dividend CEF, income investing, CEF analysis"
+        structuredData={getWebApplicationSchema()}
+      />
       <Header />
 
       <section className="relative border-b overflow-hidden">
@@ -446,8 +453,8 @@ const Index = () => {
                     <button
                       onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
                       className={`border-2 h-10 sm:h-9 md:h-9 transition-colors whitespace-nowrap w-full sm:w-auto md:flex-shrink-0 justify-center px-4 rounded-md flex items-center ${showFavoritesOnly
-                          ? "bg-yellow-500 hover:bg-yellow-600 border-yellow-500 text-white"
-                          : "border-yellow-400 text-yellow-600 hover:bg-yellow-50 hover:text-yellow-600"
+                        ? "bg-yellow-500 hover:bg-yellow-600 border-yellow-500 text-white"
+                        : "border-yellow-400 text-yellow-600 hover:bg-yellow-50 hover:text-yellow-600"
                         }`}
                     >
                       <Star
