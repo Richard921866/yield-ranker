@@ -2,10 +2,10 @@
  * Test GAB Z-Score calculation to match CEO's manual calculation
  * 
  * CEO's calculation (from Excel):
- * - Current P/D on 12/26/2025: 8.11287478%
- * - Average P/D over 5 years: 7.066050684%
- * - STDEV.P: 6.154238319%
- * - Z-Score: (8.11287478 - 7.066050684) / 6.154238319 = 0.170098076
+ * - Current P/D on 12/26/2025: 8.112875%
+ * - Average P/D over 5 years: 7.259255074%
+ * - STDEV.P: 6.391055166%
+ * - Z-Score: (8.112875 - 7.259255074) / 6.391055166 = 0.133564788
  * 
  * Data source: Tiingo
  * - GAB market price
@@ -16,6 +16,7 @@
 
 import { getPriceHistory } from '../src/services/database.js';
 import { formatDate } from '../src/utils/index.js';
+import { calculateCEFZScore } from '../src/routes/cefs.js';
 
 async function testGABZScore() {
   console.log('='.repeat(80));
@@ -36,15 +37,61 @@ async function testGABZScore() {
   console.log('');
   
   try {
-    // Fetch price data
-    console.log('Fetching price data...');
-    const [priceData, navData] = await Promise.all([
+    // Fetch price data from database first
+    console.log('Fetching price data from database...');
+    let [priceData, navData] = await Promise.all([
       getPriceHistory(ticker, startDate, endDate),
       getPriceHistory(navSymbol, startDate, endDate),
     ]);
     
+    // Check if data is stale (older than 7 days) and fetch from API if needed
+    const today = new Date();
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const minDateStr = formatDate(sevenDaysAgo);
+    
+    const priceDataIsCurrent = priceData.length > 0 && priceData[priceData.length - 1].date >= minDateStr;
+    const navDataIsCurrent = navData.length > 0 && navData[navData.length - 1].date >= minDateStr;
+    
+    if (!priceDataIsCurrent || priceData.length === 0) {
+      console.log('Database data is stale for GAB, fetching from API...');
+      try {
+        const { getPriceHistoryFromAPI } = await import('../src/services/tiingo.js');
+        const apiData = await getPriceHistoryFromAPI(ticker, startDate, endDate);
+        if (apiData.length > 0) {
+          priceData = apiData;
+          console.log(`✓ Fetched ${priceData.length} fresh records from API for ${ticker}`);
+        }
+      } catch (apiError) {
+        console.warn(`⚠ API fetch failed for ${ticker}: ${(apiError as Error).message}`);
+      }
+    }
+    
+    if (!navDataIsCurrent || navData.length === 0) {
+      console.log('Database data is stale for XGABX, fetching from API...');
+      try {
+        const { getPriceHistoryFromAPI } = await import('../src/services/tiingo.js');
+        const apiData = await getPriceHistoryFromAPI(navSymbol, startDate, endDate);
+        if (apiData.length > 0) {
+          navData = apiData;
+          console.log(`✓ Fetched ${navData.length} fresh records from API for ${navSymbol}`);
+        }
+      } catch (apiError) {
+        console.warn(`⚠ API fetch failed for ${navSymbol}: ${(apiError as Error).message}`);
+      }
+    }
+    
     console.log(`GAB price records: ${priceData.length}`);
     console.log(`XGABX NAV records: ${navData.length}`);
+    
+    if (priceData.length > 0) {
+      const sortedPriceData = [...priceData].sort((a, b) => a.date.localeCompare(b.date));
+      console.log(`GAB date range: ${sortedPriceData[0].date} to ${sortedPriceData[sortedPriceData.length - 1].date}`);
+    }
+    if (navData.length > 0) {
+      const sortedNavData = [...navData].sort((a, b) => a.date.localeCompare(b.date));
+      console.log(`XGABX date range: ${sortedNavData[0].date} to ${sortedNavData[sortedNavData.length - 1].date}`);
+    }
     console.log('');
     
     // Create maps using UNADJUSTED prices (p.close)
@@ -125,11 +172,11 @@ async function testGABZScore() {
       console.log(`  Z = ${zScore.toFixed(8)}`);
       console.log('');
       
-      // Compare with CEO's expected values
-      const expectedCurrentPD = 8.11287478;
-      const expectedAvgPD = 7.066050684;
-      const expectedStdDev = 6.154238319;
-      const expectedZScore = 0.170098076;
+      // Compare with CEO's expected values (from Excel data)
+      const expectedCurrentPD = 8.112875;
+      const expectedAvgPD = 7.259255074;
+      const expectedStdDev = 6.391055166;
+      const expectedZScore = 0.133564788;
       
       console.log('Comparison with CEO\'s Calculation:');
       console.log(`  Current P/D:`);
@@ -170,6 +217,23 @@ async function testGABZScore() {
       console.log(`  First date: ${last5Years[0].date}, P/D: ${last5Years[0].pd.toFixed(8)}%`);
       console.log(`  Last date:  ${last5Years[last5Years.length - 1].date}, P/D: ${last5Years[last5Years.length - 1].pd.toFixed(8)}%`);
       console.log(`  Total days: ${last5Years.length}`);
+      
+      // Test the actual calculateCEFZScore function
+      console.log('');
+      console.log('='.repeat(80));
+      console.log('Testing calculateCEFZScore Function');
+      console.log('='.repeat(80));
+      console.log('');
+      
+      const functionZScore = await calculateCEFZScore(ticker, navSymbol);
+      if (functionZScore !== null) {
+        console.log(`Function Z-Score: ${functionZScore.toFixed(8)}`);
+        console.log(`Manual Z-Score:   ${zScore.toFixed(8)}`);
+        console.log(`Difference:       ${Math.abs(functionZScore - zScore).toFixed(8)}`);
+        console.log(`Match:            ${Math.abs(functionZScore - zScore) < 0.0001 ? '✅ YES' : '❌ NO'}`);
+      } else {
+        console.log('Function returned null');
+      }
       
     } else {
       console.log('ERROR: Could not calculate Z-Score');
