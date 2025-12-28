@@ -1090,10 +1090,15 @@ export function calculateDividendHistory(dividends: DividendRecord[]): string {
     }
 
     // INCREASE LOGIC: Both payments in the pair must be higher than base
-    // p1 must be > (base + threshold) AND p2 must be > base
+    // For equal payments (p1 == p2): both must be > base (no threshold)
+    // For unequal payments: p1 must be > (base + threshold) AND p2 must be > base AND p2 >= p1 (must be sustained/improving)
     // We use p1 as the new base candidate
-    // Note: The threshold ensures small fluctuations aren't counted as increases
-    if (p1 > (base + threshold) && p2 > base) {
+    if (p1 === p2 && p1 > base) {
+      // Equal payments: both just need to be above base (no threshold check)
+      increases++;
+      base = p1; // Update base to the confirmed new level (p1)
+    } else if (p1 > (base + threshold) && p2 > base && p2 >= p1) {
+      // Unequal payments: need threshold check AND p2 >= p1 (must be sustained, not a spike that goes back down)
       increases++;
       base = p1; // Update base to the confirmed new level (p1)
     }

@@ -106,7 +106,7 @@ function debugDividendHistory(dividends: DividendRecord[]): void {
       action = `✓ INCREASE #${increases}: base $${wasBase.toFixed(3)} → $${base.toFixed(3)}`;
     }
     // DECREASE LOGIC
-    else if (p1 < base && p2 < base) {
+    else if (p1 < base && p2 < base && p2 <= p1) {
       decreases++;
       base = p1;
       action = `✓ DECREASE #${decreases}: base $${wasBase.toFixed(3)} → $${base.toFixed(3)}`;
