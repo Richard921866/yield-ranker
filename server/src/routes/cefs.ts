@@ -806,6 +806,153 @@ export async function calculateSignal(
   }
 }
 
+/**
+ * Calculate Weighted Rank for CEFs using 1-N scoring system
+ * Matches spreadsheet ranking methodology:
+ * - YIELD: 25% (higher is better, rank 1 = highest)
+ * - Z-Score: 50% (lower is better, rank 1 = lowest/most discounted)
+ * - TR 3MO: 5% (higher is better, rank 1 = highest)
+ * - TR 6MO: 25% (higher is better, rank 1 = highest)
+ * - TR 12MO: 1% (higher is better, rank 1 = highest)
+ * 
+ * Returns Map<ticker, weightedRank> where lower rank = better (1 = best)
+ */
+export async function calculateCEFRankings(): Promise<Map<string, number>> {
+  try {
+    const { getSupabase } = await import("../services/database.js");
+    const db = getSupabase();
+
+    // Get all CEFs (those with nav_symbol)
+    const { data: cefs, error } = await db
+      .from("etf_static")
+      .select("ticker, forward_yield, five_year_z_score, tr_drip_3m, tr_drip_6m, tr_drip_12m")
+      .not("nav_symbol", "is", null)
+      .not("nav_symbol", "eq", "");
+
+    if (error || !cefs || cefs.length === 0) {
+      logger.warn("CEF Rankings", "No CEFs found or error fetching CEFs");
+      return new Map();
+    }
+
+    // Filter out CEFs with insufficient data and prepare data
+    interface CEFData {
+      ticker: string;
+      yield: number | null;
+      zScore: number | null;
+      return3Mo: number | null;
+      return6Mo: number | null;
+      return12Mo: number | null;
+    }
+
+    const cefData: CEFData[] = cefs.map((cef: any) => ({
+      ticker: cef.ticker,
+      yield: cef.forward_yield ?? null,
+      zScore: cef.five_year_z_score ?? null,
+      return3Mo: cef.tr_drip_3m ?? null,
+      return6Mo: cef.tr_drip_6m ?? null,
+      return12Mo: cef.tr_drip_12m ?? null,
+    }));
+
+    // Weights from spreadsheet
+    const weights = {
+      yield: 25,      // 25%
+      zScore: 50,     // 50% (DVI equivalent)
+      return3Mo: 5,   // 5%
+      return6Mo: 25,  // 25%
+      return12Mo: 1,  // 1%
+    };
+
+    // Rank each metric from 1 (best) to N (worst)
+    // YIELD: Higher is better (rank 1 = highest yield)
+    const yieldRanked = [...cefData]
+      .filter((c) => c.yield !== null && !isNaN(c.yield) && c.yield > 0)
+      .sort((a, b) => (b.yield ?? 0) - (a.yield ?? 0))
+      .map((c, index) => ({ ticker: c.ticker, rank: index + 1 }));
+
+    // Z-SCORE: Lower is better (rank 1 = lowest z-score, most discounted)
+    const zScoreRanked = [...cefData]
+      .filter((c) => c.zScore !== null && !isNaN(c.zScore))
+      .sort((a, b) => (a.zScore ?? 0) - (b.zScore ?? 0))
+      .map((c, index) => ({ ticker: c.ticker, rank: index + 1 }));
+
+    // TR 3MO: Higher is better (rank 1 = highest return)
+    const return3MoRanked = [...cefData]
+      .filter((c) => c.return3Mo !== null && !isNaN(c.return3Mo))
+      .sort((a, b) => (b.return3Mo ?? 0) - (a.return3Mo ?? 0))
+      .map((c, index) => ({ ticker: c.ticker, rank: index + 1 }));
+
+    // TR 6MO: Higher is better (rank 1 = highest return)
+    const return6MoRanked = [...cefData]
+      .filter((c) => c.return6Mo !== null && !isNaN(c.return6Mo))
+      .sort((a, b) => (b.return6Mo ?? 0) - (a.return6Mo ?? 0))
+      .map((c, index) => ({ ticker: c.ticker, rank: index + 1 }));
+
+    // TR 12MO: Higher is better (rank 1 = highest return)
+    const return12MoRanked = [...cefData]
+      .filter((c) => c.return12Mo !== null && !isNaN(c.return12Mo))
+      .sort((a, b) => (b.return12Mo ?? 0) - (a.return12Mo ?? 0))
+      .map((c, index) => ({ ticker: c.ticker, rank: index + 1 }));
+
+    // Create maps for quick lookup
+    const yieldRankMap = new Map(yieldRanked.map((r) => [r.ticker, r.rank]));
+    const zScoreRankMap = new Map(zScoreRanked.map((r) => [r.ticker, r.rank]));
+    const return3MoRankMap = new Map(return3MoRanked.map((r) => [r.ticker, r.rank]));
+    const return6MoRankMap = new Map(return6MoRanked.map((r) => [r.ticker, r.rank]));
+    const return12MoRankMap = new Map(return12MoRanked.map((r) => [r.ticker, r.rank]));
+
+    // Calculate total scores for each CEF
+    // Use worst rank (total number of CEFs) for missing data
+    const maxRank = cefData.length;
+
+    interface CEFScore {
+      ticker: string;
+      totalScore: number;
+    }
+
+    const cefScores: CEFScore[] = cefData.map((cef) => {
+      const yieldRank = yieldRankMap.get(cef.ticker) ?? maxRank;
+      const zScoreRank = zScoreRankMap.get(cef.ticker) ?? maxRank;
+      const return3MoRank = return3MoRankMap.get(cef.ticker) ?? maxRank;
+      const return6MoRank = return6MoRankMap.get(cef.ticker) ?? maxRank;
+      const return12MoRank = return12MoRankMap.get(cef.ticker) ?? maxRank;
+
+      // Calculate weighted total score
+      const totalScore =
+        yieldRank * (weights.yield / 100) +
+        zScoreRank * (weights.zScore / 100) +
+        return3MoRank * (weights.return3Mo / 100) +
+        return6MoRank * (weights.return6Mo / 100) +
+        return12MoRank * (weights.return12Mo / 100);
+
+      return {
+        ticker: cef.ticker,
+        totalScore,
+      };
+    });
+
+    // Sort by total score (lower is better) and assign final ranks (1 = best)
+    cefScores.sort((a, b) => a.totalScore - b.totalScore);
+
+    const finalRanks = new Map<string, number>();
+    cefScores.forEach((cef, index) => {
+      finalRanks.set(cef.ticker, index + 1);
+    });
+
+    logger.info(
+      "CEF Rankings",
+      `Calculated weighted ranks for ${finalRanks.size} CEFs`
+    );
+
+    return finalRanks;
+  } catch (error) {
+    logger.warn(
+      "CEF Rankings",
+      `Failed to calculate CEF rankings: ${error}`
+    );
+    return new Map();
+  }
+}
+
 // ============================================================================
 // File Upload Configuration
 // ============================================================================

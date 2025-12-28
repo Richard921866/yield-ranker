@@ -453,6 +453,64 @@ async function refreshCEF(ticker: string, dryRun: boolean): Promise<void> {
   }
 }
 
+async function calculateAllCEFRankings(dryRun: boolean) {
+  if (dryRun) {
+    console.log('\n  [DRY RUN] Would calculate CEF rankings');
+    return;
+  }
+  console.log('\n' + '='.repeat(60));
+  console.log('Calculating CEF Weighted Rankings');
+  console.log('='.repeat(60));
+  
+  try {
+    const { calculateCEFRankings } = await import('../src/routes/cefs.js');
+    const rankings = await calculateCEFRankings();
+    
+    if (rankings.size === 0) {
+      console.log('  ⚠ No rankings calculated');
+      return;
+    }
+    
+    console.log(`  ✓ Calculated rankings for ${rankings.size} CEFs`);
+    
+    // Update database with rankings
+    const updates: Array<{ ticker: string; rank: number }> = [];
+    rankings.forEach((rank, ticker) => {
+      updates.push({ ticker, rank });
+    });
+    
+    // Batch update rankings
+    for (const update of updates) {
+      const { error } = await supabase
+        .from('etf_static')
+        .update({ weighted_rank: update.rank })
+        .eq('ticker', update.ticker);
+      
+      if (error) {
+        console.warn(`  ⚠ Failed to update rank for ${update.ticker}: ${error.message}`);
+      }
+    }
+    
+    console.log(`  ✓ Updated ${updates.length} CEF rankings in database`);
+    
+    // Show top 5 and bottom 5
+    const sorted = Array.from(rankings.entries()).sort((a, b) => a[1] - b[1]);
+    console.log('\n  Top 5 CEFs (by rank):');
+    sorted.slice(0, 5).forEach(([ticker, rank]) => {
+      console.log(`    ${rank}. ${ticker}`);
+    });
+    if (sorted.length > 5) {
+      console.log('\n  Bottom 5 CEFs (by rank):');
+      sorted.slice(-5).reverse().forEach(([ticker, rank]) => {
+        console.log(`    ${rank}. ${ticker}`);
+      });
+    }
+  } catch (error) {
+    console.error(`  ❌ Error calculating CEF rankings: ${(error as Error).message}`);
+    console.error(error);
+  }
+}
+
 async function main() {
   const options = parseArgs();
 
@@ -512,6 +570,11 @@ async function main() {
     console.log(`\n${'='.repeat(60)}`);
     console.log(`✅ Completed processing ${actualCEFs.length} CEFs`);
     console.log(`${'='.repeat(60)}`);
+    
+    // Calculate and update weighted rankings for all CEFs
+    if (!options.dryRun) {
+      await calculateAllCEFRankings(options.dryRun);
+    }
   }
 }
 
