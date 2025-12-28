@@ -3,7 +3,7 @@
  * 
  * This script calculates and stores ALL CEF metrics in the database:
  * - 3Y, 5Y, 10Y, 15Y annualized total returns (NAV-based)
- * - 5-Year Z-Score
+ * - 3-Year Z-Score (3Y max, 1Y min lookback)
  * - 6M NAV Trend
  * - 12M NAV Return
  * - Signal rating
@@ -221,16 +221,16 @@ async function refreshCEF(ticker: string, dryRun: boolean): Promise<void> {
     // Calculate all CEF metrics
     console.log(`  📊 Calculating CEF metrics...`);
 
-    // 1. Calculate 5-Year Z-Score
+    // 1. Calculate 3-Year Z-Score (3Y max, 1Y min lookback)
     // ALWAYS set this field (even if null) to clear stale values
     let fiveYearZScore: number | null = null;
     try {
       fiveYearZScore = await calculateCEFZScore(ticker, navSymbolForCalc);
       updateData.five_year_z_score = fiveYearZScore; // Always set, even if null
       if (fiveYearZScore !== null) {
-        console.log(`    ✓ 5Y Z-Score: ${fiveYearZScore.toFixed(2)}`);
+        console.log(`    ✓ 3Y Z-Score: ${fiveYearZScore.toFixed(2)}`);
       } else {
-        console.log(`    ⚠ 5Y Z-Score: N/A (insufficient data) - clearing old value`);
+        console.log(`    ⚠ 3Y Z-Score: N/A (insufficient data, need at least 1 year) - clearing old value`);
       }
     } catch (error) {
       updateData.five_year_z_score = null; // Clear on error

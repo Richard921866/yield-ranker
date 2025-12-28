@@ -1,16 +1,16 @@
 /**
- * Test GAB Z-Score calculation to match CEO's manual calculation
+ * Test GAB Z-Score calculation with 3-year lookback
  * 
- * CEO's calculation (from Excel):
- * - Current P/D on 12/26/2025: 8.112875%
- * - Average P/D over 5 years: 7.259255074%
- * - STDEV.P: 6.391055166%
- * - Z-Score: (8.112875 - 7.259255074) / 6.391055166 = 0.133564788
+ * CEO's expected Z-Score for GAB: 0.92
+ * 
+ * Calculation uses:
+ * - 3-year maximum lookback (756 trading days)
+ * - 1-year minimum threshold (252 trading days)
+ * - Uses most recent 3 years of data for historical stats
  * 
  * Data source: Tiingo
  * - GAB market price
  * - XGABX NAV
- * - Start date: 2020-01-01
  * - Use UNADJUSTED prices (close, not adj_close)
  */
 
@@ -26,22 +26,28 @@ async function testGABZScore() {
   
   const ticker = 'GAB';
   const navSymbol = 'XGABX';
-  const startDate = '2020-01-01';
   const endDate = formatDate(new Date());
-  const DAYS_5Y = 5 * 252; // 1260 trading days
+  const DAYS_3Y = 3 * 252; // 756 trading days
+  const DAYS_1Y = 1 * 252; // 252 trading days (minimum)
+  const EXPECTED_ZSCORE = 0.92; // CEO's expected value
   
   console.log(`Ticker: ${ticker}`);
   console.log(`NAV Symbol: ${navSymbol}`);
-  console.log(`Date Range: ${startDate} to ${endDate}`);
-  console.log(`Max Lookback: ${DAYS_5Y} trading days (5 years)`);
+  console.log(`Max Lookback: ${DAYS_3Y} trading days (3 years)`);
+  console.log(`Min Threshold: ${DAYS_1Y} trading days (1 year)`);
+  console.log(`Expected Z-Score: ${EXPECTED_ZSCORE}`);
   console.log('');
   
   try {
-    // Fetch price data from database first
+    // Fetch price data from database first (4 years to ensure 3-year coverage)
     console.log('Fetching price data from database...');
+    const startDate = new Date();
+    startDate.setFullYear(startDate.getFullYear() - 4);
+    const startDateStr = formatDate(startDate);
+    
     let [priceData, navData] = await Promise.all([
-      getPriceHistory(ticker, startDate, endDate),
-      getPriceHistory(navSymbol, startDate, endDate),
+      getPriceHistory(ticker, startDateStr, endDate),
+      getPriceHistory(navSymbol, startDateStr, endDate),
     ]);
     
     // Check if data is stale (older than 7 days) and fetch from API if needed
@@ -57,7 +63,7 @@ async function testGABZScore() {
       console.log('Database data is stale for GAB, fetching from API...');
       try {
         const { getPriceHistoryFromAPI } = await import('../src/services/tiingo.js');
-        const apiData = await getPriceHistoryFromAPI(ticker, startDate, endDate);
+        const apiData = await getPriceHistoryFromAPI(ticker, startDateStr, endDate);
         if (apiData.length > 0) {
           priceData = apiData;
           console.log(`✓ Fetched ${priceData.length} fresh records from API for ${ticker}`);
@@ -71,7 +77,7 @@ async function testGABZScore() {
       console.log('Database data is stale for XGABX, fetching from API...');
       try {
         const { getPriceHistoryFromAPI } = await import('../src/services/tiingo.js');
-        const apiData = await getPriceHistoryFromAPI(navSymbol, startDate, endDate);
+        const apiData = await getPriceHistoryFromAPI(navSymbol, startDateStr, endDate);
         if (apiData.length > 0) {
           navData = apiData;
           console.log(`✓ Fetched ${navData.length} fresh records from API for ${navSymbol}`);
@@ -120,103 +126,99 @@ async function testGABZScore() {
       const price = priceMap.get(date);
       const nav = navMap.get(date);
       if (price && nav && nav > 0) {
-        const discount = (price / nav - 1.0) * 100; // Convert to percentage
+        const discount = (price / nav - 1.0); // Keep as decimal for calculation
         discounts.push(discount);
       }
     }
     
     console.log(`Total days with both price and NAV: ${discounts.length}`);
     
-    // Use up to 5 years (most recent)
-    const lookbackPeriod = Math.min(discounts.length, DAYS_5Y);
+    // Check minimum threshold
+    if (discounts.length < DAYS_1Y) {
+      console.log(`ERROR: Insufficient data (${discounts.length} < ${DAYS_1Y} days)`);
+      return;
+    }
+    
+    // Use up to 3 years (most recent)
+    const lookbackPeriod = Math.min(discounts.length, DAYS_3Y);
     const history = discounts.slice(-lookbackPeriod);
     
-    console.log(`Using last ${lookbackPeriod} days (most recent 5 years)`);
+    console.log(`Using last ${lookbackPeriod} days (most recent 3 years)`);
     console.log('');
     
-    // Calculate current P/D (most recent date)
+    // Calculate current P/D (most recent date) - keep as decimal
     const sortedDatesArray = Array.from(sortedDates).sort().reverse();
-    let currentPD: number | null = null;
+    let currentDiscount: number | null = null;
     let currentDate: string | null = null;
     for (const date of sortedDatesArray) {
       const price = priceMap.get(date);
       const nav = navMap.get(date);
       if (price && nav && nav > 0) {
-        currentPD = (price / nav - 1.0) * 100; // Convert to percentage
+        currentDiscount = (price / nav - 1.0); // Keep as decimal
         currentDate = date;
         break;
       }
     }
     
+    // Fallback to last value in history if needed
+    if (currentDiscount === null) {
+      currentDiscount = history[history.length - 1];
+    }
+    
     console.log(`Current Date: ${currentDate}`);
-    console.log(`Current P/D: ${currentPD?.toFixed(8)}%`);
+    console.log(`Current P/D (decimal): ${currentDiscount?.toFixed(8)}`);
+    console.log(`Current P/D (%): ${((currentDiscount ?? 0) * 100).toFixed(8)}%`);
     console.log('');
     
     // Calculate average (mean)
-    const avgPD = history.reduce((sum, d) => sum + d, 0) / history.length;
-    console.log(`Average P/D (5 years): ${avgPD.toFixed(8)}%`);
+    const avgDiscount = history.reduce((sum, d) => sum + d, 0) / history.length;
+    console.log(`Average P/D (decimal, 3 years): ${avgDiscount.toFixed(8)}`);
+    console.log(`Average P/D (%): ${(avgDiscount * 100).toFixed(8)}%`);
     
     // Calculate variance using POPULATION standard deviation (divide by n, not n-1)
-    const variance = history.reduce((sum, d) => sum + Math.pow(d - avgPD, 2), 0) / history.length;
+    const variance = history.reduce((sum, d) => sum + Math.pow(d - avgDiscount, 2), 0) / history.length;
     const stdDev = Math.sqrt(variance);
-    console.log(`STDEV.P: ${stdDev.toFixed(8)}%`);
+    console.log(`STDEV.P (decimal): ${stdDev.toFixed(8)}`);
+    console.log(`STDEV.P (%): ${(stdDev * 100).toFixed(8)}%`);
     console.log('');
     
     // Calculate Z-Score
-    if (currentPD !== null && stdDev > 0) {
-      const zScore = (currentPD - avgPD) / stdDev;
+    if (currentDiscount !== null && stdDev > 0) {
+      const zScore = (currentDiscount - avgDiscount) / stdDev;
       console.log('Z-Score Calculation:');
       console.log(`  Z = (Current - Average) / StdDev`);
-      console.log(`  Z = (${currentPD.toFixed(8)} - ${avgPD.toFixed(8)}) / ${stdDev.toFixed(8)}`);
-      console.log(`  Z = ${(currentPD - avgPD).toFixed(8)} / ${stdDev.toFixed(8)}`);
+      console.log(`  Z = (${currentDiscount.toFixed(8)} - ${avgDiscount.toFixed(8)}) / ${stdDev.toFixed(8)}`);
+      console.log(`  Z = ${(currentDiscount - avgDiscount).toFixed(8)} / ${stdDev.toFixed(8)}`);
       console.log(`  Z = ${zScore.toFixed(8)}`);
       console.log('');
       
-      // Compare with CEO's expected values (from Excel data)
-      const expectedCurrentPD = 8.112875;
-      const expectedAvgPD = 7.259255074;
-      const expectedStdDev = 6.391055166;
-      const expectedZScore = 0.133564788;
-      
-      console.log('Comparison with CEO\'s Calculation:');
-      console.log(`  Current P/D:`);
-      console.log(`    Expected: ${expectedCurrentPD.toFixed(8)}%`);
-      console.log(`    Actual:   ${currentPD.toFixed(8)}%`);
-      console.log(`    Diff:     ${Math.abs(currentPD - expectedCurrentPD).toFixed(8)}%`);
-      console.log('');
-      console.log(`  Average P/D:`);
-      console.log(`    Expected: ${expectedAvgPD.toFixed(8)}%`);
-      console.log(`    Actual:   ${avgPD.toFixed(8)}%`);
-      console.log(`    Diff:     ${Math.abs(avgPD - expectedAvgPD).toFixed(8)}%`);
-      console.log('');
-      console.log(`  STDEV.P:`);
-      console.log(`    Expected: ${expectedStdDev.toFixed(8)}%`);
-      console.log(`    Actual:   ${stdDev.toFixed(8)}%`);
-      console.log(`    Diff:     ${Math.abs(stdDev - expectedStdDev).toFixed(8)}%`);
-      console.log('');
-      console.log(`  Z-Score:`);
-      console.log(`    Expected: ${expectedZScore.toFixed(8)}`);
-      console.log(`    Actual:   ${zScore.toFixed(8)}`);
-      console.log(`    Diff:     ${Math.abs(zScore - expectedZScore).toFixed(8)}`);
+      // Compare with CEO's expected Z-Score
+      console.log('Comparison with CEO\'s Expected Z-Score:');
+      console.log(`  Expected: ${EXPECTED_ZSCORE.toFixed(8)}`);
+      console.log(`  Actual:   ${zScore.toFixed(8)}`);
+      console.log(`  Diff:     ${Math.abs(zScore - EXPECTED_ZSCORE).toFixed(8)}`);
+      console.log(`  Match:    ${Math.abs(zScore - EXPECTED_ZSCORE) < 0.1 ? '✅ YES' : '❌ NO'}`);
       console.log('');
       
-      // Show first and last few dates in history
-      console.log('Sample dates in 5-year history:');
-      const dateDiscountPairs: Array<{ date: string; pd: number }> = [];
+      // Show first and last dates in history
+      console.log('3-year history range:');
+      const dateDiscountPairs: Array<{ date: string; discount: number }> = [];
       for (const date of sortedDates) {
         const price = priceMap.get(date);
         const nav = navMap.get(date);
         if (price && nav && nav > 0) {
-          const pd = (price / nav - 1.0) * 100;
-          dateDiscountPairs.push({ date, pd });
+          const discount = (price / nav - 1.0);
+          dateDiscountPairs.push({ date, discount });
         }
       }
       dateDiscountPairs.sort((a, b) => a.date.localeCompare(b.date));
-      const last5Years = dateDiscountPairs.slice(-lookbackPeriod);
+      const last3Years = dateDiscountPairs.slice(-lookbackPeriod);
       
-      console.log(`  First date: ${last5Years[0].date}, P/D: ${last5Years[0].pd.toFixed(8)}%`);
-      console.log(`  Last date:  ${last5Years[last5Years.length - 1].date}, P/D: ${last5Years[last5Years.length - 1].pd.toFixed(8)}%`);
-      console.log(`  Total days: ${last5Years.length}`);
+      if (last3Years.length > 0) {
+        console.log(`  First date: ${last3Years[0].date}, P/D: ${(last3Years[0].discount * 100).toFixed(8)}%`);
+        console.log(`  Last date:  ${last3Years[last3Years.length - 1].date}, P/D: ${(last3Years[last3Years.length - 1].discount * 100).toFixed(8)}%`);
+        console.log(`  Total days: ${last3Years.length}`);
+      }
       
       // Test the actual calculateCEFZScore function
       console.log('');
@@ -231,6 +233,11 @@ async function testGABZScore() {
         console.log(`Manual Z-Score:   ${zScore.toFixed(8)}`);
         console.log(`Difference:       ${Math.abs(functionZScore - zScore).toFixed(8)}`);
         console.log(`Match:            ${Math.abs(functionZScore - zScore) < 0.0001 ? '✅ YES' : '❌ NO'}`);
+        console.log('');
+        console.log(`Expected Z-Score: ${EXPECTED_ZSCORE.toFixed(8)}`);
+        console.log(`Function Result:  ${functionZScore.toFixed(8)}`);
+        console.log(`Difference:       ${Math.abs(functionZScore - EXPECTED_ZSCORE).toFixed(8)}`);
+        console.log(`CEO Expected Match: ${Math.abs(functionZScore - EXPECTED_ZSCORE) < 0.1 ? '✅ YES' : '❌ NO'}`);
       } else {
         console.log('Function returned null');
       }

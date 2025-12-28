@@ -7,15 +7,18 @@ The z-score calculation has been verified to match the CEO's Excel formula exact
 ## Formula (Verified Correct)
 
 1. **Premium/Discount Calculation**: `(Price / NAV - 1)` (as decimal)
+
    - Example: GAB=6.13, XGABX=5.67 → (6.13/5.67 - 1) = 0.08112875 = 8.112875%
 
 2. **Data Range**: Exactly **5 years** of historical data (most recent)
+
    - Uses: `DAYS_5Y = 5 * 252 = 1260 trading days`
    - Takes the most recent 5 years: `discounts.slice(-DAYS_5Y)`
 
 3. **Average**: Mean of all P/D values in the 5-year window (includes current value)
 
 4. **STDEV.P**: Population standard deviation (not sample)
+
    - Formula: `√(Σ(x - mean)² / n)` where n = number of data points
    - Divides by `n` (NOT `n-1`)
 
@@ -25,6 +28,7 @@ The z-score calculation has been verified to match the CEO's Excel formula exact
 ## Implementation Details
 
 ### Code Location
+
 - **Function**: `calculateCEFZScore(ticker, navSymbol)` in `server/src/routes/cefs.ts`
 - **Lines**: 44-218
 
@@ -38,6 +42,7 @@ The z-score calculation has been verified to match the CEO's Excel formula exact
 6. ✅ Handles stale data by fetching from API when database data is >7 days old
 
 ### Refresh Script
+
 - **Location**: `server/scripts/refresh_cef.ts`
 - **Usage**: `npm run refresh:cef [--ticker SYMBOL]`
 - Calls `calculateCEFZScore()` for each CEF and stores result in `five_year_z_score` field
@@ -45,6 +50,7 @@ The z-score calculation has been verified to match the CEO's Excel formula exact
 ## Test Verification
 
 ### Test File
+
 - **Location**: `server/scripts/test_gab_zscore.ts`
 - **Expected Values** (from CEO's Excel):
   - Current P/D: 8.112875%
@@ -78,8 +84,8 @@ npm run refresh:cef
 ## Result
 
 When you run `npm run refresh:cef`, it will:
+
 1. Fetch fresh price data for both CEF ticker and NAV symbol
 2. Calculate z-score using the correct formula (matches CEO's Excel)
 3. Store the result in the `five_year_z_score` field in the database
 4. Work correctly for all CEF symbols with sufficient data
-

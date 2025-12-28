@@ -11,15 +11,18 @@ The Z-Score calculation formula is **100% correct** and matches Excel's calculat
 The Z-Score calculation uses the following formula, which matches Excel exactly:
 
 1. **Premium/Discount Calculation**: `(Price / NAV - 1) * 100` (as percentage)
-   - Example: GAB=6.13, XGABX=5.67 → (6.13/5.67 - 1) * 100 = 8.112875%
+
+   - Example: GAB=6.13, XGABX=5.67 → (6.13/5.67 - 1) \* 100 = 8.112875%
 
 2. **Data Range**: Uses exactly **5 years** of historical data (most recent 5 years)
+
    - Code uses: `DAYS_5Y = 5 * 252 = 1260 trading days`
    - Note: The code fetches 6 years of data to ensure full coverage, but only uses the most recent 5 years for calculation
 
 3. **Average**: Mean of all P/D values in the 5-year period (includes current value)
 
 4. **STDEV.P**: Population standard deviation (not sample)
+
    - Formula: `√(Σ(x - mean)² / n)` where n = number of data points
    - This matches Excel's STDEV.P function
 
@@ -37,12 +40,14 @@ The Z-Score calculation uses the following formula, which matches Excel exactly:
 - This matches Excel's approach: using the most recent 5 years for the z-score calculation
 
 Example from GAB data:
+
 - Data range: 12/28/2020 to 12/26/2025 = 5 years
 - Calculation uses all data points in this 5-year window
 
 ## Implementation Details
 
 The `calculateCEFZScore` function:
+
 1. Fetches 6 years of price data (to ensure coverage)
 2. Calculates daily premium/discount: `(price / nav - 1.0)`
 3. Takes the most recent 5 years: `discounts.slice(-DAYS_5Y)` where `DAYS_5Y = 1260`

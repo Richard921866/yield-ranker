@@ -2,7 +2,7 @@
  * refresh_cef.ts - RELIABLE CEF Data Refresh Script
  *
  * This script calculates and updates ALL CEF metrics:
- * - 5-Year Z-Score
+ * - 3-Year Z-Score (3Y max, 1Y min lookback)
  * - 6M NAV Trend (exactly 6 calendar months, using close price)
  * - 12M NAV Return (exactly 12 calendar months, using close price)
  * - Signal rating
@@ -641,13 +641,13 @@ async function refreshCEF(ticker: string): Promise<void> {
       calculateNAVReturn12M(navSymbolForCalc).catch(() => null),
     ]);
 
-    // 1. Process 5-Year Z-Score result
+    // 1. Process 3-Year Z-Score result
     updateData.five_year_z_score = fiveYearZScore;
     if (fiveYearZScore !== null) {
-      console.log(`    ✓ 5Y Z-Score: ${fiveYearZScore.toFixed(2)}`);
+      console.log(`    ✓ 3Y Z-Score: ${fiveYearZScore.toFixed(2)}`);
     } else {
       console.log(
-        `    ⚠ 5Y Z-Score: N/A (insufficient data) - clearing old value`
+        `    ⚠ 3Y Z-Score: N/A (insufficient data, need at least 1 year) - clearing old value`
       );
     }
 
@@ -981,7 +981,7 @@ async function main() {
   console.log("CEF METRICS REFRESH");
   console.log("=".repeat(60));
   console.log("This script calculates and updates:");
-  console.log("  - 5-Year Z-Score");
+  console.log("  - 3-Year Z-Score (3Y max, 1Y min lookback)");
   console.log("  - 6M NAV Trend (exactly 6 calendar months)");
   console.log("  - 12M NAV Return (exactly 12 calendar months)");
   console.log("  - Signal rating");

@@ -86,8 +86,9 @@ import type { TiingoPriceData } from '../src/types/index.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-// CRITICAL: Must be 15 years (5475 days) for CEF metrics (15Y returns, 5Y Z-Score, Signal)
+// CRITICAL: Must be 15 years (5475 days) for CEF metrics (15Y returns, Signal)
 // DO NOT CHANGE THIS - CEF metrics require 15 years of historical data
+// Note: Z-Score uses 3-year max lookback (fetched within this 15-year window)
 const LOOKBACK_DAYS = 5475; // 15 years = 15 * 365 = 5475 days - needed for 15Y return calculations
 const DIVIDEND_LOOKBACK_DAYS = 5475; // 15 years = 15 * 365 = 5475 days
 
@@ -410,7 +411,7 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
     console.error(`  ❌ CRITICAL ERROR: Calculated years is ${years}, expected ${expectedYears}!`);
     throw new Error(`Calculated years is incorrect: ${years} (expected ${expectedYears})`);
   }
-  console.log(`  ✅ VERIFIED: Fetching data from last ${LOOKBACK_DAYS} days (${years} years for CEF metrics - 15Y returns, 5Y Z-Score, Signal)...`);
+  console.log(`  ✅ VERIFIED: Fetching data from last ${LOOKBACK_DAYS} days (${years} years for CEF metrics - 15Y returns, 3Y Z-Score, Signal)...`);
 
   try {
     const priceStartDate = getDateDaysAgo(LOOKBACK_DAYS);
@@ -533,7 +534,7 @@ async function main() {
   console.log(`✅ Verified: Fetching ${LOOKBACK_DAYS} days = ${calculatedYears} years of data`);
   console.log(`✅ This will fetch prices, dividends, and calculate all metrics for ALL tickers`);
   console.log(`✅ For CEFs: Will fetch NAV data (15 years) and calculate:`);
-  console.log(`   - 5Y Z-Score (requires 5 years of price/NAV data)`);
+  console.log(`   - 3Y Z-Score (3Y max, 1Y min lookback)`);
   console.log(`   - 6M NAV Trend (126 trading days)`);
   console.log(`   - 12M NAV Trend (252 trading days)`);
   console.log(`   - Signal rating (-2 to +3, requires 2 years of history)`);

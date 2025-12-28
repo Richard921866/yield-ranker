@@ -37,9 +37,9 @@ const router: Router = Router();
 // ============================================================================
 
 /**
- * Calculate 5-Year Z-Score for Premium/Discount
- * Uses flexible lookback: 2Y minimum, 5Y maximum
- * Returns null if less than 2 years of data available
+ * Calculate 3-Year Z-Score for Premium/Discount
+ * Uses flexible lookback: 1Y minimum, 3Y maximum
+ * Returns null if less than 1 year of data available
  */
 export async function calculateCEFZScore(
   ticker: string,
@@ -47,14 +47,14 @@ export async function calculateCEFZScore(
 ): Promise<number | null> {
   if (!navSymbol) return null;
 
-  const DAYS_5Y = 5 * 252; // Max lookback (1260 trading days)
-  const DAYS_2Y = 2 * 252; // Min threshold (504 trading days)
+  const DAYS_3Y = 3 * 252; // Max lookback (756 trading days)
+  const DAYS_1Y = 1 * 252; // Min threshold (252 trading days)
 
   try {
-    // Fetch 6 years of data to ensure we cover 5Y window fully
+    // Fetch 4 years of data to ensure we cover 3Y window fully
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setFullYear(endDate.getFullYear() - 6);
+    startDate.setFullYear(endDate.getFullYear() - 4);
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(endDate);
 
@@ -167,12 +167,12 @@ export async function calculateCEFZScore(
       }
     }
 
-    if (discounts.length < DAYS_2Y) {
-      return null; // Not enough data (less than 2 years)
+    if (discounts.length < DAYS_1Y) {
+      return null; // Not enough data (less than 1 year)
     }
 
-    // Use up to 5 years of data (most recent) for historical stats
-    const lookbackPeriod = Math.min(discounts.length, DAYS_5Y);
+    // Use up to 3 years of data (most recent) for historical stats
+    const lookbackPeriod = Math.min(discounts.length, DAYS_3Y);
     const history = discounts.slice(-lookbackPeriod);
 
     if (history.length === 0) return null;
@@ -196,7 +196,7 @@ export async function calculateCEFZScore(
     }
 
     // Calculate stats from history using STDEV.P (population standard deviation)
-    // The history array contains the most recent 5 years of discounts, INCLUDING the current value
+    // The history array contains the most recent 3 years of discounts, INCLUDING the current value
     // This matches Excel's STDEV.P function which uses all values in the range
     const avgDiscount = history.reduce((sum, d) => sum + d, 0) / history.length;
     // Population variance: Σ(x - mean)² / n (matches Excel STDEV.P, not STDEV.S which uses n-1)
