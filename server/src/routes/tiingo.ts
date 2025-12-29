@@ -248,7 +248,14 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
           logger.warn('Routes', `Failed to persist dividends for ${ticker}: ${err.message}`)
         );
 
-        dividends = tiingoRecords as any[];
+        // After upserting, re-fetch from database to get normalized values
+        // This ensures we have the latest calculated normalized_div values
+        const updatedDividends = await getDividendHistory(ticker, startDate);
+        if (updatedDividends.length > 0) {
+          dividends = updatedDividends as any[];
+        } else {
+          dividends = tiingoRecords as any[];
+        }
       }
     } catch (error) {
       logger.warn('Routes', `Failed to fetch Tiingo dividends for ${ticker}: ${(error as Error).message}`);
@@ -383,45 +390,41 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
       };
     });
 
-    // Use database normalized values if available, otherwise calculate on the fly
-    // The database should have normalized_div, frequency_num, pmt_type, etc. already calculated
-    // Only recalculate if database values are missing
-    const hasDatabaseNormalizedValues = dividends.some(d => 
-      (d as any).normalized_div !== null && (d as any).normalized_div !== undefined
-    );
+    // ALWAYS use database normalized values - they are calculated correctly by refresh_all.ts
+    // Create a map for quick lookup by ex_date to match dividendRecords with dividends
+    const dividendsByDateMap = new Map<string, any>();
+    dividends.forEach((d, idx) => {
+      const exDate = d.ex_date.split('T')[0]; // Normalize date format
+      dividendsByDateMap.set(exDate, d);
+    });
 
-    let dividendsWithNormalized;
-    
-    if (hasDatabaseNormalizedValues) {
-      // Use database values - they are already calculated correctly by refresh_all.ts
-      dividendsWithNormalized = dividendRecords.map((d, idx) => {
-        const dbDiv = dividends[idx];
+    // Map dividendRecords to include normalized values from database
+    const dividendsWithNormalized = dividendRecords.map((d) => {
+      const dbDiv = dividendsByDateMap.get(d.exDate);
+      
+      // Always prefer database normalized values if available
+      if (dbDiv && (dbDiv as any).normalized_div !== null && (dbDiv as any).normalized_div !== undefined) {
         return {
           ...d,
           pmtType: ((dbDiv as any).pmt_type ?? 'Regular') as 'Regular' | 'Special' | 'Initial',
           frequencyNum: (dbDiv as any).frequency_num ?? 12,
           daysSincePrev: (dbDiv as any).days_since_prev ?? null,
           annualized: (dbDiv as any).annualized ?? null,
-          normalizedDiv: (dbDiv as any).normalized_div ?? null,
+          normalizedDiv: (dbDiv as any).normalized_div ?? null, // Always use database value
         };
-      });
-    } else {
-      // Database values not available - calculate on the fly (fallback)
-      // Note: calculateNormalizedForResponse sorts input ascending, calculates, then reverses result to descending
-      // Our dividendRecords are in descending order (newest first), so indices should match after reverse
-      const normalizedValues = calculateNormalizedForResponse(dividendRecords);
-
-      // Merge normalized values with dividend records
-      // Both arrays are now in descending order (newest first), so indices should match
-      dividendsWithNormalized = dividendRecords.map((d, idx) => ({
+      }
+      
+      // Fallback: if database value not available, return null for normalizedDiv
+      // This prevents incorrect calculations - should not happen if refresh_all.ts has run
+      return {
         ...d,
-        pmtType: normalizedValues[idx]?.pmtType ?? 'Regular',
-        frequencyNum: normalizedValues[idx]?.frequencyNum ?? 12,
-        daysSincePrev: normalizedValues[idx]?.daysSincePrev ?? null,
-        annualized: normalizedValues[idx]?.annualized ?? null,
-        normalizedDiv: normalizedValues[idx]?.normalizedDiv ?? null,
-      }));
-    }
+        pmtType: 'Regular' as const,
+        frequencyNum: 12,
+        daysSincePrev: null,
+        annualized: null,
+        normalizedDiv: null, // Explicitly null if not in database
+      };
+    });
 
     res.json({
       ticker: ticker.toUpperCase(),
