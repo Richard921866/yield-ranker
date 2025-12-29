@@ -25,7 +25,8 @@
  *    - 80-100 days → 4 (Quarterly)
  *    - else → 1 (Annual/Irregular)
  * 4. ANNUALIZED: adj_amount × frequency_num (only for Regular dividends)
- * 5. NORMALIZED: annualized value for line chart (only for Regular dividends)
+ * 5. NORMALIZED: annualized / 52 = (adj_amount × frequency_num) / 52 (weekly equivalent rate)
+ *    Only for Regular dividends. This normalizes all payments to weekly equivalent for line chart comparison.
  */
 
 export interface DividendInput {
@@ -197,12 +198,13 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
         if (pmtType === 'Regular' && amount > 0) {
             annualized = amount * frequencyNum;
             
-            // Normalized value: convert to monthly equivalent rate for line chart
-            // This allows comparing dividends across different frequencies (weekly, monthly, quarterly)
-            // Formula: amount × (frequency / 12) = monthly equivalent
-            // Example: $0.10 weekly → $0.10 × (52/12) = $0.433 monthly equivalent
-            // Example: $0.30 monthly → $0.30 × (12/12) = $0.30 monthly equivalent
-            normalizedDiv = amount * (frequencyNum / 12);
+            // Normalized value: convert to weekly equivalent rate for line chart
+            // Formula: normalizedDiv = annualized / 52 = (amount × frequency) / 52
+            // This normalizes all dividends to a weekly equivalent rate for consistent comparison
+            // Example: $0.10 weekly → ($0.10 × 52) / 52 = $0.10 (stays same)
+            // Example: $0.30 monthly → ($0.30 × 12) / 52 = $0.0692 weekly equivalent
+            // Example: $0.694 monthly → ($0.694 × 12) / 52 = $0.16015 weekly equivalent
+            normalizedDiv = annualized / 52;
         }
 
         results.push({
@@ -309,9 +311,10 @@ export function calculateNormalizedForResponse(
 
         if (pmtType === 'Regular' && amount > 0) {
             annualized = amount * frequencyNum;
-            // Normalized value: convert to monthly equivalent rate for line chart
-            // This allows comparing dividends across different frequencies
-            normalizedDiv = amount * (frequencyNum / 12);
+            // Normalized value: convert to weekly equivalent rate for line chart
+            // Formula: normalizedDiv = annualized / 52 = (amount × frequency) / 52
+            // This normalizes all dividends to a weekly equivalent rate for consistent comparison
+            normalizedDiv = annualized / 52;
         }
 
         results.push({

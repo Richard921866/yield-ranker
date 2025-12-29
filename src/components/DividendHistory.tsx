@@ -205,15 +205,16 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
         const pmtType = div.pmtType || (div.daysSincePrev !== undefined && div.daysSincePrev !== null && div.daysSincePrev <= 5 ? 'Special' : 'Regular');
 
         if (pmtType === 'Regular') {
-          // ALWAYS use backend-provided normalizedDiv if available (monthly equivalent rate)
+          // ALWAYS use backend-provided normalizedDiv if available (weekly equivalent rate)
           // This ensures consistency with backend calculations
           if (div.normalizedDiv !== null && div.normalizedDiv !== undefined && !isNaN(div.normalizedDiv) && isFinite(div.normalizedDiv) && div.normalizedDiv > 0) {
             normalizedRate = div.normalizedDiv;
           } else {
             // Fallback: calculate locally if backend didn't provide value
             const freqNum = div.frequencyNum || numPayments || 12;
-            // Calculate monthly equivalent: amount × (frequency / 12)
-            normalizedRate = amount * (freqNum / 12);
+            // Calculate weekly equivalent: (amount × frequency) / 52
+            const annualized = amount * freqNum;
+            normalizedRate = annualized / 52;
           }
         }
         // For Special/Initial dividends, normalizedRate stays null (skip in line chart)
