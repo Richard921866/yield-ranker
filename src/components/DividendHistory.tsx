@@ -189,32 +189,40 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
 
     // Map dividends to chart data using backend-provided normalized values
     const chartData = dividends.map((div) => {
-      // Always use adjAmount for dividend history charts (no fallback to amount)
-      // This ensures accuracy and consistency with split-adjusted amounts
-      const amount = (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
-        ? div.adjAmount
+      // Use UNADJUSTED amount (div.amount/div_cash) for BAR chart
+      // Use ADJUSTED amount for LINE chart (via normalizedDiv which is calculated from adj_amount)
+      // Per CEO requirement: "USE ADJ PRICE FOR LINE AND UNADJ PRICE FOR BAR"
+      const amount = (typeof div.amount === 'number' && !isNaN(div.amount) && isFinite(div.amount) && div.amount > 0)
+        ? div.amount
         : 0;
 
       // Use backend-provided normalized/annualized value
       // Only show normalized line for Regular dividends (not Special or Initial)
       let normalizedRate: number | null = null;
 
-      if (frequencyChanged && amount > 0) {
-        // Use backend-provided normalized_div value (monthly equivalent rate) for Regular dividends
+      if (frequencyChanged) {
+        // Use backend-provided normalized_div value (weekly equivalent rate) for Regular dividends
         // Filter out Special dividends from the line (they would spike artificially)
         const pmtType = div.pmtType || (div.daysSincePrev !== undefined && div.daysSincePrev !== null && div.daysSincePrev <= 5 ? 'Special' : 'Regular');
 
         if (pmtType === 'Regular') {
           // ALWAYS use backend-provided normalizedDiv if available (weekly equivalent rate)
+          // normalizedDiv is calculated from adj_amount × frequency / 52
           // This ensures consistency with backend calculations
           if (div.normalizedDiv !== null && div.normalizedDiv !== undefined && !isNaN(div.normalizedDiv) && isFinite(div.normalizedDiv) && div.normalizedDiv > 0) {
             normalizedRate = div.normalizedDiv;
           } else {
             // Fallback: calculate locally if backend didn't provide value
-            const freqNum = div.frequencyNum || numPayments || 12;
-            // Calculate weekly equivalent: (amount × frequency) / 52
-            const annualized = amount * freqNum;
-            normalizedRate = annualized / 52;
+            // Must use adjAmount (not unadjusted amount) for normalization calculation
+            const adjAmount = (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
+              ? div.adjAmount
+              : 0;
+            if (adjAmount > 0) {
+              const freqNum = div.frequencyNum || numPayments || 12;
+              // Calculate weekly equivalent: (adjAmount × frequency) / 52
+              const annualized = adjAmount * freqNum;
+              normalizedRate = annualized / 52;
+            }
           }
         }
         // For Special/Initial dividends, normalizedRate stays null (skip in line chart)
