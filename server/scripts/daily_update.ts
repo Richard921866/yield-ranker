@@ -48,11 +48,12 @@ type DividendData = { date: string; dividend: number; adjDividend: number; scale
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-// CRITICAL: Must be at least 5 years (1825 days) for CEF Z-score calculations
-// Using 15 years (5475 days) to match refresh scripts and ensure we have enough data for all metrics
+// CRITICAL: Using 15 years (5475 days) to match refresh scripts and ensure we have enough data for all metrics
+// Note: Z-Score calculation uses 3-year max / 1-year min lookback (implemented in calculateCEFZScore function)
 const LOOKBACK_DAYS = 5475; // 15 years = 15 * 365 = 5475 days
-// Minimum days needed for 5-year Z-score: 1260 trading days ≈ 1825 calendar days
-const MIN_DAYS_FOR_ZSCORE = 1825; // ~5 years (ensures ~1260 trading days)
+// Minimum days to ensure we have enough data for 3-year Z-score calculation
+// Z-score needs at least 1 year (252 trading days) minimum, but we fetch more to support the 3-year window
+const MIN_DAYS_FOR_ZSCORE = 1095; // 3 years (ensures ~756 trading days available for z-score's 3-year max window)
 const BATCH_SIZE = 100;
 
 // ============================================================================
@@ -547,7 +548,7 @@ async function updateTicker(
         priceStartDate = formatDate(lastDate);
         console.log(`  Incremental: fetching from ${priceStartDate} (last: ${lastPriceDate})`);
         
-        // For CEFs, ensure we have at least 5 years of data for Z-score calculations
+        // For CEFs, ensure we have at least 1 year of data for Z-score calculations (3-year max / 1-year min)
         if (isCEF && !(await hasMinimumData(ticker))) {
           const minStartDate = getDateDaysAgo(MIN_DAYS_FOR_ZSCORE);
           if (priceStartDate > minStartDate) {
