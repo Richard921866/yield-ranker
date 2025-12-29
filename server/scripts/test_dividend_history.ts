@@ -34,6 +34,7 @@ for (const envPath of envPaths) {
 
 import { getDividendHistory } from "../src/services/database.js";
 import { calculateDividendHistory } from "../src/routes/cefs.js";
+import type { DividendRecord } from "../src/types/index.js";
 
 function calculateDividendHistoryDetailed(dividends: DividendRecord[]): any {
   if (!dividends || dividends.length < 2) {

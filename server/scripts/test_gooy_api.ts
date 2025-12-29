@@ -28,7 +28,7 @@ async function testGOOYAPI() {
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const data = await response.json();
+    const data = await response.json() as any;
     
     console.log('GOOY API Response - Recent dividends with normalized values:');
     console.log('='.repeat(80));

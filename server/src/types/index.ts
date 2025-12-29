@@ -107,6 +107,7 @@ export interface DividendRecord {
 
 export interface ETFStaticRecord {
   ticker: string;
+  category?: string | null;  // Category: 'CCETF' or 'CCEF' or 'CEF'
   issuer: string | null;
   description: string | null;
   pay_day_text: string | null;

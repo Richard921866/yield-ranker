@@ -47,8 +47,8 @@ function calculateDividendHistory(dividends: DividendRecord[]): { result: string
     if (aManual !== bManual) {
       return bManual - aManual;
     }
-    const aDate = a.ex_date instanceof Date ? a.ex_date : new Date(a.ex_date);
-    const bDate = b.ex_date instanceof Date ? b.ex_date : new Date(b.ex_date);
+    const aDate = new Date(a.ex_date);
+    const bDate = new Date(b.ex_date);
     return bDate.getTime() - aDate.getTime();
   });
 
