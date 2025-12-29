@@ -63,6 +63,7 @@ if (!envLoaded) {
 
 import { createClient } from '@supabase/supabase-js';
 import { calculateNormalizedDividends } from '../src/services/dividendNormalization.js';
+import * as fs from 'fs';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -310,6 +311,42 @@ async function verifyGOOYNormalization() {
     console.log('='.repeat(100));
     console.log('END OF VERIFICATION REPORT');
     console.log('='.repeat(100));
+    
+    // Export to CSV file
+    const outputDir = path.resolve(__dirname, '../exports');
+    if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+    }
+    
+    // Create CSV content matching the spreadsheet format
+    let csvContent = 'GOOY DIVIDEND NORMALIZATION TABLE\n';
+    csvContent += 'COMPUTING LINE CHART WHEN FREQUENCIES CHANGE\n';
+    csvContent += 'BASED ON LAST FREQUENCY. USE ADJ PRICE FOR LINE AND UNADJ PRICE FOR BAR\n';
+    csvContent += 'USE NORMALIZED COLUMN FOR LINE IF FREQUENCY CHANGE\n';
+    csvContent += '\n';
+    csvContent += 'DATE,DIVIDEND,ADJ DIV,DAYS,TYPE,FREQ,ANNLZD,NORMALZD\n';
+    
+    // Add rows (newest to oldest to match spreadsheet)
+    rows.slice().reverse().forEach(row => {
+        const date = row.DATE;
+        const dividend = formatAmount(row.DIVIDEND);
+        const adjDiv = formatAmount(row.ADJ_DIV);
+        const days = row.DAYS === null ? '' : row.DAYS.toString();
+        const type = row.TYPE;
+        const freq = row.FREQ.toString();
+        const annlzd = row.ANNLZD !== null ? formatAnnualized(row.ANNLZD) : '';
+        const normalzd = row.NORMALZD !== null ? formatAmount(row.NORMALZD) : '';
+        
+        csvContent += `${date},${dividend},${adjDiv},${days},${type},${freq},${annlzd},${normalzd}\n`;
+    });
+    
+    const filename = `gooy_normalization_${new Date().toISOString().split('T')[0]}.csv`;
+    const filepath = path.join(outputDir, filename);
+    fs.writeFileSync(filepath, csvContent);
+    
+    console.log('');
+    console.log('✓ CSV file exported to:', filepath);
+    console.log('  You can open this file in Excel to compare with your spreadsheet');
 }
 
 // Run verification
