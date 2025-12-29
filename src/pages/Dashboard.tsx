@@ -2668,7 +2668,7 @@ export default function Dashboard() {
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        5-Year Z-Score
+                        3-Year Z-Score
                       </p>
                       <p className="text-xl font-bold text-foreground">
                         {selectedCEF.zScore5Yr != null ? selectedCEF.zScore5Yr.toFixed(2) : 'N/A'}

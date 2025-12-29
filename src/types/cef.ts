@@ -11,7 +11,7 @@ export interface CEF {
   marketPrice: number | null; // MP - Market Price
   nav: number | null; // NAV - Net Asset Value
   premiumDiscount: number | null; // Prem/Disc %
-  fiveYearZScore: number | null; // 5 Yr Z-Score
+  fiveYearZScore: number | null; // 3 Yr Z-Score
   navTrend6M: number | null; // 6 Mo NAV Trend % (126 trading days)
   navTrend12M: number | null; // 12M NAV Trend % (252 trading days)
   signal: number | null; // Signal rating (-2 to +3, or null if N/A)

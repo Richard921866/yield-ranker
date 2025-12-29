@@ -392,7 +392,7 @@ export const CEFTable = ({
                   onSort={handleSort}
                 >
                   <div className="whitespace-normal leading-tight">
-                    5 Yr
+                    3 Yr
                     <br />
                     Z-Score
                   </div>

@@ -117,8 +117,8 @@ function ClosedEndFunds() {
                 </div>
 
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">5 Yr Z-Score</h3>
-                  <p>Z-Score measures how many standard deviations the current premium/discount is from its 5-year average. Higher values indicate the fund is trading at a significant premium compared to historical levels.</p>
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">3 Yr Z-Score</h3>
+                  <p>Z-Score measures how many standard deviations the current premium/discount is from its 3-year average. Higher values indicate the fund is trading at a significant premium compared to historical levels.</p>
                 </div>
 
                 <div>
@@ -197,7 +197,7 @@ function ClosedEndFunds() {
                       <td className="border border-slate-300 px-4 py-2">1 (latest)</td>
                     </tr>
                     <tr className="bg-slate-50">
-                      <td className="border border-slate-300 px-4 py-2">5-Year Z-Score</td>
+                      <td className="border border-slate-300 px-4 py-2">3-Year Z-Score</td>
                       <td className="border border-slate-300 px-4 py-2"><span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-medium">FORMULA</span></td>
                       <td className="border border-slate-300 px-4 py-2">(Current P/D - Mean P/D) / StdDev<sup>*</sup></td>
                       <td className="border border-slate-300 px-4 py-2">504-1260 days</td>
@@ -251,7 +251,7 @@ function ClosedEndFunds() {
               <div className="mt-6 space-y-3 text-sm text-slate-600">
                 <p><strong>Source Legend:</strong> <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">RICH</span> = Manual upload, <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">API</span> = Tiingo API, <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-medium">CALC</span> = Simple calculation, <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-medium">FORMULA</span> = Complex formula</p>
 
-                <p><sup>*</sup> <strong>Z-Score:</strong> Uses 5-year lookback (max 1260 trading days). Minimum 2 years (504 days) required. Returns N/A if insufficient history.</p>
+                <p><sup>*</sup> <strong>Z-Score:</strong> Uses 3-year lookback (max 756 trading days). Minimum 2 years (504 days) required. Returns N/A if insufficient history.</p>
 
                 <p><sup>†</sup> <strong>Signal Scoring:</strong> +3 (Optimal): Z &lt; -1.5 AND 6M &gt; 0 AND 12M &gt; 0 | +2 (Good Value): Z &lt; -1.5 AND 6M &gt; 0 | +1 (Healthy): Z &gt; -1.5 AND 6M &gt; 0 | 0 (Neutral) | -1 (Value Trap): Z &lt; -1.5 AND 6M &lt; 0 | -2 (Overvalued): Z &gt; 1.5</p>
 
