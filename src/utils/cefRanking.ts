@@ -115,4 +115,3 @@ export const rankCEFs = (cefs: CEF[], weights: RankingWeights): CEF[] => {
     weightedRank: index + 1,
   }));
 };
-
