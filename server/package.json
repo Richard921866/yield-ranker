@@ -43,7 +43,8 @@
     "test:zscore": "tsx scripts/test_zscore_gab.ts",
     "tiingo:test": "tsx -e \"import { healthCheck } from './src/services/tiingo.js'; healthCheck().then(console.log)\"",
     "calc:normalized": "tsx scripts/calculate_normalized_dividends.ts",
-    "calc:normalized:ticker": "tsx scripts/calculate_normalized_dividends.ts --ticker"
+    "calc:normalized:ticker": "tsx scripts/calculate_normalized_dividends.ts --ticker",
+    "verify:gooy": "tsx scripts/verify_gooy_normalization.ts"
   },
   "dependencies": {
     "@mailerlite/mailerlite-nodejs": "^1.5.0",
