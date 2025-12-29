@@ -1927,19 +1927,38 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
 
     const supabase = getSupabase();
 
-    // Filter at database level: Only get CEFs (those with nav_symbol set)
-    // nav_symbol is the definitive identifier for CEFs
+    // Filter at database level: Use category column if available, otherwise nav_symbol
     logger.info(
       "Routes",
-      "Fetching CEFs from database with nav_symbol filter..."
+      "Fetching CEFs from database with category/nav_symbol filter..."
     );
-    const staticResult = await supabase
+    
+    // Try category filter first, fall back to nav_symbol if category not available
+    let staticResult;
+    const categoryCheck = await supabase
       .from("etf_static")
-      .select("*")
-      .not("nav_symbol", "is", null)
-      .neq("nav_symbol", "")
-      .order("ticker", { ascending: true })
-      .limit(10000);
+      .select("category")
+      .limit(1)
+      .single();
+    
+    if (categoryCheck.data && categoryCheck.data.category !== null && categoryCheck.data.category !== undefined) {
+      // Category column exists - use it for filtering
+      staticResult = await supabase
+        .from("etf_static")
+        .select("*")
+        .eq("category", "CEF")
+        .order("ticker", { ascending: true })
+        .limit(10000);
+    } else {
+      // Fallback: Use nav_symbol for backward compatibility
+      staticResult = await supabase
+        .from("etf_static")
+        .select("*")
+        .not("nav_symbol", "is", null)
+        .neq("nav_symbol", "")
+        .order("ticker", { ascending: true })
+        .limit(10000);
+    }
 
     if (staticResult.error) {
       logger.error(

@@ -533,6 +533,7 @@ model site_settings {
 /// Plus computed metrics from Tiingo data
 model etf_static {
   ticker               String             @id @db.VarChar(20)
+  category             String?            @db.VarChar(20)  // CEF, CCETF, REIT, etc.
   issuer               String?            @db.VarChar(255)
   description          String?
   pay_day_text         String?            @db.VarChar(100)
@@ -616,6 +617,7 @@ model etf_static {
   @@index([last_updated], map: "idx_etf_static_last_updated")
   @@index([tr_drip_12m], map: "idx_etf_static_tr_drip_12m")
   @@index([dividend_cv_percent], map: "idx_etf_static_dividend_cv")
+  @@index([category], map: "idx_etf_static_category")
   @@schema("public")
 }
 

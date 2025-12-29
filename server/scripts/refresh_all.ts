@@ -82,6 +82,7 @@ import {
 } from '../src/services/tiingo.js';
 import { calculateMetrics } from '../src/services/metrics.js';
 import { batchUpdateETFMetrics, batchUpdateETFMetricsPreservingCEFFields } from '../src/services/database.js';
+import { calculateNormalizedDividends } from '../src/services/dividendNormalization.js';
 import type { TiingoPriceData } from '../src/types/index.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
@@ -435,6 +436,59 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
     ]);
     
     console.log(`  ✓ Prices: ${pricesAdded} records | Dividends: ${dividendsAdded} records (with adj_amount for splits)`);
+
+    // ALWAYS recalculate normalized dividend columns (days_since_prev, pmt_type, frequency_num, annualized, normalized_div)
+    // This ensures all dividends (new and existing) use the latest calculation logic
+    if (!dryRun) {
+      console.log(`  Recalculating normalized dividend columns with latest logic...`);
+      try {
+        // Fetch ALL dividends for this ticker (not just new ones)
+        const { data: allDividends, error: divError } = await supabase
+          .from('dividends_detail')
+          .select('id, ticker, ex_date, adj_amount, div_cash')
+          .eq('ticker', ticker.toUpperCase())
+          .order('ex_date', { ascending: true });
+
+        if (!divError && allDividends && allDividends.length > 0) {
+          // Calculate normalized values using the latest backward confirmation logic
+          const normalized = calculateNormalizedDividends(
+            allDividends.map(d => ({
+              id: d.id,
+              ticker: d.ticker,
+              ex_date: d.ex_date,
+              div_cash: Number(d.div_cash),
+              adj_amount: d.adj_amount ? Number(d.adj_amount) : null,
+            }))
+          );
+
+          // Batch update database with normalized values
+          for (const norm of normalized) {
+            const { error: updateError } = await supabase
+              .from('dividends_detail')
+              .update({
+                days_since_prev: norm.days_since_prev,
+                pmt_type: norm.pmt_type,
+                frequency_num: norm.frequency_num,
+                annualized: norm.annualized,
+                normalized_div: norm.normalized_div,
+              })
+              .eq('id', norm.id);
+
+            if (updateError) {
+              console.error(`  ⚠ Error updating dividend ID ${norm.id}:`, updateError);
+            }
+          }
+          console.log(`  ✓ Normalized dividend columns updated for ${normalized.length} dividends`);
+        } else if (divError) {
+          console.error(`  ⚠ Error fetching dividends for normalization:`, divError);
+        }
+      } catch (error) {
+        console.error(`  ⚠ Error recalculating normalized dividends:`, error);
+        // Don't fail the whole refresh if normalization fails
+      }
+    } else {
+      console.log(`  Would recalculate normalized dividend columns for all dividends`);
+    }
 
     // Recalculate metrics
     console.log(`  Recalculating metrics...`);

@@ -200,16 +200,21 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
       let normalizedRate: number | null = null;
 
       if (frequencyChanged && amount > 0) {
-        // Use backend-provided annualized value for Regular dividends
+        // Use backend-provided normalized_div value (monthly equivalent rate) for Regular dividends
         // Filter out Special dividends from the line (they would spike artificially)
         const pmtType = div.pmtType || (div.daysSincePrev !== undefined && div.daysSincePrev !== null && div.daysSincePrev <= 5 ? 'Special' : 'Regular');
 
-        if (pmtType === 'Regular' && div.annualized !== null && div.annualized !== undefined && div.annualized > 0) {
-          normalizedRate = div.annualized;
-        } else if (pmtType === 'Regular') {
-          // Fallback: calculate locally if backend didn't provide value
-          const freqNum = div.frequencyNum || numPayments || 12;
-          normalizedRate = amount * freqNum;
+        if (pmtType === 'Regular') {
+          // ALWAYS use backend-provided normalizedDiv if available (monthly equivalent rate)
+          // This ensures consistency with backend calculations
+          if (div.normalizedDiv !== null && div.normalizedDiv !== undefined && !isNaN(div.normalizedDiv) && isFinite(div.normalizedDiv) && div.normalizedDiv > 0) {
+            normalizedRate = div.normalizedDiv;
+          } else {
+            // Fallback: calculate locally if backend didn't provide value
+            const freqNum = div.frequencyNum || numPayments || 12;
+            // Calculate monthly equivalent: amount × (frequency / 12)
+            normalizedRate = amount * (freqNum / 12);
+          }
         }
         // For Special/Initial dividends, normalizedRate stays null (skip in line chart)
       }

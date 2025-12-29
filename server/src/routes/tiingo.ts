@@ -161,7 +161,10 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
   try {
     const { ticker } = req.params;
     const years = parseInt(req.query.years as string) || 15;
-    const startDate = getDateYearsAgo(years);
+    
+    // For large year requests (50+ years), fetch all dividends without date filter
+    // This ensures we get full historical data
+    const startDate = years >= 50 ? undefined : getDateYearsAgo(years);
 
     let dividends = await getDividendHistory(ticker, startDate);
     const staticData = await getETFStatic(ticker);
@@ -175,7 +178,9 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
     logger.info('Routes', `Fetching dividends from Tiingo for ${ticker}...`);
 
     try {
-      const tiingoDividends = await fetchTiingoDividends(ticker, startDate);
+      // For large year requests, fetch all available data from Tiingo
+      const tiingoStartDate = years >= 50 ? undefined : startDate;
+      const tiingoDividends = await fetchTiingoDividends(ticker, tiingoStartDate);
 
       if (tiingoDividends.length > 0) {
         isLiveData = true;
@@ -355,9 +360,12 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
     });
 
     // Calculate normalized values using the service
+    // Note: calculateNormalizedForResponse sorts input ascending, calculates, then reverses result to descending
+    // Our dividendRecords are in descending order (newest first), so indices should match after reverse
     const normalizedValues = calculateNormalizedForResponse(dividendRecords);
 
     // Merge normalized values with dividend records
+    // Both arrays are now in descending order (newest first), so indices should match
     const dividendsWithNormalized = dividendRecords.map((d, idx) => ({
       ...d,
       pmtType: normalizedValues[idx]?.pmtType ?? 'Regular',

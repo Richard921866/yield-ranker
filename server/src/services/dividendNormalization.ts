@@ -10,12 +10,21 @@
  *    - null days → "Initial" (first dividend for ticker)
  *    - ≤5 days → "Special" (too close to previous, likely special dividend)
  *    - >5 days → "Regular"
- * 3. FREQUENCY (frequency_num): Based on gap detection
+ * 3. FREQUENCY (frequency_num): Backward confirmation rule
+ *    IMPORTANT: Since we're dealing with end-of-day data, we cannot know the frequency
+ *    of a payment until we see when the next one arrives. By looking at the gap between
+ *    the newest payment and the one immediately before it, we "confirm" the frequency
+ *    for that period.
+ *    
+ *    - For each dividend (except the last): Look AHEAD to next dividend to determine frequency
+ *    - For the last dividend: Use gap from previous dividend (since no next dividend yet)
+ *    
+ *    Frequency mapping:
  *    - 7-10 days → 52 (Weekly)
  *    - 25-35 days → 12 (Monthly)
  *    - 80-100 days → 4 (Quarterly)
  *    - else → 1 (Annual/Irregular)
- * 4. ANNUALIZED: adj_amount × frequency_num
+ * 4. ANNUALIZED: adj_amount × frequency_num (only for Regular dividends)
  * 5. NORMALIZED: annualized value for line chart (only for Regular dividends)
  */
 
@@ -39,20 +48,39 @@ export interface NormalizedDividend {
 /**
  * Determine frequency based on days between payments
  * Using ranges to account for weekends/holidays
+ * Based on CEO specification: 7-10 days = weekly (52), 25-35 days = monthly (12)
  */
 export function getFrequencyFromDays(days: number): number {
+    // Clear weekly pattern: 7-10 days
     if (days >= 7 && days <= 10) return 52;    // Weekly
+    
+    // Clear monthly pattern: 25-35 days
     if (days >= 25 && days <= 35) return 12;   // Monthly  
+    
+    // Clear quarterly pattern: 80-100 days
     if (days >= 80 && days <= 100) return 4;   // Quarterly
+    
+    // Clear semi-annual pattern: 170-200 days
     if (days >= 170 && days <= 200) return 2;  // Semi-annual
+    
+    // Clear annual pattern: > 200 days
     if (days > 200) return 1;                   // Annual or irregular
 
-    // Edge cases: handle transition periods
-    if (days > 10 && days < 25) return 52;     // Likely weekly with holiday gap
-    if (days > 35 && days < 80) return 12;     // Likely monthly with irregularity
-    if (days > 100 && days < 170) return 4;    // Likely quarterly with irregularity
+    // Edge cases for transition periods or irregular gaps
+    // 6 days: close to weekly (7 days), treat as weekly
+    if (days === 6) return 52;                  // Weekly pattern (early payment)
+    
+    // 11-24 days: closer to monthly than weekly, default to monthly
+    if (days > 10 && days < 25) return 12;     // Bi-weekly/irregular, treat as monthly
+    
+    // 36-79 days: closer to monthly than quarterly, default to monthly
+    if (days > 35 && days < 80) return 12;     // Irregular monthly pattern
+    
+    // 101-169 days: closer to quarterly than semi-annual
+    if (days > 100 && days < 170) return 4;    // Irregular quarterly pattern
 
-    return 12; // Default to monthly
+    // Default to monthly for any other case
+    return 12;
 }
 
 /**
@@ -114,40 +142,44 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
         const pmtType = getPaymentType(daysSincePrev);
         calculatedTypes.push(pmtType);
 
-        // Determine frequency
+        // Determine frequency using backward confirmation rule:
+        // Look ahead to NEXT dividend to confirm frequency of CURRENT dividend
+        // Only for the last dividend (most recent) do we use the gap from previous
         let frequencyNum = 12; // Default to monthly
 
-        if (daysSincePrev !== null && daysSincePrev > 5) {
-            // Normal case: use the gap from previous dividend
-            frequencyNum = getFrequencyFromDays(daysSincePrev);
-        } else if (pmtType === 'Special' || pmtType === 'Initial') {
-            // For Special dividends, look back to last Regular dividend for stable frequency
-            const lastRegular = findLastRegularDividend(sortedDividends, i, calculatedTypes);
-
-            if (lastRegular) {
-                // Calculate gap from last Regular to current
-                const currentDate = new Date(current.ex_date);
-                const lastRegularDate = new Date(lastRegular.dividend.ex_date);
-                const gapToLastRegular = Math.round(
-                    (currentDate.getTime() - lastRegularDate.getTime()) / (1000 * 60 * 60 * 24)
-                );
-
-                // If there are multiple payments between, derive frequency
-                const paymentsBetween = i - lastRegular.index;
-                if (paymentsBetween > 0) {
-                    const avgGap = gapToLastRegular / paymentsBetween;
-                    frequencyNum = getFrequencyFromDays(avgGap);
-                }
-            } else if (i < sortedDividends.length - 1) {
-                // Look ahead to next payment for frequency estimation
-                const nextDiv = sortedDividends[i + 1];
-                const nextDate = new Date(nextDiv.ex_date);
-                const currentDate = new Date(current.ex_date);
-                const daysToNext = Math.round(
-                    (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
-                );
-                if (daysToNext > 5) {
-                    frequencyNum = getFrequencyFromDays(daysToNext);
+        const isLastDividend = i === sortedDividends.length - 1;
+        
+        if (isLastDividend) {
+            // For the last dividend (most recent), use gap from previous since no next dividend exists
+            if (daysSincePrev !== null && daysSincePrev > 5) {
+                frequencyNum = getFrequencyFromDays(daysSincePrev);
+            }
+        } else {
+            // For all other dividends: look ahead to next dividend to confirm frequency
+            const nextDiv = sortedDividends[i + 1];
+            const nextDate = new Date(nextDiv.ex_date);
+            const currentDate = new Date(current.ex_date);
+            const daysToNext = Math.round(
+                (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
+            );
+            
+            if (daysToNext > 5) {
+                // Use the gap to next dividend to determine frequency of current dividend
+                frequencyNum = getFrequencyFromDays(daysToNext);
+            } else if (pmtType === 'Special' || pmtType === 'Initial') {
+                // For Special/Initial dividends with very short gaps, look back to last Regular
+                const lastRegular = findLastRegularDividend(sortedDividends, i, calculatedTypes);
+                if (lastRegular) {
+                    const currentDate = new Date(current.ex_date);
+                    const lastRegularDate = new Date(lastRegular.dividend.ex_date);
+                    const gapToLastRegular = Math.round(
+                        (currentDate.getTime() - lastRegularDate.getTime()) / (1000 * 60 * 60 * 24)
+                    );
+                    const paymentsBetween = i - lastRegular.index;
+                    if (paymentsBetween > 0) {
+                        const avgGap = gapToLastRegular / paymentsBetween;
+                        frequencyNum = getFrequencyFromDays(avgGap);
+                    }
                 }
             }
         }
@@ -164,8 +196,13 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
         // Only calculate for Regular dividends with valid amounts
         if (pmtType === 'Regular' && amount > 0) {
             annualized = amount * frequencyNum;
-            // Normalized value is the annualized rate for consistent line chart display
-            normalizedDiv = annualized;
+            
+            // Normalized value: convert to monthly equivalent rate for line chart
+            // This allows comparing dividends across different frequencies (weekly, monthly, quarterly)
+            // Formula: amount × (frequency / 12) = monthly equivalent
+            // Example: $0.10 weekly → $0.10 × (52/12) = $0.433 monthly equivalent
+            // Example: $0.30 monthly → $0.30 × (12/12) = $0.30 monthly equivalent
+            normalizedDiv = amount * (frequencyNum / 12);
         }
 
         results.push({
@@ -237,20 +274,29 @@ export function calculateNormalizedForResponse(
         const pmtType = getPaymentType(daysSincePrev);
         calculatedTypes.push(pmtType);
 
-        // Determine frequency
+        // Determine frequency using backward confirmation rule:
+        // Look ahead to NEXT dividend to confirm frequency of CURRENT dividend
+        // Only for the last dividend (most recent) do we use the gap from previous
         let frequencyNum = 12; // Default to monthly
 
-        if (daysSincePrev !== null && daysSincePrev > 5) {
-            frequencyNum = getFrequencyFromDays(daysSincePrev);
-        } else if (i < sorted.length - 1) {
-            // Look ahead for Initial/Special
+        const isLastDividend = i === sorted.length - 1;
+        
+        if (isLastDividend) {
+            // For the last dividend (most recent), use gap from previous since no next dividend exists
+            if (daysSincePrev !== null && daysSincePrev > 5) {
+                frequencyNum = getFrequencyFromDays(daysSincePrev);
+            }
+        } else {
+            // For all other dividends: look ahead to next dividend to confirm frequency
             const nextDiv = sorted[i + 1];
             const nextDate = new Date(nextDiv.exDate);
             const currentDate = new Date(current.exDate);
             const daysToNext = Math.round(
                 (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
             );
+            
             if (daysToNext > 5) {
+                // Use the gap to next dividend to determine frequency of current dividend
                 frequencyNum = getFrequencyFromDays(daysToNext);
             }
         }
@@ -263,7 +309,9 @@ export function calculateNormalizedForResponse(
 
         if (pmtType === 'Regular' && amount > 0) {
             annualized = amount * frequencyNum;
-            normalizedDiv = annualized;
+            // Normalized value: convert to monthly equivalent rate for line chart
+            // This allows comparing dividends across different frequencies
+            normalizedDiv = amount * (frequencyNum / 12);
         }
 
         results.push({

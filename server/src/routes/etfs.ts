@@ -393,6 +393,7 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
 
       records.push({
         ticker,
+        category: categoryValue,  // Save category to database
         issuer: issuerCol && row[issuerCol] ? String(row[issuerCol]).trim() : null,
         description: descCol && row[descCol] ? String(row[descCol]).trim() : null,
         pay_day_text: payDayCol && row[payDayCol] ? String(row[payDayCol]).trim() : null,
@@ -440,6 +441,7 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
           updated_at: now,
         };
 
+        if (record.category !== null && record.category !== undefined) updateRecord.category = record.category;
         if (record.issuer !== null && record.issuer !== undefined) updateRecord.issuer = record.issuer;
         if (record.description !== null && record.description !== undefined) updateRecord.description = record.description;
         if (record.pay_day_text !== null && record.pay_day_text !== undefined) updateRecord.pay_day_text = record.pay_day_text;
@@ -1300,9 +1302,14 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     const allData = staticResult.data || [];
 
     // Filter: Include ONLY actual CCETFs (Covered Call ETFs)
-    // Exclude: CEFs (have nav_symbol + NAV data), NAV placeholder records, auto-created records
-    // CRITICAL: Exclude NAV symbol records (where ticker === nav_symbol) - these are placeholder records
+    // PRIMARY FILTER: Use category column if available, otherwise fall back to nav_symbol logic
     const staticData = allData.filter((item: any) => {
+      // If category column exists and is set, use it for filtering
+      if (item.category) {
+        return item.category.toUpperCase() === 'CCETF';
+      }
+      
+      // Fallback: Use nav_symbol logic for backward compatibility
       const ticker = item.ticker || '';
       const navSymbol = item.nav_symbol || '';
       const issuer = item.issuer || '';
