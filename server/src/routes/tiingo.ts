@@ -359,21 +359,45 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
       };
     });
 
-    // Calculate normalized values using the service
-    // Note: calculateNormalizedForResponse sorts input ascending, calculates, then reverses result to descending
-    // Our dividendRecords are in descending order (newest first), so indices should match after reverse
-    const normalizedValues = calculateNormalizedForResponse(dividendRecords);
+    // Use database normalized values if available, otherwise calculate on the fly
+    // The database should have normalized_div, frequency_num, pmt_type, etc. already calculated
+    // Only recalculate if database values are missing
+    const hasDatabaseNormalizedValues = dividends.some(d => 
+      (d as any).normalized_div !== null && (d as any).normalized_div !== undefined
+    );
 
-    // Merge normalized values with dividend records
-    // Both arrays are now in descending order (newest first), so indices should match
-    const dividendsWithNormalized = dividendRecords.map((d, idx) => ({
-      ...d,
-      pmtType: normalizedValues[idx]?.pmtType ?? 'Regular',
-      frequencyNum: normalizedValues[idx]?.frequencyNum ?? 12,
-      daysSincePrev: normalizedValues[idx]?.daysSincePrev ?? null,
-      annualized: normalizedValues[idx]?.annualized ?? null,
-      normalizedDiv: normalizedValues[idx]?.normalizedDiv ?? null,
-    }));
+    let dividendsWithNormalized;
+    
+    if (hasDatabaseNormalizedValues) {
+      // Use database values - they are already calculated correctly by refresh_all.ts
+      dividendsWithNormalized = dividendRecords.map((d, idx) => {
+        const dbDiv = dividends[idx];
+        return {
+          ...d,
+          pmtType: ((dbDiv as any).pmt_type ?? 'Regular') as 'Regular' | 'Special' | 'Initial',
+          frequencyNum: (dbDiv as any).frequency_num ?? 12,
+          daysSincePrev: (dbDiv as any).days_since_prev ?? null,
+          annualized: (dbDiv as any).annualized ?? null,
+          normalizedDiv: (dbDiv as any).normalized_div ?? null,
+        };
+      });
+    } else {
+      // Database values not available - calculate on the fly (fallback)
+      // Note: calculateNormalizedForResponse sorts input ascending, calculates, then reverses result to descending
+      // Our dividendRecords are in descending order (newest first), so indices should match after reverse
+      const normalizedValues = calculateNormalizedForResponse(dividendRecords);
+
+      // Merge normalized values with dividend records
+      // Both arrays are now in descending order (newest first), so indices should match
+      dividendsWithNormalized = dividendRecords.map((d, idx) => ({
+        ...d,
+        pmtType: normalizedValues[idx]?.pmtType ?? 'Regular',
+        frequencyNum: normalizedValues[idx]?.frequencyNum ?? 12,
+        daysSincePrev: normalizedValues[idx]?.daysSincePrev ?? null,
+        annualized: normalizedValues[idx]?.annualized ?? null,
+        normalizedDiv: normalizedValues[idx]?.normalizedDiv ?? null,
+      }));
+    }
 
     res.json({
       ticker: ticker.toUpperCase(),
