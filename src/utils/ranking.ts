@@ -1,5 +1,18 @@
 import { ETF, RankingWeights } from "@/types/etf";
 
+/**
+ * Calculate weighted rank using RANK-BASED method (1-N ranking, then weighted)
+ * This matches the CEO's manual calculation method and server-side ranking.
+ * 
+ * Method:
+ * 1. Rank each metric from 1 (best) to N (worst)
+ * 2. Multiply each rank by its weight percentage
+ * 3. Sum weighted ranks (lower total = better, rank 1 = best)
+ * 
+ * This ensures that when you set 100% for one metric, you get the same ranking
+ * as ranking that metric individually, and when combining metrics, the ranking
+ * matches manual calculation.
+ */
 export const calculateWeightedRank = (
   etf: ETF,
   allETFs: ETF[],
@@ -12,66 +25,75 @@ export const calculateWeightedRank = (
     ? "trDrip6Mo" 
     : "trDrip12Mo";
   
-  const yields = allETFs
-    .map(e => e.forwardYield)
-    .filter((v): v is number => v !== null && v !== undefined && !isNaN(v) && v > 0);
-  
-  const volatilityValues = allETFs
-    .map(e => e.dividendCVPercent ?? e.standardDeviation ?? null)
-    .filter((v): v is number => v !== null && v !== undefined && !isNaN(v) && v >= 0);
-  
-  const returns = allETFs
-    .map(e => {
-      if (returnField === "trDrip3Mo") return e.trDrip3Mo ?? e.totalReturn3Mo ?? null;
-      if (returnField === "trDrip6Mo") return e.trDrip6Mo ?? e.totalReturn6Mo ?? null;
-      if (returnField === "trDrip12Mo") return e.trDrip12Mo ?? e.totalReturn12Mo ?? null;
-      return null;
-    })
-    .filter((v): v is number => v !== null && v !== undefined && !isNaN(v));
+  // Filter valid values for each metric
+  const validETFs = allETFs.filter(e => 
+    (e.forwardYield !== null && !isNaN(e.forwardYield) && e.forwardYield > 0) ||
+    (e.dividendCVPercent !== null && !isNaN(e.dividendCVPercent)) ||
+    (e.standardDeviation !== null && !isNaN(e.standardDeviation)) ||
+    (returnField === "trDrip3Mo" && (e.trDrip3Mo !== null || e.totalReturn3Mo !== null)) ||
+    (returnField === "trDrip6Mo" && (e.trDrip6Mo !== null || e.totalReturn6Mo !== null)) ||
+    (returnField === "trDrip12Mo" && (e.trDrip12Mo !== null || e.totalReturn12Mo !== null))
+  );
 
-  if (yields.length === 0 && volatilityValues.length === 0 && returns.length === 0) {
+  if (validETFs.length === 0) {
     return 0;
   }
 
-  const minYield = yields.length > 0 ? Math.min(...yields) : 0;
-  const maxYield = yields.length > 0 ? Math.max(...yields) : 1;
-  const minVol = volatilityValues.length > 0 ? Math.min(...volatilityValues) : 0;
-  const maxVol = volatilityValues.length > 0 ? Math.max(...volatilityValues) : 1;
-  const minReturn = returns.length > 0 ? Math.min(...returns) : 0;
-  const maxReturn = returns.length > 0 ? Math.max(...returns) : 1;
+  const maxRank = validETFs.length;
 
-  const normalizeYield = (value: number | null) => {
-    if (value === null || value === undefined || isNaN(value) || value <= 0) return 0;
-    if (maxYield === minYield) return 0.5;
-    return (value - minYield) / (maxYield - minYield);
-  };
+  // Rank YIELD: Higher is better (rank 1 = highest yield)
+  const yieldRanked = [...validETFs]
+    .filter(e => e.forwardYield !== null && !isNaN(e.forwardYield) && e.forwardYield > 0)
+    .sort((a, b) => (b.forwardYield ?? 0) - (a.forwardYield ?? 0))
+    .map((e, index) => ({ ticker: e.symbol, rank: index + 1 }));
+  const yieldRankMap = new Map(yieldRanked.map(r => [r.ticker, r.rank]));
 
-  const normalizeVolatility = (value: number | null) => {
-    const volValue = value ?? null;
-    if (volValue === null || isNaN(volValue) || volValue < 0) return 0.5;
-    if (maxVol === minVol) return 0.5;
-    return (maxVol - volValue) / (maxVol - minVol);
-  };
+  // Rank VOLATILITY (DVI): Lower is better (rank 1 = lowest volatility/DVI)
+  const volatilityRanked = [...validETFs]
+    .filter(e => {
+      const vol = e.dividendCVPercent ?? e.standardDeviation ?? null;
+      return vol !== null && !isNaN(vol) && vol >= 0;
+    })
+    .sort((a, b) => {
+      const aVol = a.dividendCVPercent ?? a.standardDeviation ?? 0;
+      const bVol = b.dividendCVPercent ?? b.standardDeviation ?? 0;
+      return aVol - bVol; // Lower is better
+    })
+    .map((e, index) => ({ ticker: e.symbol, rank: index + 1 }));
+  const volatilityRankMap = new Map(volatilityRanked.map(r => [r.ticker, r.rank]));
 
-  const normalizeReturn = (value: number | null) => {
-    if (value === null || value === undefined || isNaN(value)) return 0;
-    if (maxReturn === minReturn) return 0.5;
-    return (value - minReturn) / (maxReturn - minReturn);
-  };
+  // Rank RETURN: Higher is better (rank 1 = highest return)
+  const returnRanked = [...validETFs]
+    .filter(e => {
+      if (returnField === "trDrip3Mo") return (e.trDrip3Mo !== null || e.totalReturn3Mo !== null) && !isNaN(e.trDrip3Mo ?? e.totalReturn3Mo ?? 0);
+      if (returnField === "trDrip6Mo") return (e.trDrip6Mo !== null || e.totalReturn6Mo !== null) && !isNaN(e.trDrip6Mo ?? e.totalReturn6Mo ?? 0);
+      if (returnField === "trDrip12Mo") return (e.trDrip12Mo !== null || e.totalReturn12Mo !== null) && !isNaN(e.trDrip12Mo ?? e.totalReturn12Mo ?? 0);
+      return false;
+    })
+    .sort((a, b) => {
+      const aVal = returnField === "trDrip3Mo" ? (a.trDrip3Mo ?? a.totalReturn3Mo ?? 0) : 
+                   returnField === "trDrip6Mo" ? (a.trDrip6Mo ?? a.totalReturn6Mo ?? 0) : 
+                   (a.trDrip12Mo ?? a.totalReturn12Mo ?? 0);
+      const bVal = returnField === "trDrip3Mo" ? (b.trDrip3Mo ?? b.totalReturn3Mo ?? 0) : 
+                   returnField === "trDrip6Mo" ? (b.trDrip6Mo ?? b.totalReturn6Mo ?? 0) : 
+                   (b.trDrip12Mo ?? b.totalReturn12Mo ?? 0);
+      return bVal - aVal; // Higher is better
+    })
+    .map((e, index) => ({ ticker: e.symbol, rank: index + 1 }));
+  const returnRankMap = new Map(returnRanked.map(r => [r.ticker, r.rank]));
 
-  const yieldValue = etf.forwardYield ?? 0;
-  const volatilityValue = etf.dividendCVPercent ?? etf.standardDeviation ?? null;
-  const returnValue = returnField === "trDrip3Mo" 
-    ? (etf.trDrip3Mo ?? etf.totalReturn3Mo ?? null)
-    : returnField === "trDrip6Mo"
-    ? (etf.trDrip6Mo ?? etf.totalReturn6Mo ?? null)
-    : (etf.trDrip12Mo ?? etf.totalReturn12Mo ?? null);
+  // Get ranks for this ETF (use maxRank if not found = worst rank)
+  const yieldRank = yieldRankMap.get(etf.symbol) ?? maxRank;
+  const volatilityRank = volatilityRankMap.get(etf.symbol) ?? maxRank;
+  const returnRank = returnRankMap.get(etf.symbol) ?? maxRank;
 
-  const yieldScore = normalizeYield(yieldValue) * (weights.yield / 100);
-  const volatilityScore = normalizeVolatility(volatilityValue) * (weights.volatility / 100);
-  const returnScore = normalizeReturn(returnValue) * (weights.totalReturn / 100);
+  // Calculate weighted total score (lower is better, rank 1 = best)
+  const totalScore = 
+    yieldRank * (weights.yield / 100) +
+    volatilityRank * (weights.volatility / 100) +
+    returnRank * (weights.totalReturn / 100);
 
-  return yieldScore + volatilityScore + returnScore;
+  return totalScore;
 };
 
 export const rankETFs = (etfs: ETF[], weights: RankingWeights): ETF[] => {
@@ -82,10 +104,11 @@ export const rankETFs = (etfs: ETF[], weights: RankingWeights): ETF[] => {
     customScore: calculateWeightedRank(etf, etfs, weights),
   }));
 
+  // Sort by totalScore (lower is better with rank-based method)
   const sortedETFs = rankedETFs.sort((a, b) => {
-    const scoreA = typeof a.customScore === 'number' ? a.customScore : 0;
-    const scoreB = typeof b.customScore === 'number' ? b.customScore : 0;
-    return scoreB - scoreA;
+    const scoreA = typeof a.customScore === 'number' ? a.customScore : Infinity;
+    const scoreB = typeof b.customScore === 'number' ? b.customScore : Infinity;
+    return scoreA - scoreB; // Lower score = better rank
   });
   
   return sortedETFs.map((etf, index) => ({
