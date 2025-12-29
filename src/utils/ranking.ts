@@ -120,8 +120,25 @@ export const rankETFs = (etfs: ETF[], weights: RankingWeights): ETF[] => {
     return scoreA - scoreB; // Lower score = better rank
   });
   
-  return sortedETFs.map((etf, index) => ({
-    ...etf,
-    weightedRank: index + 1,
-  }));
+  // Assign ranks with ties: ETFs with same total score get the same rank
+  let currentRank = 1;
+  return sortedETFs.map((etf, index) => {
+    // If this ETF has a different score than the previous one, update the rank
+    if (index > 0) {
+      const prevScore = typeof sortedETFs[index - 1].customScore === 'number' 
+        ? sortedETFs[index - 1].customScore 
+        : Infinity;
+      const currentScore = typeof etf.customScore === 'number' 
+        ? etf.customScore 
+        : Infinity;
+      // Only increment rank if scores are different (accounting for floating point precision)
+      if (Math.abs(prevScore - currentScore) > 0.0001) {
+        currentRank = index + 1;
+      }
+    }
+    return {
+      ...etf,
+      weightedRank: currentRank,
+    };
+  });
 };

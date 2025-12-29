@@ -110,8 +110,25 @@ export const rankCEFs = (cefs: CEF[], weights: RankingWeights): CEF[] => {
     return scoreA - scoreB; // Lower score = better rank
   });
   
-  return sortedCEFs.map((cef, index) => ({
-    ...cef,
-    weightedRank: index + 1,
-  }));
+  // Assign ranks with ties: CEFs with same total score get the same rank
+  let currentRank = 1;
+  return sortedCEFs.map((cef, index) => {
+    // If this CEF has a different score than the previous one, update the rank
+    if (index > 0) {
+      const prevScore = typeof sortedCEFs[index - 1].customScore === 'number' 
+        ? sortedCEFs[index - 1].customScore 
+        : Infinity;
+      const currentScore = typeof cef.customScore === 'number' 
+        ? cef.customScore 
+        : Infinity;
+      // Only increment rank if scores are different (accounting for floating point precision)
+      if (Math.abs(prevScore - currentScore) > 0.0001) {
+        currentRank = index + 1;
+      }
+    }
+    return {
+      ...cef,
+      weightedRank: currentRank,
+    };
+  });
 };

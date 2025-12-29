@@ -232,10 +232,20 @@ function calculateRanks(cefData: CEFData[], weights: Weights): RankedCEF[] {
     };
   });
 
-  // Sort by total score (lower is better) and assign final ranks
+  // Sort by total score (lower is better) and assign final ranks with ties
   rankedCEFs.sort((a, b) => a.totalScore - b.totalScore);
+  let currentRank = 1;
   rankedCEFs.forEach((cef, index) => {
-    cef.finalRank = index + 1;
+    // If this CEF has a different score than the previous one, update the rank
+    if (index > 0) {
+      const prevScore = rankedCEFs[index - 1].totalScore;
+      const currentScore = cef.totalScore;
+      // Only increment rank if scores are different (accounting for floating point precision)
+      if (Math.abs(prevScore - currentScore) > 0.0001) {
+        currentRank = index + 1;
+      }
+    }
+    cef.finalRank = currentRank;
   });
 
   return rankedCEFs;
