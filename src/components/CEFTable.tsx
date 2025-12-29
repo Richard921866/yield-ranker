@@ -124,7 +124,6 @@ export const CEFTable = ({
           "description",
           "navSymbol",
           "openDate",
-          "dividendHistory",
         ];
         const forceString = textFields.includes(sortField);
 
@@ -256,20 +255,6 @@ export const CEFTable = ({
                   onSort={handleSort}
                 >
                   OPEN
-                </SortButton>
-              </th>
-              <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                <SortButton
-                  field="dividendHistory"
-                  sortField={sortField}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                >
-                  <div className="whitespace-normal leading-tight">
-                    DIV
-                    <br />
-                    HISTO
-                  </div>
                 </SortButton>
               </th>
               <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
@@ -588,9 +573,6 @@ export const CEFTable = ({
                 </td>
                 <td className="py-1 px-1.5 align-middle text-center text-xs text-muted-foreground">
                   {cef.openDate || "N/A"}
-                </td>
-                <td className="py-1 px-1.5 align-middle text-center text-xs text-muted-foreground font-medium">
-                  {cef.dividendHistory || "N/A"}
                 </td>
                 <td
                   className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium ${cef.ipoPrice &&
