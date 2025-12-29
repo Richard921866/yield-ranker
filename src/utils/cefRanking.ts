@@ -1,18 +1,5 @@
 import { CEF, RankingWeights } from "@/types/cef";
 
-/**
- * Calculate weighted rank using RANK-BASED method (1-N ranking, then weighted)
- * This matches the CEO's manual calculation method and server-side ranking.
- * 
- * Method:
- * 1. Rank each metric from 1 (best) to N (worst)
- * 2. Multiply each rank by its weight percentage
- * 3. Sum weighted ranks (lower total = better, rank 1 = best)
- * 
- * This ensures that when you set 100% for one metric, you get the same ranking
- * as ranking that metric individually, and when combining metrics, the ranking
- * matches manual calculation.
- */
 export const calculateWeightedRank = (
   cef: CEF,
   allCEFs: CEF[],
@@ -25,67 +12,69 @@ export const calculateWeightedRank = (
     ? "return6Mo" 
     : "return12Mo";
   
-  // Filter valid values for each metric
-  const validCEFs = allCEFs.filter(c => 
-    (c.forwardYield !== null && !isNaN(c.forwardYield) && c.forwardYield > 0) ||
-    (c.fiveYearZScore !== null && !isNaN(c.fiveYearZScore)) ||
-    (returnField === "return3Mo" && c.return3Mo !== null && !isNaN(c.return3Mo)) ||
-    (returnField === "return6Mo" && c.return6Mo !== null && !isNaN(c.return6Mo)) ||
-    (returnField === "return12Mo" && c.return12Mo !== null && !isNaN(c.return12Mo))
-  );
+  const yields = allCEFs
+    .map(c => c.forwardYield)
+    .filter((v): v is number => v !== null && v !== undefined && !isNaN(v) && v > 0);
+  
+  const zScoreValues = allCEFs
+    .map(c => c.fiveYearZScore ?? null)
+    .filter((v): v is number => v !== null && v !== undefined && !isNaN(v));
+  
+  const returns = allCEFs
+    .map(c => {
+      if (returnField === "return3Mo") return c.return3Mo ?? null;
+      if (returnField === "return6Mo") return c.return6Mo ?? null;
+      if (returnField === "return12Mo") return c.return12Mo ?? null;
+      return null;
+    })
+    .filter((v): v is number => v !== null && v !== undefined && !isNaN(v));
 
-  if (validCEFs.length === 0) {
+  if (yields.length === 0 && zScoreValues.length === 0 && returns.length === 0) {
     return 0;
   }
 
-  const maxRank = validCEFs.length;
+  const minYield = yields.length > 0 ? Math.min(...yields) : 0;
+  const maxYield = yields.length > 0 ? Math.max(...yields) : 1;
+  const minZScore = zScoreValues.length > 0 ? Math.min(...zScoreValues) : -3;
+  const maxZScore = zScoreValues.length > 0 ? Math.max(...zScoreValues) : 3;
+  const minReturn = returns.length > 0 ? Math.min(...returns) : 0;
+  const maxReturn = returns.length > 0 ? Math.max(...returns) : 1;
 
-  // Rank YIELD: Higher is better (rank 1 = highest yield)
-  const yieldRanked = [...validCEFs]
-    .filter(c => c.forwardYield !== null && !isNaN(c.forwardYield) && c.forwardYield > 0)
-    .sort((a, b) => (b.forwardYield ?? 0) - (a.forwardYield ?? 0))
-    .map((c, index) => ({ ticker: c.symbol, rank: index + 1 }));
-  const yieldRankMap = new Map(yieldRanked.map(r => [r.ticker, r.rank]));
+  const normalizeYield = (value: number | null) => {
+    if (value === null || value === undefined || isNaN(value) || value <= 0) return 0;
+    if (maxYield === minYield) return 0.5;
+    return (value - minYield) / (maxYield - minYield);
+  };
 
-  // Rank Z-SCORE: Lower is better (rank 1 = lowest/most negative Z-score)
-  const zScoreRanked = [...validCEFs]
-    .filter(c => c.fiveYearZScore !== null && !isNaN(c.fiveYearZScore))
-    .sort((a, b) => (a.fiveYearZScore ?? 0) - (b.fiveYearZScore ?? 0))
-    .map((c, index) => ({ ticker: c.symbol, rank: index + 1 }));
-  const zScoreRankMap = new Map(zScoreRanked.map(r => [r.ticker, r.rank]));
+  const normalizeZScore = (value: number | null) => {
+    const zScoreValue = value ?? null;
+    if (zScoreValue === null || isNaN(zScoreValue)) return 0.5;
+    if (maxZScore === minZScore) return 0.5;
+    // Invert: lower (more negative) Z-scores are better, so they should get higher normalized scores
+    // Formula: (maxZScore - zScoreValue) / (maxZScore - minZScore)
+    // This gives: minZScore (best) → 1.0, maxZScore (worst) → 0.0
+    return (maxZScore - zScoreValue) / (maxZScore - minZScore);
+  };
 
-  // Rank RETURN: Higher is better (rank 1 = highest return)
-  const returnRanked = [...validCEFs]
-    .filter(c => {
-      if (returnField === "return3Mo") return c.return3Mo !== null && !isNaN(c.return3Mo);
-      if (returnField === "return6Mo") return c.return6Mo !== null && !isNaN(c.return6Mo);
-      if (returnField === "return12Mo") return c.return12Mo !== null && !isNaN(c.return12Mo);
-      return false;
-    })
-    .sort((a, b) => {
-      const aVal = returnField === "return3Mo" ? (a.return3Mo ?? 0) : 
-                   returnField === "return6Mo" ? (a.return6Mo ?? 0) : 
-                   (a.return12Mo ?? 0);
-      const bVal = returnField === "return3Mo" ? (b.return3Mo ?? 0) : 
-                   returnField === "return6Mo" ? (b.return6Mo ?? 0) : 
-                   (b.return12Mo ?? 0);
-      return bVal - aVal;
-    })
-    .map((c, index) => ({ ticker: c.symbol, rank: index + 1 }));
-  const returnRankMap = new Map(returnRanked.map(r => [r.ticker, r.rank]));
+  const normalizeReturn = (value: number | null) => {
+    if (value === null || value === undefined || isNaN(value)) return 0;
+    if (maxReturn === minReturn) return 0.5;
+    return (value - minReturn) / (maxReturn - minReturn);
+  };
 
-  // Get ranks for this CEF (use maxRank if not found = worst rank)
-  const yieldRank = yieldRankMap.get(cef.symbol) ?? maxRank;
-  const zScoreRank = zScoreRankMap.get(cef.symbol) ?? maxRank;
-  const returnRank = returnRankMap.get(cef.symbol) ?? maxRank;
+  const yieldValue = cef.forwardYield ?? 0;
+  const zScoreValue = cef.fiveYearZScore ?? null;
+  const returnValue = returnField === "return3Mo" 
+    ? (cef.return3Mo ?? null)
+    : returnField === "return6Mo"
+    ? (cef.return6Mo ?? null)
+    : (cef.return12Mo ?? null);
 
-  // Calculate weighted total score (lower is better, rank 1 = best)
-  const totalScore = 
-    yieldRank * (weights.yield / 100) +
-    zScoreRank * (weights.volatility / 100) +
-    returnRank * (weights.totalReturn / 100);
+  const yieldScore = normalizeYield(yieldValue) * (weights.yield / 100);
+  const zScoreScore = normalizeZScore(zScoreValue) * (weights.volatility / 100);
+  const returnScore = normalizeReturn(returnValue) * (weights.totalReturn / 100);
 
-  return totalScore;
+  return yieldScore + zScoreScore + returnScore;
 };
 
 export const rankCEFs = (cefs: CEF[], weights: RankingWeights): CEF[] => {
@@ -96,11 +85,10 @@ export const rankCEFs = (cefs: CEF[], weights: RankingWeights): CEF[] => {
     customScore: calculateWeightedRank(cef, cefs, weights),
   }));
 
-  // Sort by totalScore (lower is better with rank-based method)
   const sortedCEFs = rankedCEFs.sort((a, b) => {
-    const scoreA = typeof a.customScore === 'number' ? a.customScore : Infinity;
-    const scoreB = typeof b.customScore === 'number' ? b.customScore : Infinity;
-    return scoreA - scoreB; // Lower score = better rank
+    const scoreA = typeof a.customScore === 'number' ? a.customScore : 0;
+    const scoreB = typeof b.customScore === 'number' ? b.customScore : 0;
+    return scoreB - scoreA;
   });
   
   return sortedCEFs.map((cef, index) => ({
