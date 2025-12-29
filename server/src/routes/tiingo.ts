@@ -400,7 +400,9 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
 
     // Map dividendRecords to include normalized values from database
     const dividendsWithNormalized = dividendRecords.map((d) => {
-      const dbDiv = dividendsByDateMap.get(d.exDate);
+      // Normalize exDate format to match the map key (remove time component if present)
+      const normalizedExDate = d.exDate.split('T')[0];
+      const dbDiv = dividendsByDateMap.get(normalizedExDate);
       
       // Always prefer database normalized values if available
       if (dbDiv && (dbDiv as any).normalized_div !== null && (dbDiv as any).normalized_div !== undefined) {
