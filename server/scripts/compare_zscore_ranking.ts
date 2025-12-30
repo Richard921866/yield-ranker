@@ -40,20 +40,20 @@ interface CEFData {
   zScore: number | null;
 }
 
-// CEO's expected Z-score ranking from spreadsheet
+// CEO's expected Z-score ranking from spreadsheet (from CEO's latest data)
 const CEO_ZSCORE_RANKING: { [ticker: string]: number } = {
-  'FFA': 1,
-  'CSQ': 2,
-  'GOF': 3,
-  'UTF': 4,
-  'PCN': 5,
-  'UTG': 6,
-  'BTO': 7,
-  'FOF': 8,
-  'DNP': 9,
-  'BME': 10,
-  'IGR': 11,
-  'GAB': 12,
+  'FFA': 1,   // -3.04
+  'CSQ': 2,   // -2.12
+  'GOF': 3,   // -1.97
+  'UTF': 4,   // -1.65
+  'PCN': 5,   // -1.57
+  'UTG': 6,   // -0.82
+  'BTO': 7,   // -1.31
+  'FOF': 8,   // -1.62
+  'DNP': 9,   // -0.31
+  'BME': 10,  // -0.36
+  'IGR': 11,  // -0.13
+  'GAB': 12,  // 0.95
 };
 
 async function fetchCEFData(): Promise<CEFData[]> {
