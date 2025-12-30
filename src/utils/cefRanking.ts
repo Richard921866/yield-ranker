@@ -55,10 +55,29 @@ export const calculateWeightedRank = (
   const yieldRankMap = new Map(yieldRanked.map(r => [r.ticker, r.rank]));
 
   // Rank Z-SCORE: Lower is better (rank 1 = lowest/most negative Z-score)
-  const zScoreRanked = [...validCEFs]
+  // Handle ties: CEFs with same Z-score get same rank, next rank skips
+  const zScoreSorted = [...validCEFs]
     .filter(c => c.fiveYearZScore !== null && !isNaN(c.fiveYearZScore))
-    .sort((a, b) => (a.fiveYearZScore ?? 0) - (b.fiveYearZScore ?? 0))
-    .map((c, index) => ({ ticker: c.symbol, rank: index + 1 }));
+    .sort((a, b) => (a.fiveYearZScore ?? 0) - (b.fiveYearZScore ?? 0));
+  
+  const zScoreRanked: { ticker: string; rank: number; value: number }[] = [];
+  let currentRank = 1;
+  zScoreSorted.forEach((cef, index) => {
+    // If this Z-score is different from previous, update rank
+    if (index > 0) {
+      const prevZScore = zScoreSorted[index - 1].fiveYearZScore ?? 0;
+      const currentZScore = cef.fiveYearZScore ?? 0;
+      // Only increment rank if Z-scores are different (accounting for floating point precision)
+      if (Math.abs(prevZScore - currentZScore) > 0.0001) {
+        currentRank = index + 1;
+      }
+    }
+    zScoreRanked.push({ 
+      ticker: cef.symbol, 
+      rank: currentRank,
+      value: cef.fiveYearZScore ?? 0
+    });
+  });
   const zScoreRankMap = new Map(zScoreRanked.map(r => [r.ticker, r.rank]));
 
   // Rank RETURN: Higher is better (rank 1 = highest return)
