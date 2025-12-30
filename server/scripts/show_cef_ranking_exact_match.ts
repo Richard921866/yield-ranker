@@ -218,14 +218,14 @@ function calculateRanks(cefData: CEFData[], weights: Weights): RankedCEF[] {
 
   // Sort and assign final ranks with ties
   rankedCEFs.sort((a, b) => a.totalScore - b.totalScore);
-  let currentRank = 1;
+  let finalRank = 1;
   rankedCEFs.forEach((cef, index) => {
     if (index > 0) {
       if (Math.abs(rankedCEFs[index - 1].totalScore - cef.totalScore) > 0.0001) {
-        currentRank = index + 1;
+        finalRank = index + 1;
       }
     }
-    cef.finalRank = currentRank;
+    cef.finalRank = finalRank;
   });
 
   return rankedCEFs;
