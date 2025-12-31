@@ -155,19 +155,41 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
             // This frequency will be assigned to the PREVIOUS dividend
             frequencyNum = getFrequencyFromDays(daysSincePrev);
             
-            // Update the previous dividend's frequency
-            const prevResult = results[results.length - 1];
-            prevResult.frequency_num = frequencyNum;
+            // CRITICAL FIX: Don't overwrite previous dividend's frequency if PREVIOUS dividend is at a frequency transition
+            // Check if PREVIOUS dividend is at a frequency transition by comparing:
+            // - Gap FROM prevPrev TO previous (prevPrevFreq)
+            // - Gap FROM previous TO current (frequencyNum)
+            // If they're different, previous is at transition - don't overwrite its frequency
+            let shouldUpdatePrevFrequency = true;
+            if (i > 1) {
+                const prevPrev = sortedDividends[i - 2];
+                const prevDate = new Date(previous.ex_date);
+                const prevPrevDate = new Date(prevPrev.ex_date);
+                const prevPrevDays = Math.round((prevDate.getTime() - prevPrevDate.getTime()) / (1000 * 60 * 60 * 24));
+                if (prevPrevDays > 5) {
+                    const prevPrevFreq = getFrequencyFromDays(prevPrevDays);
+                    // If frequencies are different, previous dividend is at transition - don't overwrite its frequency
+                    if (prevPrevFreq !== frequencyNum) {
+                        shouldUpdatePrevFrequency = false;
+                    }
+                }
+            }
             
-            // Recalculate annualized and normalized for previous dividend with updated frequency
-            if (prevResult.pmt_type === 'Regular' && previous) {
-                const prevAmount = previous.adj_amount !== null && previous.adj_amount > 0
-                    ? Number(previous.adj_amount)
-                    : null;
-                if (prevAmount !== null && prevAmount > 0) {
-                    const annualizedRaw = prevAmount * frequencyNum;
-                    prevResult.annualized = Number(annualizedRaw.toFixed(2));
-                    prevResult.normalized_div = Number((annualizedRaw / 52).toFixed(9));
+            // Update the previous dividend's frequency only if not at transition
+            const prevResult = results[results.length - 1];
+            if (shouldUpdatePrevFrequency) {
+                prevResult.frequency_num = frequencyNum;
+                
+                // Recalculate annualized and normalized for previous dividend with updated frequency
+                if (prevResult.pmt_type === 'Regular' && previous) {
+                    const prevAmount = previous.adj_amount !== null && previous.adj_amount > 0
+                        ? Number(previous.adj_amount)
+                        : null;
+                    if (prevAmount !== null && prevAmount > 0) {
+                        const annualizedRaw = prevAmount * frequencyNum;
+                        prevResult.annualized = Number(annualizedRaw.toFixed(2));
+                        prevResult.normalized_div = Number((annualizedRaw / 52).toFixed(9));
+                    }
                 }
             }
         }
