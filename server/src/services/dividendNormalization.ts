@@ -208,16 +208,19 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
         }
 
         // Calculate annualized and normalized values
-        // Use adj_amount if available, otherwise use div_cash
+        // CRITICAL: For normalization, we MUST use adj_amount (adjusted dividends) for ETFs that split
+        // Never fall back to div_cash (unadjusted) as it will give wrong results after splits
+        // If adj_amount is null or 0, we cannot calculate normalized values correctly
         const amount = current.adj_amount !== null && current.adj_amount > 0
             ? Number(current.adj_amount)
-            : Number(current.div_cash);
+            : null; // Don't use div_cash - must have adj_amount for proper normalization
 
         let annualized: number | null = null;
         let normalizedDiv: number | null = null;
 
-        // Only calculate for Regular dividends with valid amounts
-        if (pmtType === 'Regular' && amount > 0) {
+        // Only calculate for Regular dividends with valid adjusted amounts
+        // Must have adj_amount (not div_cash) for proper normalization after splits
+        if (pmtType === 'Regular' && amount !== null && amount > 0) {
             // Calculate annualized: Amount × Frequency
             const annualizedRaw = amount * frequencyNum;
             // Round annualized to 2 decimals for storage/display
@@ -347,12 +350,17 @@ export function calculateNormalizedForResponse(
         }
 
         // Calculate annualized and normalized values
-        const amount = current.adjAmount > 0 ? current.adjAmount : current.amount;
+        // CRITICAL: For normalization, we MUST use adjAmount (adjusted dividends) for ETFs that split
+        // Never fall back to amount (unadjusted) as it will give wrong results after splits
+        // If adjAmount is 0 or missing, we cannot calculate normalized values correctly
+        const amount = current.adjAmount > 0 ? current.adjAmount : null; // Don't use unadjusted amount
 
         let annualized: number | null = null;
         let normalizedDiv: number | null = null;
 
-        if (pmtType === 'Regular' && amount > 0) {
+        // Only calculate for Regular dividends with valid adjusted amounts
+        // Must have adjAmount (not unadjusted amount) for proper normalization after splits
+        if (pmtType === 'Regular' && amount !== null && amount > 0) {
             // Calculate annualized: Amount × Frequency
             const annualizedRaw = amount * frequencyNum;
             // Round annualized to 2 decimals for storage/display
