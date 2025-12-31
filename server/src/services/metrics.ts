@@ -193,13 +193,29 @@ export function calculateDividendVolatility(
 
   const recentSeries = sortedAsc
     .map(d => {
-      // CEO wants adj_amount first, then scaled_amount (normalized), then div_cash
-      const amount = d.adj_amount ?? d.scaled_amount ?? d.div_cash ?? 0;
+      // For CC ETFs: Use normalized_div (weekly equivalent) if available, convert to annualized
+      // normalized_div = (adj_amount × frequency) / 52
+      // To get annualized: normalized_div × 52 = adj_amount × frequency
+      // For CEFs: Use adj_amount first, then scaled_amount, then div_cash
+      const normalizedDiv = (d as any).normalized_div;
+      let amount: number;
+      
+      if (normalizedDiv !== null && normalizedDiv !== undefined && normalizedDiv > 0) {
+        // Use normalized_div for CC ETFs: convert weekly equivalent to annualized
+        // normalized_div is weekly equivalent, so multiply by 52 to get annualized
+        amount = normalizedDiv * 52;
+      } else {
+        // Fallback for CEFs or when normalized_div not available
+        // CEO wants adj_amount first, then scaled_amount (normalized), then div_cash
+        amount = d.adj_amount ?? d.scaled_amount ?? d.div_cash ?? 0;
+      }
+      
       return {
         date: new Date(d.ex_date),
-        amount, // Use adj_amount first (per CEO), then scaled_amount, then div_cash
+        amount, // For CC ETFs: normalized_div × 52 (annualized from weekly equivalent)
         frequency: d.frequency, // Include frequency field from database
         originalDiv: d, // Keep reference to original dividend record
+        normalizedDiv: normalizedDiv, // Store normalized_div for reference
       };
     })
     .filter(d => d.amount > 0 && d.date >= periodStartDate && d.date <= periodEndDate);
@@ -283,10 +299,19 @@ export function calculateDividendVolatility(
   
   for (let i = 0; i < recentSeries.length; i++) {
     const current = recentSeries[i];
-    const annualizationFactor = getAnnualizationFactor(current, i);
     
-    // Annualize this payment: raw_amount × annualization_factor
-    const normalizedAnnual = current.amount * annualizationFactor;
+    // If we used normalized_div, the amount is already annualized (normalized_div × 52)
+    // Otherwise, we need to annualize using frequency
+    let normalizedAnnual: number;
+    if (current.normalizedDiv !== null && current.normalizedDiv !== undefined && current.normalizedDiv > 0) {
+      // Amount is already annualized from normalized_div × 52
+      normalizedAnnual = current.amount;
+    } else {
+      // Need to annualize: raw_amount × annualization_factor
+      const annualizationFactor = getAnnualizationFactor(current, i);
+      normalizedAnnual = current.amount * annualizationFactor;
+    }
+    
     normalizedAnnualAmounts.push(normalizedAnnual);
   }
 
