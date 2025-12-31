@@ -1342,8 +1342,6 @@ const AdminPanel = () => {
                           <strong>Required:</strong> CEF Symbol
                           <br />
                           <strong>Optional:</strong> NAV Symbol, Description, OPEN (Open Date), IPO PRICE, # (# Payments)
-                          <br />
-                          <em>Note: Last Div is automatically fetched from Tiingo if not provided.</em>
                         </p>
                       </div>
 
