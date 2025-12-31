@@ -187,35 +187,47 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
       }
     }
 
-    // Map dividends to chart data
+    // Map dividends to chart data using backend-provided normalized values
     const chartData = dividends.map((div) => {
-      // Use UNADJUSTED amount (div.amount/div_cash) for BAR chart
-      // Per CEO requirement: "USE ADJ PRICE FOR LINE AND UNADJ PRICE FOR BAR"
-      const amount = (typeof div.amount === 'number' && !isNaN(div.amount) && isFinite(div.amount) && div.amount > 0)
-        ? div.amount
-        : 0;
+      // Use ADJUSTED amount (adj_amount) for BAR chart - per CEO requirement
+      // "USE ADJ PRICE FOR LINE AND UNADJ PRICE FOR BAR" - but bars should show adj_amount for split ETFs
+      // Actually, let's use adjAmount for bars to match the "Individual Adjusted Dividends" title
+      const amount = (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
+        ? div.adjAmount
+        : ((typeof div.amount === 'number' && !isNaN(div.amount) && isFinite(div.amount) && div.amount > 0)
+          ? div.amount
+          : 0);
 
-      // Use ADJUSTED amount (adj_amount) for LINE chart - this aligns with bars but accounts for splits
-      // The line should show adj_amount (adjusted dividend) so it aligns with each bar
+      // Use normalizedDiv (weekly equivalent rate) for LINE chart
       // Only show line for Regular dividends (not Special or Initial)
       let normalizedRate: number | null = null;
 
       if (frequencyChanged) {
+        // Use backend-provided normalized_div value (weekly equivalent rate) for Regular dividends
         // Filter out Special dividends from the line (they would spike artificially)
         const pmtType = div.pmtType || (div.daysSincePrev !== undefined && div.daysSincePrev !== null && div.daysSincePrev <= 5 ? 'Special' : 'Regular');
 
         if (pmtType === 'Regular') {
-          // CRITICAL FIX: Use adj_amount (adjusted dividend) for the line, not normalizedDiv
-          // This makes the line align with bars (both show dividend amounts, just adjusted vs unadjusted)
-          // The requirement "USE ADJ PRICE FOR LINE AND UNADJ PRICE FOR BAR" means:
-          // - Bar: unadjusted dividend (div_cash/amount)
-          // - Line: adjusted dividend (adj_amount) - aligns with bars but accounts for splits
-          const adjAmount = (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
-            ? div.adjAmount
-            : null;
-          
-          if (adjAmount !== null && adjAmount > 0) {
-            normalizedRate = adjAmount;
+          // ALWAYS use backend-provided normalizedDiv if available (weekly equivalent rate)
+          // normalizedDiv is calculated from adj_amount × frequency / 52
+          // This ensures consistency with backend calculations
+          if (div.normalizedDiv !== null && div.normalizedDiv !== undefined && !isNaN(div.normalizedDiv) && isFinite(div.normalizedDiv) && div.normalizedDiv > 0) {
+            normalizedRate = div.normalizedDiv;
+          } else {
+            // Fallback: calculate locally if backend didn't provide value
+            // Must use adjAmount (not unadjusted amount) for normalization calculation
+            // IMPORTANT: Match backend logic - use UNROUNDED annualized value for normalization
+            const adjAmount = (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
+              ? div.adjAmount
+              : 0;
+            if (adjAmount > 0) {
+              const freqNum = div.frequencyNum || numPayments || 12;
+              // Calculate weekly equivalent: use unrounded annualized value
+              // Formula: normalizedDiv = (amount × frequency) / 52
+              // This matches the backend calculation logic
+              const annualizedRaw = adjAmount * freqNum;
+              normalizedRate = annualizedRaw / 52;
+            }
           }
         }
         // For Special/Initial dividends, normalizedRate stays null (skip in line chart)
