@@ -187,32 +187,30 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
       }
     }
 
-    // Map dividends to chart data using backend-provided normalized values
+    // Map dividends to chart data
+    // Per CEO: "USE ADJ DIV FOR LINE AND UNADJ PRICE FOR BAR"
+    // Bars = unadjusted dividend (div.amount = div_cash)
+    // Line = adjusted dividend (div.adjAmount = adj_amount)
     const chartData = dividends.map((div) => {
-      // Use UNADJUSTED amount (div.amount/div_cash) for BAR chart
-      // Per CEO requirement: "USE ADJ DIV FOR LINE AND UNADJ PRICE FOR BAR"
-      // Bars show actual unadjusted dividend payments (div_cash)
+      // BAR: Use unadjusted dividend (div.amount = div_cash from database)
+      // Example ULTY 11/25: DIVIDEND=$0.0594 → bar shows $0.0594
       const amount = (typeof div.amount === 'number' && !isNaN(div.amount) && isFinite(div.amount) && div.amount > 0)
         ? div.amount
         : 0;
 
-      // SIMPLE: Use adj_amount (adjusted dividend) directly for LINE chart
-      // Per CEO: "USE ADJ DIV FOR LINE AND UNADJ PRICE FOR BAR"
-      // For split ETFs (ULTY, CONY): adj_amount accounts for splits automatically
-      // Example ULTY: Before split (11/25): DIV=$0.0594, ADJ DIV=$0.5940 → line plots at $0.5940
-      // After split (12/2+): DIV=$0.5881, ADJ DIV=$0.5881 → line plots at $0.5881 (matches bar)
+      // LINE: Use adjusted dividend (div.adjAmount = adj_amount from database)
+      // Example ULTY 11/25: ADJ DIV=$0.5940 → line plots at $0.5940
+      // Example ULTY 12/2+: ADJ DIV=$0.5881 → line plots at $0.5881 (matches bar after split)
       let normalizedRate: number | null = null;
 
       // Filter out Special dividends from the line (they would spike artificially)
       const pmtType = div.pmtType || (div.daysSincePrev !== undefined && div.daysSincePrev !== null && div.daysSincePrev <= 5 ? 'Special' : 'Regular');
 
       if (pmtType === 'Regular') {
-        // Simply use adjAmount (adjusted dividend) directly - that's it!
-        // This automatically handles splits: adj_amount is already adjusted for splits
-        const adjAmount = (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
+        // Use adjAmount directly - it's already the adjusted dividend from database
+        normalizedRate = (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
           ? div.adjAmount
           : null;
-        normalizedRate = adjAmount;
       }
       // For Special/Initial dividends, normalizedRate stays null (skip in line chart)
 
