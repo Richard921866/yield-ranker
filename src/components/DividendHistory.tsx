@@ -239,8 +239,9 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
         : 0;
 
       // Ensure normalizedRate is a valid number or null
+      // Use full precision from database (9 decimals) to match spreadsheet exactly
       const validNormalizedRate = normalizedRate !== null && typeof normalizedRate === 'number' && !isNaN(normalizedRate) && isFinite(normalizedRate)
-        ? Number(normalizedRate.toFixed(4))
+        ? Number(normalizedRate.toFixed(9)) // Use 9 decimals to match database precision
         : null;
 
       return {
