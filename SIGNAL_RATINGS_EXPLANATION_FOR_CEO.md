@@ -8,14 +8,14 @@ The Signal rating is a composite score that combines **Z-Score** (premium/discou
 
 ## Rating Scale
 
-| Signal | Health Rating | Meaning    | Simple Interpretation                                |
-| ------ | ------------- | ---------- | ---------------------------------------------------- |
-| **+3** | **High**      | Optimal    | The fund is historically cheap and growing strongly. |
-| **+2** | **Good**      | Good Value | The fund is healthy, but one metric is slightly off. |
-| **+1** | **Weak**      | Healthy    | Only one of the three metrics shows positive health. |
+| Signal | Health Rating | Meaning    | Simple Interpretation                                  |
+| ------ | ------------- | ---------- | ------------------------------------------------------ |
+| **+3** | **High**      | Optimal    | The fund is historically cheap and growing strongly.   |
+| **+2** | **Good**      | Good Value | The fund is healthy, but one metric is slightly off.   |
+| **+1** | **Weak**      | Healthy    | Only one of the three metrics shows positive health.   |
 | **0**  | **Low**       | Neutral    | None of the health or value metrics are currently met. |
-| **-1** | **Low**       | Value Trap | Warning: Looks cheap but assets shrinking            |
-| **-2** | **Low**       | Overvalued | Avoid: Statistically expensive                       |
+| **-1** | **Low**       | Value Trap | Warning: Looks cheap but assets shrinking              |
+| **-2** | **Low**       | Overvalued | Avoid: Statistically expensive                         |
 
 ---
 

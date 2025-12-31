@@ -87,7 +87,7 @@ export const CEFTable = ({
   }, []);
 
   const returnColumns = [
-    { key: "return15Yr" as keyof CEF, label: "15 YR" },
+    // { key: "return15Yr" as keyof CEF, label: "15 YR" }, // Hidden per CEO request
     { key: "return10Yr" as keyof CEF, label: "10 YR" },
     { key: "return5Yr" as keyof CEF, label: "5 YR" },
     { key: "return3Yr" as keyof CEF, label: "3 YR" },
@@ -247,7 +247,8 @@ export const CEFTable = ({
                   Description
                 </SortButton>
               </th>
-              <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
+              {/* OPEN column hidden per CEO request */}
+              {/* <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
                 <SortButton
                   field="openDate"
                   sortField={sortField}
@@ -256,7 +257,7 @@ export const CEFTable = ({
                 >
                   OPEN
                 </SortButton>
-              </th>
+              </th> */}
               <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
                 <SortButton
                   field="ipoPrice"
@@ -431,32 +432,24 @@ export const CEFTable = ({
                     className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg max-w-[350px]"
                   >
                     <p className="font-semibold mb-2">
-                      Signal Rating (-2 to +3):
+                      Health Rating:
                     </p>
                     <ul className="space-y-1 text-left">
                       <li>
-                        <span className="font-bold text-green-400">+3:</span>{" "}
-                        Optimal - Deeply undervalued with perfect health
+                        <span className="font-bold text-green-400">High:</span>{" "}
+                        The fund is historically cheap and growing strongly.
                       </li>
                       <li>
-                        <span className="font-bold text-green-400">+2:</span>{" "}
-                        Good Value - Cheap with positive momentum
+                        <span className="font-bold text-green-400">Good:</span>{" "}
+                        The fund is healthy, but one metric is slightly off.
                       </li>
                       <li>
-                        <span className="font-bold text-blue-400">+1:</span>{" "}
-                        Healthy - Growing assets, fair price
+                        <span className="font-bold text-blue-400">Weak:</span>{" "}
+                        Only one of the three metrics shows positive health.
                       </li>
                       <li>
-                        <span className="font-bold text-gray-400">0:</span>{" "}
-                        Neutral - No clear signal
-                      </li>
-                      <li>
-                        <span className="font-bold text-orange-400">-1:</span>{" "}
-                        Value Trap - Looks cheap but shrinking
-                      </li>
-                      <li>
-                        <span className="font-bold text-red-400">-2:</span>{" "}
-                        Overvalued - Statistically expensive
+                        <span className="font-bold text-gray-400">Low:</span>{" "}
+                        None of the health or value metrics are currently met.
                       </li>
                     </ul>
                     <p className="mt-2 text-xs text-slate-300">
@@ -545,9 +538,10 @@ export const CEFTable = ({
                 <td className="py-1 px-1.5 align-middle max-w-[100px] sm:max-w-[120px] truncate text-xs text-muted-foreground">
                   {cef.description || "N/A"}
                 </td>
-                <td className="py-1 px-1.5 align-middle text-center text-xs text-muted-foreground">
+                {/* OPEN column hidden per CEO request */}
+                {/* <td className="py-1 px-1.5 align-middle text-center text-xs text-muted-foreground">
                   {cef.openDate || "N/A"}
-                </td>
+                </td> */}
                 <td
                   className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium ${cef.ipoPrice &&
                       cef.marketPrice &&
@@ -642,19 +636,21 @@ export const CEFTable = ({
                     <span
                       className={
                         cef.signal === 3
-                          ? "text-green-700 bg-green-50 px-2 py-0.5 rounded"
+                          ? "text-green-700 bg-green-50 px-2 py-0.5 rounded font-semibold"
                           : cef.signal === 2
-                            ? "text-green-600 bg-green-50/50 px-2 py-0.5 rounded"
+                            ? "text-green-600 bg-green-50/50 px-2 py-0.5 rounded font-semibold"
                             : cef.signal === 1
-                              ? "text-blue-600"
-                              : cef.signal === 0
-                                ? "text-gray-500"
-                                : cef.signal === -1
-                                  ? "text-orange-600"
-                                  : "text-red-600"
+                              ? "text-blue-600 font-semibold"
+                              : "text-gray-500 font-semibold"
                       }
                     >
-                      {cef.signal > 0 ? `+${cef.signal}` : cef.signal}
+                      {cef.signal === 3
+                        ? "High"
+                        : cef.signal === 2
+                          ? "Good"
+                          : cef.signal === 1
+                            ? "Weak"
+                            : "Low"}
                     </span>
                   ) : (
                     <span className="text-muted-foreground">N/A</span>

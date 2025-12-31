@@ -1339,9 +1339,11 @@ const AdminPanel = () => {
                         <p className="text-sm text-muted-foreground mb-4">
                           Upload Closed End Fund data from Excel file.
                           <br /><br />
-                          <strong>Required:</strong> CEF Symbol, Last Div
+                          <strong>Required:</strong> CEF Symbol
                           <br />
-                          <strong>Optional:</strong> NAV Symbol, Description, OPEN (Open Date), DIV HISTORY, IPO PRICE, # (# Payments)
+                          <strong>Optional:</strong> NAV Symbol, Description, OPEN (Open Date), IPO PRICE, # (# Payments)
+                          <br />
+                          <em>Note: Last Div is automatically fetched from Tiingo if not provided.</em>
                         </p>
                       </div>
 
