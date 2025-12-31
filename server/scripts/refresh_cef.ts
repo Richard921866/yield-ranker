@@ -854,13 +854,16 @@ async function refreshCEF(ticker: string): Promise<void> {
       
       if (dividendsForNormalization.length > 0) {
         // Convert to format expected by calculateNormalizedDividends
-        const dividendInputs = dividendsForNormalization.map(d => ({
-          id: d.id,
-          ticker: d.ticker,
-          ex_date: d.ex_date,
-          div_cash: Number(d.div_cash),
-          adj_amount: d.adj_amount ? Number(d.adj_amount) : null,
-        }));
+        // Filter out dividends without an id (required for database updates)
+        const dividendInputs = dividendsForNormalization
+          .filter(d => d.id !== undefined && d.id !== null)
+          .map(d => ({
+            id: d.id!,
+            ticker: d.ticker,
+            ex_date: d.ex_date,
+            div_cash: Number(d.div_cash),
+            adj_amount: d.adj_amount ? Number(d.adj_amount) : null,
+          }));
         
         const normalizedResults = calculateNormalizedDividends(dividendInputs);
         
