@@ -475,13 +475,22 @@ async function backfillSingleTicker(ticker: string) {
         console.log(`${dateStr} | ${adjDivStr} | ${freqStr} | ${annStr} | ${normStr}`);
     });
 
-    // Show just normalized values column for easy comparison
+    // Show just normalized values column for easy comparison (most recent first)
     console.log('\n============================================');
-    console.log('Normalized values (NORMLZD column):');
+    console.log('Normalized values (NORMLZD column) - Most Recent First:');
     console.log('============================================');
-    results.reverse().forEach(r => {
+    // results is already in reverse order (most recent first), so don't reverse again
+    results.forEach(r => {
         if (r.normalized !== null) {
-            console.log(r.normalized.toFixed(9));
+            // Match spreadsheet format: remove trailing zeros for whole numbers, keep precision for decimals
+            const norm = r.normalized;
+            if (norm % 1 === 0) {
+                console.log(norm.toFixed(0));
+            } else {
+                // For decimals, show up to 9 places but remove trailing zeros
+                const str = norm.toFixed(9).replace(/\.?0+$/, '');
+                console.log(str);
+            }
         }
     });
 
