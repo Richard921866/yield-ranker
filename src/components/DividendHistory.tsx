@@ -189,49 +189,43 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
 
     // Map dividends to chart data using backend-provided normalized values
     const chartData = dividends.map((div) => {
-      // Use ADJUSTED amount (adj_amount) for BAR chart
-      // Chart title says "Individual Adjusted Dividends" so bars should show adj_amount
-      // This ensures bars show split-adjusted amounts for accurate comparison
-      const amount = (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
-        ? div.adjAmount
-        : ((typeof div.amount === 'number' && !isNaN(div.amount) && isFinite(div.amount) && div.amount > 0)
-          ? div.amount
-          : 0);
+      // Use UNADJUSTED amount (div.amount/div_cash) for BAR chart
+      // Per CEO requirement: "USE ADJ DIV FOR LINE AND UNADJ PRICE FOR BAR"
+      // Bars show actual unadjusted dividend payments (div_cash)
+      const amount = (typeof div.amount === 'number' && !isNaN(div.amount) && isFinite(div.amount) && div.amount > 0)
+        ? div.amount
+        : 0;
 
-      // Use normalizedDiv (weekly equivalent rate) for LINE chart
+      // Use NORMALIZED COLUMN (normalizedDiv) directly for LINE chart
+      // Per CEO: "USE NORMALIZED COLUMN FOR LINE"
+      // normalizedDiv is the weekly equivalent rate calculated from adj_amount
       // Only show line for Regular dividends (not Special or Initial)
       let normalizedRate: number | null = null;
 
       if (frequencyChanged) {
-        // Use backend-provided normalized_div value (weekly equivalent rate) for Regular dividends
         // Filter out Special dividends from the line (they would spike artificially)
         const pmtType = div.pmtType || (div.daysSincePrev !== undefined && div.daysSincePrev !== null && div.daysSincePrev <= 5 ? 'Special' : 'Regular');
 
         if (pmtType === 'Regular') {
-          // CRITICAL FIX: Convert normalizedDiv (weekly equivalent) back to per-payment amount to align with bars
+          // CRITICAL: Use normalizedDiv directly from database (weekly equivalent rate)
+          // This is the NORMALIZED COLUMN value that CEO wants for the line
           // normalizedDiv = (adj_amount × frequency) / 52 (weekly equivalent)
-          // To align with bars showing adj_amount, we need: normalizedDiv × (52 / frequency) = adj_amount
-          // But we want to show the normalized rate as a point that aligns with the bar
-          // So we convert: normalizedDiv × (52 / frequency) = annualized / frequency = adj_amount
-          // Actually, the line should show the same scale as bars, so convert normalizedDiv back
+          // This is stored in the database and calculated using adj_amount (adjusted dividends)
           if (div.normalizedDiv !== null && div.normalizedDiv !== undefined && !isNaN(div.normalizedDiv) && isFinite(div.normalizedDiv) && div.normalizedDiv > 0) {
-            // Convert weekly equivalent back to per-payment amount to align with bars
-            // normalizedDiv = (adj_amount × frequency) / 52
-            // So: adj_amount = normalizedDiv × 52 / frequency
-            const freqNum = div.frequencyNum || numPayments || 12;
-            if (freqNum > 0) {
-              // Convert back: normalizedDiv × 52 / frequency = adj_amount (to align with bars)
-              normalizedRate = div.normalizedDiv * 52 / freqNum;
-            } else {
-              normalizedRate = div.normalizedDiv;
-            }
+            // Use normalizedDiv directly - this is the weekly equivalent rate
+            normalizedRate = div.normalizedDiv;
           } else {
-            // Fallback: use adjAmount directly if normalizedDiv not available
+            // Fallback: calculate locally if backend didn't provide value
+            // Must use adjAmount (adjusted dividends) for normalization calculation
             const adjAmount = (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
               ? div.adjAmount
-              : null;
-            if (adjAmount !== null && adjAmount > 0) {
-              normalizedRate = adjAmount;
+              : 0;
+            if (adjAmount > 0) {
+              const freqNum = div.frequencyNum || numPayments || 12;
+              // Calculate weekly equivalent: normalizedDiv = (adj_amount × frequency) / 52
+              // This matches the backend calculation logic
+              const annualizedRaw = adjAmount * freqNum;
+              normalizedRate = annualizedRaw / 52;
             }
           }
         }
