@@ -186,23 +186,29 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
             // Check for frequency transition: if previous gap indicates one frequency
             // and next gap indicates a different frequency, we're at a transition point
             // At transitions, use the frequency from the PREVIOUS gap (the one that brought us here)
-            if (daysSincePrev !== null && daysSincePrev > 5 && daysToNext > 5) {
+            // This is CRITICAL: The last payment of the old frequency should keep the old frequency
+            if (daysSincePrev !== null && daysSincePrev > 5) {
                 const freqFromPrev = getFrequencyFromDays(daysSincePrev);
-                const freqFromNext = daysToNextRegular !== null && daysToNextRegular > 5
-                    ? getFrequencyFromDays(daysToNextRegular)
-                    : getFrequencyFromDays(daysToNext);
                 
-                // If frequencies differ, we're at a transition point
-                // Use the frequency from the PREVIOUS gap (the pattern that brought us here)
-                if (freqFromPrev !== freqFromNext) {
+                // Determine frequency from next gap (prefer Regular dividend if found)
+                let freqFromNext: number | null = null;
+                if (daysToNext > 5) {
+                    freqFromNext = daysToNextRegular !== null && daysToNextRegular > 5
+                        ? getFrequencyFromDays(daysToNextRegular)
+                        : getFrequencyFromDays(daysToNext);
+                }
+                
+                // If we have both previous and next gaps, check for transition
+                if (freqFromNext !== null && freqFromPrev !== freqFromNext) {
+                    // TRANSITION DETECTED: Use frequency from PREVIOUS gap (the pattern that brought us here)
+                    // This ensures the last payment of the old frequency keeps the old frequency
                     frequencyNum = freqFromPrev;
-                } else {
+                } else if (freqFromNext !== null) {
                     // No transition: use gap to next (backward confirmation rule)
-                    if (nextRegularDiv && daysToNextRegular !== null && daysToNextRegular > 5) {
-                        frequencyNum = getFrequencyFromDays(daysToNextRegular);
-                    } else {
-                        frequencyNum = getFrequencyFromDays(daysToNext);
-                    }
+                    frequencyNum = freqFromNext;
+                } else {
+                    // No valid next gap: use previous gap
+                    frequencyNum = freqFromPrev;
                 }
             } else if (nextRegularDiv && daysToNextRegular !== null && daysToNextRegular > 5) {
                 // Use gap to next Regular to determine frequency (backward confirmation rule)
@@ -210,9 +216,6 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
             } else if (daysToNext > 5) {
                 // Use gap to immediate next dividend (backward confirmation rule)
                 frequencyNum = getFrequencyFromDays(daysToNext);
-            } else if (daysSincePrev !== null && daysSincePrev > 5) {
-                // If gap to next is invalid (special payment), fall back to previous gap
-                frequencyNum = getFrequencyFromDays(daysSincePrev);
             }
         } else if (i > 0 && daysSincePrev !== null && daysSincePrev > 5) {
             // Last dividend: use gap from previous (no next dividend available)
