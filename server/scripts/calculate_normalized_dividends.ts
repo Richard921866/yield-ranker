@@ -500,8 +500,9 @@ async function backfillSingleTicker(ticker: string) {
                         })
                         .eq('id', previous.id);
                 
-                if (prevUpdateError) {
-                    console.error(`  Error updating previous dividend ${previous.id}:`, prevUpdateError);
+                    if (prevUpdateError) {
+                        console.error(`  Error updating previous dividend ${previous.id}:`, prevUpdateError);
+                    }
                 }
             }
 
