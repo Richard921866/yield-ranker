@@ -1913,6 +1913,7 @@ router.post(
                           adj_high: p.adjHigh,
                           adj_low: p.adjLow,
                           volume: p.volume,
+                          adj_volume: null, // Tiingo doesn't provide adjusted volume
                           div_cash: p.divCash || 0,
                           split_factor: p.splitFactor || 1,
                         }));
