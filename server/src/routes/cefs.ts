@@ -789,17 +789,20 @@ export async function calculateNAVReturns(
 }
 
 /**
- * Calculate Signal Rating (Column Q)
- * Purpose: The "Brain" - combines Z-Score with NAV trends to give a sortable action rank from -2 to +3
+ * Calculate Signal Rating using 3-Point Binary Scoring System
+ * Purpose: Binary scoring system where each of three "Health Gates" awards either +1 or 0 points
  * Constraint: Returns null (N/A) if fund history is < 2 years (504 trading days)
  *
- * Score Rating Logic:
- * +3: Optimal - Z < -1.5 AND 6M Trend > 0 AND 12M Trend > 0
- * +2: Good Value - Z < -1.5 AND 6M Trend > 0
- * +1: Healthy - Z > -1.5 AND 6M Trend > 0
- *  0: Neutral - Default
- * -1: Value Trap - Z < -1.5 AND 6M Trend < 0
- * -2: Overvalued - Z > 1.5
+ * 3-Point Binary Scoring System:
+ * - Gate 1 (Value Gate): Z-Score < -1.0 → +1 point
+ * - Gate 2 (Short-Term Health): 6 Mo NAV Trend > 0 → +1 point
+ * - Gate 3 (Long-Term Health): 12 Mo NAV Trend > 0 → +1 point
+ * 
+ * Total Signal Score: Sum of points (0 to +3)
+ * - +3: All three gates pass (Optimal)
+ * - +2: Two gates pass
+ * - +1: One gate passes
+ * - 0: No gates pass (Neutral)
  */
 export async function calculateSignal(
   ticker: string,
@@ -825,7 +828,6 @@ export async function calculateSignal(
   try {
     // Check if we have enough history (504 trading days = 2 years)
     // Rule: Minimum 2 years (504 days) of history required for reliability
-    // Matches Python: if len(df) < 504: return "N/A"
     // Use getPriceHistory which reads from database (where we just saved fresh data)
     const endDate = new Date();
     const startDate = new Date();
@@ -839,7 +841,7 @@ export async function calculateSignal(
       endDateStr
     );
 
-    // Need at least 504 trading days of history (matches Python: if len(df) < 504: return "N/A")
+    // Need at least 504 trading days of history
     if (navData.length < 504) {
       logger.info(
         "CEF Metrics",
@@ -852,65 +854,27 @@ export async function calculateSignal(
     const t6 = navTrend6M;
     const t12 = navTrend12M;
 
-    // Logic Gate Scoring (matches Python exactly)
-    // +3: Optimal (Cheap + 6mo Health + 12mo Health)
-    if (z < -1.5 && t6 > 0 && t12 > 0) {
-      logger.info(
-        "CEF Metrics",
-        `Signal +3 (Optimal) for ${ticker}: z=${z.toFixed(2)}, t6=${t6.toFixed(
-          2
-        )}%, t12=${t12.toFixed(2)}%`
-      );
-      return 3;
-    }
-    // +2: Good Value (Cheap + 6mo Health)
-    else if (z < -1.5 && t6 > 0) {
-      logger.info(
-        "CEF Metrics",
-        `Signal +2 (Good Value) for ${ticker}: z=${z.toFixed(
-          2
-        )}, t6=${t6.toFixed(2)}%`
-      );
-      return 2;
-    }
-    // +1: Healthy (Not cheap, but growing assets)
-    else if (z > -1.5 && t6 > 0) {
-      logger.info(
-        "CEF Metrics",
-        `Signal +1 (Healthy) for ${ticker}: z=${z.toFixed(2)}, t6=${t6.toFixed(
-          2
-        )}%`
-      );
-      return 1;
-    }
-    // -1: Value Trap (Looks cheap, but assets are shrinking)
-    else if (z < -1.5 && t6 < 0) {
-      logger.info(
-        "CEF Metrics",
-        `Signal -1 (Value Trap) for ${ticker}: z=${z.toFixed(
-          2
-        )}, t6=${t6.toFixed(2)}%`
-      );
-      return -1;
-    }
-    // -2: Overvalued (Statistically expensive)
-    else if (z > 1.5) {
-      logger.info(
-        "CEF Metrics",
-        `Signal -2 (Overvalued) for ${ticker}: z=${z.toFixed(2)}`
-      );
-      return -2;
-    }
-    // 0: Neutral
-    else {
-      logger.info(
-        "CEF Metrics",
-        `Signal 0 (Neutral) for ${ticker}: z=${z.toFixed(2)}, t6=${t6.toFixed(
-          2
-        )}%`
-      );
-      return 0;
-    }
+    // 3-Point Binary Scoring System
+    // Each gate awards +1 if condition is met, 0 otherwise
+    
+    // Gate 1: Value Gate - Z-Score < -1.0
+    const gate1Value = z < -1.0 ? 1 : 0;
+    
+    // Gate 2: Short-Term Health - 6 Mo NAV Trend > 0
+    const gate2ShortTerm = t6 > 0 ? 1 : 0;
+    
+    // Gate 3: Long-Term Health - 12 Mo NAV Trend > 0
+    const gate3LongTerm = t12 > 0 ? 1 : 0;
+    
+    // Total Signal Score: Sum of all gates (0 to +3)
+    const signalScore = gate1Value + gate2ShortTerm + gate3LongTerm;
+    
+    logger.info(
+      "CEF Metrics",
+      `Signal ${signalScore} for ${ticker}: Gate1(Value:${gate1Value}, z=${z.toFixed(2)}), Gate2(6M:${gate2ShortTerm}, t6=${t6.toFixed(2)}%), Gate3(12M:${gate3LongTerm}, t12=${t12.toFixed(2)}%)`
+    );
+    
+    return signalScore;
   } catch (error) {
     logger.warn(
       "CEF Metrics",

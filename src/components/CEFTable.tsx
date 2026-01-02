@@ -646,7 +646,7 @@ export const CEFTable = ({
                                   : "text-gray-500 font-semibold cursor-help"
                           }
                         >
-                          {cef.signal > 0 ? `+${cef.signal}` : cef.signal}
+                          {cef.signal}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent
@@ -658,27 +658,19 @@ export const CEFTable = ({
                           {cef.signal === 3
                             ? "High (Optimal)"
                             : cef.signal === 2
-                              ? "Good (Good Value)"
+                              ? "Good (Two Gates Pass)"
                               : cef.signal === 1
-                                ? "Weak (Healthy)"
-                                : cef.signal === 0
-                                  ? "Low (Neutral)"
-                                  : cef.signal === -1
-                                    ? "Low (Value Trap)"
-                                    : "Low (Overvalued)"}
+                                ? "Weak (One Gate Passes)"
+                                : "Low (Neutral)"}
                         </p>
                         <p className="text-slate-300 text-xs">
                           {cef.signal === 3
-                            ? "The fund is historically cheap and growing strongly."
+                            ? "All three gates pass: Value (Z < -1.0), 6M Health, 12M Health"
                             : cef.signal === 2
-                              ? "The fund is healthy, but one metric is slightly off."
+                              ? "Two gates pass: Value and/or Health metrics met"
                               : cef.signal === 1
-                                ? "Only one of the three metrics shows positive health."
-                                : cef.signal === 0
-                                  ? "None of the health or value metrics are currently met."
-                                  : cef.signal === -1
-                                    ? "Warning: Looks cheap but assets shrinking."
-                                    : "Avoid: Statistically expensive."}
+                                ? "One gate passes: Value or Health metric met"
+                                : "No gates pass: Neutral signal"}
                         </p>
                       </TooltipContent>
                     </Tooltip>

@@ -248,7 +248,7 @@ function ClosedEndFunds() {
 
                 <p><sup>*</sup> <strong>Z-Score:</strong> Uses 3-year lookback (max 756 trading days). Minimum 2 years (504 days) required. Returns N/A if insufficient history.</p>
 
-                <p><sup>†</sup> <strong>Signal Scoring:</strong> +3 (Optimal): Z &lt; -1.5 AND 6M &gt; 0 AND 12M &gt; 0 | +2 (Good Value): Z &lt; -1.5 AND 6M &gt; 0 | +1 (Healthy): Z &gt; -1.5 AND 6M &gt; 0 | 0 (Neutral) | -1 (Value Trap): Z &lt; -1.5 AND 6M &lt; 0 | -2 (Overvalued): Z &gt; 1.5</p>
+                <p><sup>†</sup> <strong>Signal Scoring (3-Point Binary System):</strong> Each gate awards +1 point if condition is met: Gate 1 (Value): Z &lt; -1.0 | Gate 2 (6M Health): 6M NAV Trend &gt; 0 | Gate 3 (12M Health): 12M NAV Trend &gt; 0. Total: 0 to +3 (sum of gates passed)</p>
 
                 <p><sup>‡</sup> <strong>Total Returns:</strong> For periods ≥1 year: ((End_AdjPrice / Start_AdjPrice)^(1/years) - 1) × 100 (Annualized CAGR). For periods &lt;1 year: ((End_AdjPrice / Start_AdjPrice) - 1) × 100.</p>
               </div>

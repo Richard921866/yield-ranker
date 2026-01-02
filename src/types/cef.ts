@@ -14,7 +14,7 @@ export interface CEF {
   fiveYearZScore: number | null; // 3 Yr Z-Score
   navTrend6M: number | null; // 6 Mo NAV Trend % (126 trading days)
   navTrend12M: number | null; // 12M NAV Trend % (252 trading days)
-  signal: number | null; // Signal rating (-2 to +3, or null if N/A)
+  signal: number | null; // Signal rating (0 to +3 using 3-point binary scoring system, or null if N/A)
   valueHealthScore: number | null; // Value/Health Score
   
   // Dividend data
