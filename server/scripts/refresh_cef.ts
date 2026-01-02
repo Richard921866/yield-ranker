@@ -96,9 +96,6 @@ async function upsertPrices(
 
   if (!existingTicker && !checkError) {
     // Try to insert a minimal record for NAV symbols
-    console.log(
-      `    Creating ticker record for ${ticker} (required for foreign key)...`
-    );
     const { error: insertError } = await supabase.from("etf_static").insert({
       ticker: ticker.toUpperCase(),
       name: `NAV Symbol: ${ticker}`,
@@ -106,15 +103,8 @@ async function upsertPrices(
     });
 
     if (insertError) {
-      console.warn(
-        `    ⚠ Could not create ticker record for ${ticker}: ${insertError.message}`
-      );
-      console.warn(
-        `    ⚠ Will skip inserting prices for ${ticker} to avoid foreign key error`
-      );
       return 0;
     } else {
-      console.log(`    ✓ Created ticker record for ${ticker} (NAV symbol)`);
     }
   }
 
@@ -328,9 +318,6 @@ async function calculateNAVTrend6M(navSymbol: string): Promise<number | null> {
     );
 
     if (navData.length < 2) {
-      console.log(
-        `    ⚠ 6M NAV Trend: N/A - insufficient data (${navData.length} < 2 records)`
-      );
       return null;
     }
 
@@ -363,9 +350,6 @@ async function calculateNAVTrend6M(navSymbol: string): Promise<number | null> {
     }
 
     if (!past6MRecord) {
-      console.log(
-        `    ⚠ 6M NAV Trend: N/A - no data available for 6 months ago (${sixMonthsAgoStr})`
-      );
       return null;
     }
 
@@ -376,11 +360,6 @@ async function calculateNAVTrend6M(navSymbol: string): Promise<number | null> {
       (currentDate.getTime() - past6MDate.getTime()) /
       (1000 * 60 * 60 * 24 * 30.44); // Average days per month
     if (monthsDiff < 5 || monthsDiff > 7.5) {
-      console.log(
-        `    ⚠ 6M NAV Trend: N/A - insufficient historical data (selected record is ${monthsDiff.toFixed(
-          1
-        )} months ago, need ~6 months)`
-      );
       return null;
     }
 
@@ -389,9 +368,6 @@ async function calculateNAVTrend6M(navSymbol: string): Promise<number | null> {
     const past6MNav = past6MRecord.adj_close ?? past6MRecord.close;
 
     if (!currentNav || !past6MNav || past6MNav <= 0) {
-      console.log(
-        `    ⚠ 6M NAV Trend: N/A - missing close data (current=${currentNav}, past6M=${past6MNav})`
-      );
       return null;
     }
 
@@ -400,17 +376,11 @@ async function calculateNAVTrend6M(navSymbol: string): Promise<number | null> {
 
     // Sanity check
     if (!isFinite(trend) || trend < -99 || trend > 10000) {
-      console.log(
-        `    ⚠ 6M NAV Trend: N/A - invalid calculation result (${trend})`
-      );
       return null;
     }
 
     return trend;
   } catch (error) {
-    console.warn(
-      `    ⚠ Failed to calculate 6M NAV Trend: ${(error as Error).message}`
-    );
     return null;
   }
 }
@@ -440,9 +410,6 @@ async function calculateNAVReturn12M(
     );
 
     if (navData.length < 2) {
-      console.log(
-        `    ⚠ 12M NAV Return: N/A - insufficient data (${navData.length} < 2 records)`
-      );
       return null;
     }
 
@@ -477,9 +444,6 @@ async function calculateNAVReturn12M(
     }
 
     if (!past12MRecord) {
-      console.log(
-        `    ⚠ 12M NAV Return: N/A - no data available for 12 months ago (${twelveMonthsAgoStr})`
-      );
       return null;
     }
 
@@ -490,11 +454,6 @@ async function calculateNAVReturn12M(
       (currentDate.getTime() - past12MDate.getTime()) /
       (1000 * 60 * 60 * 24 * 30.44); // Average days per month
     if (monthsDiff < 10 || monthsDiff > 14) {
-      console.log(
-        `    ⚠ 12M NAV Return: N/A - insufficient historical data (selected record is ${monthsDiff.toFixed(
-          1
-        )} months ago, need ~12 months)`
-      );
       return null;
     }
 
@@ -503,9 +462,6 @@ async function calculateNAVReturn12M(
     const past12MNav = past12MRecord.adj_close ?? past12MRecord.close;
 
     if (!currentNav || !past12MNav || past12MNav <= 0) {
-      console.log(
-        `    ⚠ 12M NAV Return: N/A - missing close data (current=${currentNav}, past12M=${past12MNav})`
-      );
       return null;
     }
 
@@ -514,17 +470,11 @@ async function calculateNAVReturn12M(
 
     // Sanity check
     if (!isFinite(trend) || trend < -99 || trend > 10000) {
-      console.log(
-        `    ⚠ 12M NAV Return: N/A - invalid calculation result (${trend})`
-      );
       return null;
     }
 
     return trend;
   } catch (error) {
-    console.warn(
-      `    ⚠ Failed to calculate 12M NAV Return: ${(error as Error).message}`
-    );
     return null;
   }
 }
@@ -548,6 +498,7 @@ function parseArgs() {
 }
 
 async function refreshCEF(ticker: string): Promise<void> {
+  console.log(`\n[Refresh] ${ticker}`);
   try {
     // Get CEF from database
     const { data: cef, error } = await supabase
@@ -822,47 +773,19 @@ async function refreshCEF(ticker: string): Promise<void> {
       },
     ]);
 
-    // Get rank after save
-    const { data: savedData } = await supabase
-      .from("etf_static")
-      .select("weighted_rank")
-      .eq("ticker", ticker.toUpperCase())
-      .maybeSingle();
-
-    // Display only essential table metrics
-    console.log(`\n${ticker}:`);
-    console.log(`  6M NAV: ${navTrend6M !== null ? navTrend6M.toFixed(2) + '%' : 'N/A'}`);
-    console.log(`  12M NAV: ${navTrend12M !== null ? navTrend12M.toFixed(2) + '%' : 'N/A'}`);
-    console.log(`  3Y Z-Score: ${fiveYearZScore !== null ? fiveYearZScore.toFixed(2) : 'N/A'}`);
-    console.log(`  Signal: ${signal !== null ? signal : 'N/A'}`);
-    console.log(`  Divs: ${dividendHistory || 'N/A'}`);
-    console.log(`  Rank: ${savedData?.weighted_rank ?? 'N/A'}`);
+    // Simple output like CC ETFs - just show ticker name
+    console.log(`  ✓ ${ticker} refresh complete`);
   } catch (error) {
-    console.error(
-      `  ❌ Error processing ${ticker}: ${(error as Error).message}`
-    );
-    console.error(error);
+    console.error(`  ✗ Error refreshing ${ticker}:`, (error as Error).message);
     // Don't throw - continue processing other CEFs
-    // The error is logged, but we want the script to continue
+    // Return resolved promise to prevent batch from stopping
+    return;
   }
 }
 
 async function main() {
   const options = parseArgs();
 
-  console.log("=".repeat(60));
-  console.log("CEF METRICS REFRESH");
-  console.log("=".repeat(60));
-  console.log("This script calculates and updates:");
-  console.log("  - 3-Year Z-Score (3Y max, 1Y min lookback)");
-  console.log("  - 6M NAV Trend (exactly 6 calendar months)");
-  console.log("  - 12M NAV Return (exactly 12 calendar months)");
-  console.log("  - Signal rating");
-  console.log("  - DVI (Dividend Volatility Index)");
-  console.log("  - Total Returns (3Y, 5Y, 10Y, 15Y) - NAV-based");
-  console.log("  - NAV, Market Price, and Premium/Discount");
-  console.log("  - last_updated timestamp");
-  console.log("=".repeat(60));
 
   // Get CEFs to refresh
   let tickers: string[];
@@ -905,11 +828,19 @@ async function main() {
     const batchNum = Math.floor(i / BATCH_SIZE) + 1;
     const totalBatches = Math.ceil(tickers.length / BATCH_SIZE);
     
-    console.log(`📦 Processing batch ${batchNum}/${totalBatches} (${batch.join(', ')})...`);
+    console.log(`📦 Batch ${batchNum}/${totalBatches} (${batch.length} CEFs)`);
     
     // Process batch in parallel
-    const batchPromises = batch.map((ticker) => refreshCEF(ticker));
-    await Promise.allSettled(batchPromises);
+    const batchResults = await Promise.allSettled(
+      batch.map((ticker) => refreshCEF(ticker))
+    );
+    
+    // Count results and log any failures
+    for (const result of batchResults) {
+      if (result.status === 'rejected') {
+        console.error(`Failed: ${result.reason}`);
+      }
+    }
     
     // Delay between batches to prevent rate limit spikes
     if (i + BATCH_SIZE < tickers.length) {
@@ -918,10 +849,7 @@ async function main() {
   }
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-  console.log("\n" + "=".repeat(60));
-  console.log(`✅ Completed processing ${tickers.length} CEF(s) in ${elapsed}s`);
-  console.log(`⚡ Average: ${(parseFloat(elapsed) / tickers.length).toFixed(1)}s per CEF`);
-  console.log("=".repeat(60));
+  console.log(`\n⚡ Completed in ${elapsed}s (avg: ${(parseFloat(elapsed) / tickers.length).toFixed(1)}s per CEF)`);
   
   process.exit(0);
 }
