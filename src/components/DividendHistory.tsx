@@ -523,7 +523,14 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                     tickFormatter={(value) => {
                       if (!value) return '';
                       try {
-                        return new Date(value).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                        // Parse date as local to avoid timezone conversion
+                        const dateParts = String(value).split('T')[0].split('-');
+                        const date = new Date(
+                          parseInt(dateParts[0]),
+                          parseInt(dateParts[1]) - 1,
+                          parseInt(dateParts[2])
+                        );
+                        return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
                       } catch {
                         return '';
                       }
@@ -551,7 +558,14 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                       const data = payload[0]?.payload;
                       if (!data) return null;
 
-                      const date = new Date(label);
+                      // Parse date as local to avoid timezone conversion
+                      const labelStr = String(label);
+                      const dateParts = labelStr.split('T')[0].split('-');
+                      const date = new Date(
+                        parseInt(dateParts[0]),
+                        parseInt(dateParts[1]) - 1,
+                        parseInt(dateParts[2])
+                      );
                       const exDateStr = `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })},${date.getFullYear()}`;
 
                       const amount = payload.find(p => p.dataKey === 'amount')?.value;
@@ -613,7 +627,14 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                     tickFormatter={(value) => {
                       if (!value) return '';
                       try {
-                        return new Date(value).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                        // Parse date as local to avoid timezone conversion
+                        const dateParts = String(value).split('T')[0].split('-');
+                        const date = new Date(
+                          parseInt(dateParts[0]),
+                          parseInt(dateParts[1]) - 1,
+                          parseInt(dateParts[2])
+                        );
+                        return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
                       } catch {
                         return '';
                       }
@@ -641,7 +662,14 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                       const data = payload[0]?.payload;
                       if (!data) return null;
 
-                      const date = new Date(label);
+                      // Parse date as local to avoid timezone conversion
+                      const labelStr = String(label);
+                      const dateParts = labelStr.split('T')[0].split('-');
+                      const date = new Date(
+                        parseInt(dateParts[0]),
+                        parseInt(dateParts[1]) - 1,
+                        parseInt(dateParts[2])
+                      );
                       const exDateStr = `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })},${date.getFullYear()}`;
 
                       const amount = payload.find(p => p.dataKey === 'amount')?.value;
