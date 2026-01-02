@@ -304,11 +304,12 @@ async function backfillNormalizedDividends() {
                 prevUpdate.frequency_num = frequencyNum;
                 
                 // Recalculate annualized and normalized for previous dividend with updated frequency
+                // EXACT FORMULA: NORMLZD = (ADJ_DIV × DAYS) / 52
                 if (prevUpdate.pmt_type === 'Regular' && previous) {
                     const prevAmount = previous.adj_amount !== null && previous.adj_amount > 0
                         ? Number(previous.adj_amount)
                         : null;
-                    if (prevAmount !== null && prevAmount > 0) {
+                    if (prevAmount !== null && prevAmount > 0 && frequencyNum > 0) {
                         const annualizedRaw = prevAmount * frequencyNum;
                         prevUpdate.annualized = Number(annualizedRaw.toFixed(2));
                         prevUpdate.normalized_div = Number((annualizedRaw / 52).toFixed(9));
@@ -380,17 +381,17 @@ async function backfillNormalizedDividends() {
 
             // Only calculate for Regular dividends with valid adjusted amounts
             // Must have adj_amount (not div_cash) for proper normalization after splits
-            if (pmtType === 'Regular' && amount !== null && amount > 0) {
-                // Calculate annualized: Amount × Frequency
+            if (pmtType === 'Regular' && amount !== null && amount > 0 && frequencyNum > 0) {
+                // Calculate annualized: Amount × Frequency (DAYS column = frequency_num = payments per year)
                 const annualizedRaw = amount * frequencyNum;
                 // Round annualized to 2 decimals for storage/display
                 annualized = Number(annualizedRaw.toFixed(2));
                 
                 // Normalized value: convert to weekly equivalent rate for line chart
+                // EXACT FORMULA: NORMLZD = (ADJ_DIV × DAYS) / 52
+                // Where ADJ_DIV = adj_amount, DAYS = frequency_num (payments per year)
                 // IMPORTANT: Calculate from the UNROUNDED annualized value
-                // Formula: normalizedDiv = (amount × frequency) / 52
-                // This ensures consistency: 0.694 × 12 = 8.328 → 8.328 / 52 = 0.160153846... ≈ 0.16015
-                // The spreadsheet uses the unrounded annualized value for normalization calculation
+                // Example: $4.6530 × 12 = $55.836 → $55.836 / 52 = $1.073769231
                 normalizedDiv = annualizedRaw / 52;
             }
 
@@ -652,15 +653,17 @@ async function backfillSingleTicker(ticker: string) {
         let annualized: number | null = null;
         let normalizedDiv: number | null = null;
         
-        if (pmtType === 'Regular' && amount !== null && amount > 0) {
+        if (pmtType === 'Regular' && amount !== null && amount > 0 && frequencyNum > 0) {
+            // Calculate annualized: Amount × Frequency (DAYS column = frequency_num = payments per year)
             const annualizedRaw = amount * frequencyNum;
             // Round annualized to 2 decimals for storage/display
             annualized = Number(annualizedRaw.toFixed(2));
             
             // Normalized value: convert to weekly equivalent rate for line chart
+            // EXACT FORMULA: NORMLZD = (ADJ_DIV × DAYS) / 52
+            // Where ADJ_DIV = adj_amount, DAYS = frequency_num (payments per year)
             // IMPORTANT: Calculate from the UNROUNDED annualized value
-            // Formula: normalizedDiv = (amount × frequency) / 52
-            // This ensures consistency: 0.694 × 12 = 8.328 → 8.328 / 52 = 0.160153846... ≈ 0.16015
+            // Example: $4.6530 × 12 = $55.836 → $55.836 / 52 = $1.073769231
             normalizedDiv = annualizedRaw / 52;
         }
 
