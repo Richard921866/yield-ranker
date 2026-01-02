@@ -873,10 +873,11 @@ async function main() {
   }
 
   // Process CEFs in parallel batches
-  // CEFs require more API calls per ticker (market price + NAV price + dividends + calculations)
-  // Reduced batch size to prevent rate limiting while still maintaining good speed
-  const BATCH_SIZE = 5; // Process 5 CEFs simultaneously (reduced from 10 to prevent rate limits)
-  const BATCH_DELAY_MS = 500; // 500ms delay between batches (increased to space out API calls)
+  // CEFs require more API calls per ticker (market price + NAV price + dividends = 3 calls per CEF)
+  // With 15 years of data per call, we need to be very careful with rate limits
+  // Reduced batch size significantly to prevent rate limiting
+  const BATCH_SIZE = 3; // Process 3 CEFs simultaneously (3 CEFs × 3 API calls = 9 calls per batch)
+  const BATCH_DELAY_MS = 1000; // 1 second delay between batches (spaces out API calls to stay under 500/hour limit)
   const startTime = Date.now();
   
   console.log(`\n🚀 Processing ${tickers.length} CEF(s) in parallel batches of ${BATCH_SIZE}...\n`);
