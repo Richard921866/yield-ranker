@@ -522,35 +522,11 @@ async function refreshCEF(ticker: string): Promise<void> {
     const navSymbolForCalc = navSymbol || ticker;
 
     // Step 1: Fetch and store price data for both CEF ticker and NAV symbol
-    // OPTIMIZATION: Check database first to only fetch missing/new data (same as CC ETFs)
-    const fullPriceStartDate = getDateDaysAgo(LOOKBACK_DAYS);
-    const fullDividendStartDate = getDateDaysAgo(DIVIDEND_LOOKBACK_DAYS);
-
-    // Check latest dates in database for both ticker and NAV symbol
-    const [latestPriceDate, latestNavPriceDate, latestDividendDate] = await Promise.all([
-      getLatestPriceDate(ticker),
-      navSymbolForCalc !== ticker ? getLatestPriceDate(navSymbolForCalc) : Promise.resolve(null),
-      getLatestDividendDate(ticker),
-    ]);
-
-    // Calculate fetch start dates: use latest date from DB + 1 day, or full lookback if no data
-    // Add 7-day buffer to catch any missing days due to weekends/holidays
-    const getFetchStartDate = (latestDate: string | null, fullStartDate: string): string => {
-      if (!latestDate) return fullStartDate; // No data yet, fetch everything
-      
-      const latest = new Date(latestDate);
-      latest.setDate(latest.getDate() - 7); // 7-day buffer for safety
-      const bufferDate = formatDate(latest);
-      
-      // Use the earlier of: buffer date or full start date
-      return bufferDate < fullStartDate ? fullStartDate : bufferDate;
-    };
-
-    const priceStartDate = getFetchStartDate(latestPriceDate, fullPriceStartDate);
-    const navPriceStartDate = navSymbolForCalc !== ticker 
-      ? getFetchStartDate(latestNavPriceDate, fullPriceStartDate)
-      : priceStartDate;
-    const dividendStartDate = getFetchStartDate(latestDividendDate, fullDividendStartDate);
+    // ALWAYS fetch full history from API to ensure we have complete data for all calculations
+    // Since rate limiting is fixed, we can fetch all data fresh every time
+    const priceStartDate = getDateDaysAgo(LOOKBACK_DAYS);
+    const navPriceStartDate = getDateDaysAgo(LOOKBACK_DAYS);
+    const dividendStartDate = getDateDaysAgo(DIVIDEND_LOOKBACK_DAYS);
 
     // PARALLELIZE all data fetching for maximum speed
     const fetchPromises: Array<Promise<any>> = [
