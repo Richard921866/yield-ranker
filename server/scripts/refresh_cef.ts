@@ -1230,7 +1230,12 @@ async function main() {
       });
     });
     
-    await Promise.allSettled(batchPromises);
+    const results = await Promise.allSettled(batchPromises);
+    
+    // Log batch completion status
+    const successCount = results.filter(r => r.status === 'fulfilled').length;
+    const failCount = results.filter(r => r.status === 'rejected').length;
+    console.log(`\n✓ Batch ${batchNum}/${totalBatches} complete: ${successCount} succeeded, ${failCount} failed`);
     
     // Small delay between batches to avoid overwhelming API
     if (i + BATCH_SIZE < tickers.length) {
