@@ -310,13 +310,12 @@ async function calculateNAVTrend6M(navSymbol: string): Promise<number | null> {
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(today);
 
-    // Fetch directly from API to ensure fresh data (not from potentially stale database)
-    const { getPriceHistoryFromAPI } = await import("../src/services/tiingo.js");
-    const navData = await getPriceHistoryFromAPI(
+    // Use getPriceHistory which reads from database (where we just saved fresh data)
+    const navData = await getPriceHistory(
       navSymbol.toUpperCase(),
       startDateStr,
       endDateStr
-    ).catch(() => []);
+    );
 
     if (navData.length < 2) {
       return null;
@@ -403,13 +402,12 @@ async function calculateNAVReturn12M(
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(today);
 
-    // Fetch directly from API to ensure fresh data (not from potentially stale database)
-    const { getPriceHistoryFromAPI } = await import("../src/services/tiingo.js");
-    const navData = await getPriceHistoryFromAPI(
+    // Use getPriceHistory which reads from database (where we just saved fresh data)
+    const navData = await getPriceHistory(
       navSymbol.toUpperCase(),
       startDateStr,
       endDateStr
-    ).catch(() => []);
+    );
 
     if (navData.length < 2) {
       return null;
@@ -555,6 +553,10 @@ async function refreshCEF(ticker: string): Promise<void> {
     );
 
     await Promise.allSettled(fetchPromises);
+    
+    // Small delay to ensure data is fully committed to database before calculations
+    // This prevents calculation functions from falling back to API when data exists in DB
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Import CEF calculation functions
     const {
@@ -827,12 +829,11 @@ async function main() {
     console.log(`\nFound ${tickers.length} CEF(s) to refresh\n`);
   }
 
-  // Process CEFs in parallel batches - same strategy as CC ETFs for consistency
-  // With database optimization, we only fetch missing data, so we can use larger batches
-  // 10 CEFs per batch = same as CC ETFs (proven to work without rate limiting)
-  // 100ms delay between batches = same as CC ETFs (small delay to avoid overwhelming API)
-  const BATCH_SIZE = 10; // Process 10 CEFs simultaneously (same as CC ETFs)
-  const BATCH_DELAY_MS = 100; // 100ms delay between batches (same as CC ETFs)
+  // Process CEFs in parallel batches
+  // CEFs require more API calls per ticker (market price + NAV price + dividends + calculations)
+  // Reduced batch size to prevent rate limiting while still maintaining good speed
+  const BATCH_SIZE = 5; // Process 5 CEFs simultaneously (reduced from 10 to prevent rate limits)
+  const BATCH_DELAY_MS = 500; // 500ms delay between batches (increased to space out API calls)
   const startTime = Date.now();
   
   console.log(`\n🚀 Processing ${tickers.length} CEF(s) in parallel batches of ${BATCH_SIZE}...\n`);
