@@ -63,13 +63,20 @@ export async function calculateCEFZScore(
     const endDateStr = formatDate(endDate);
 
     // Get price data for main ticker and NAV symbol
-    // getPriceHistory already handles API fallback if no data exists in database
+    // Fetch directly from API to ensure fresh data (not from potentially stale database)
+    const { getPriceHistoryFromAPI } = await import("../services/tiingo.js");
     const [priceData, navData] = await Promise.all([
-      getPriceHistory(ticker, startDateStr, endDateStr),
-      getPriceHistory(navSymbol.toUpperCase(), startDateStr, endDateStr),
+      getPriceHistoryFromAPI(ticker, startDateStr, endDateStr).catch(() => []),
+      getPriceHistoryFromAPI(navSymbol.toUpperCase(), startDateStr, endDateStr).catch(() => []),
     ]);
 
-    if (priceData.length === 0 || navData.length === 0) return null;
+    if (priceData.length === 0 || navData.length === 0) {
+      logger.warn(
+        "CEF Metrics",
+        `Z-Score N/A for ${ticker}: priceData=${priceData.length}, navData=${navData.length}`
+      );
+      return null;
+    }
 
     // Create maps by date for efficient lookup
     // USE UNADJUSTED PRICE AND UNADJUSTED NAV ONLY (per requirements)
@@ -131,6 +138,10 @@ export async function calculateCEFZScore(
     }
 
     if (discounts.length < DAYS_1Y) {
+      logger.warn(
+        "CEF Metrics",
+        `Z-Score N/A for ${ticker}: insufficient data (${discounts.length} < ${DAYS_1Y} trading days)`
+      );
       return null; // Not enough data (less than 1 year)
     }
 
@@ -442,14 +453,16 @@ export async function calculateAllNAVReturns(
 
   try {
     // Step 1: Get the most recent NAV to determine actual end date (single API call)
+    // Fetch directly from API to ensure fresh data
+    const { getPriceHistoryFromAPI } = await import("../services/tiingo.js");
     const endDateForLatest = new Date();
     const startDateForLatest = new Date();
     startDateForLatest.setDate(endDateForLatest.getDate() - 30);
-    const latestNav = await getPriceHistory(
+    const latestNav = await getPriceHistoryFromAPI(
       navSymbol.toUpperCase(),
       formatDate(startDateForLatest),
       formatDate(endDateForLatest)
-    );
+    ).catch(() => []);
 
     if (latestNav.length === 0) {
       logger.info(
@@ -469,19 +482,24 @@ export async function calculateAllNAVReturns(
     const endDateObj = new Date(endDate);
 
     // Step 2: Fetch ALL NAV data once (15 years with buffer) - single API call
+    // Fetch directly from API to ensure fresh data (not from potentially stale database)
     const startDate15Y = new Date(endDateObj);
     startDate15Y.setFullYear(endDateObj.getFullYear() - 15);
     const bufferDate = new Date(startDate15Y);
     bufferDate.setDate(bufferDate.getDate() - 60); // 60 day buffer for 15Y
     const fetchStartDate = formatDate(bufferDate);
 
-    const navData = await getPriceHistory(
+    const navData = await getPriceHistoryFromAPI(
       navSymbol.toUpperCase(),
       fetchStartDate,
       endDate
-    );
+    ).catch(() => []);
 
     if (navData.length < 2) {
+      logger.warn(
+        "CEF Metrics",
+        `NAV Returns N/A for ${navSymbol}: insufficient data (${navData.length} < 2 records)`
+      );
       return {
         return3Yr: null,
         return5Yr: null,
@@ -809,17 +827,19 @@ export async function calculateSignal(
     // Check if we have enough history (504 trading days = 2 years)
     // Rule: Minimum 2 years (504 days) of history required for reliability
     // Matches Python: if len(df) < 504: return "N/A"
+    // Fetch directly from API to ensure fresh data (not from potentially stale database)
+    const { getPriceHistoryFromAPI } = await import("../services/tiingo.js");
     const endDate = new Date();
     const startDate = new Date();
     startDate.setFullYear(endDate.getFullYear() - 3); // Get 3 years to ensure we have 504 trading days
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(endDate);
 
-    const navData = await getPriceHistory(
+    const navData = await getPriceHistoryFromAPI(
       navSymbol.toUpperCase(),
       startDateStr,
       endDateStr
-    );
+    ).catch(() => []);
 
     // Need at least 504 trading days of history (matches Python: if len(df) < 504: return "N/A")
     if (navData.length < 504) {

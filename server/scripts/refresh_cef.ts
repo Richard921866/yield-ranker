@@ -310,12 +310,13 @@ async function calculateNAVTrend6M(navSymbol: string): Promise<number | null> {
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(today);
 
-    // getPriceHistory already handles API fallback if no data exists in database
-    const navData = await getPriceHistory(
+    // Fetch directly from API to ensure fresh data (not from potentially stale database)
+    const { getPriceHistoryFromAPI } = await import("../src/services/tiingo.js");
+    const navData = await getPriceHistoryFromAPI(
       navSymbol.toUpperCase(),
       startDateStr,
       endDateStr
-    );
+    ).catch(() => []);
 
     if (navData.length < 2) {
       return null;
@@ -402,12 +403,13 @@ async function calculateNAVReturn12M(
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(today);
 
-    // getPriceHistory already handles API fallback if no data exists in database
-    const navData = await getPriceHistory(
+    // Fetch directly from API to ensure fresh data (not from potentially stale database)
+    const { getPriceHistoryFromAPI } = await import("../src/services/tiingo.js");
+    const navData = await getPriceHistoryFromAPI(
       navSymbol.toUpperCase(),
       startDateStr,
       endDateStr
-    );
+    ).catch(() => []);
 
     if (navData.length < 2) {
       return null;
