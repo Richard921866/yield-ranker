@@ -582,7 +582,6 @@ async function refreshCEF(ticker: string): Promise<void> {
     const {
       calculateCEFZScore,
       calculateSignal,
-      calculateNAVReturns,
       calculateDividendHistory,
     } = await import("../src/routes/cefs.js");
     
@@ -706,12 +705,9 @@ async function refreshCEF(ticker: string): Promise<void> {
     }
 
     // Calculate TOTAL RETURNS (3Y, 5Y, 10Y, 15Y) - NAV-based annualized returns
-    const [return3Yr, return5Yr, return10Yr, return15Yr] = await Promise.all([
-      calculateNAVReturns(navSymbolForCalc, "3Y"),
-      calculateNAVReturns(navSymbolForCalc, "5Y"),
-      calculateNAVReturns(navSymbolForCalc, "10Y"),
-      calculateNAVReturns(navSymbolForCalc, "15Y"),
-    ]);
+    // Use calculateAllNAVReturns to fetch data once and calculate all returns (reduces API calls from 8 to 2)
+    const { calculateAllNAVReturns } = await import("../src/routes/cefs.js");
+    const { return3Yr, return5Yr, return10Yr, return15Yr } = await calculateAllNAVReturns(navSymbolForCalc);
 
     updateData.return_3yr = return3Yr;
     updateData.return_5yr = return5Yr;

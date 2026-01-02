@@ -419,6 +419,136 @@ export async function calculateNAVReturn12M(
 }
 
 /**
+ * Calculate ALL TOTAL RETURNS (3Y, 5Y, 10Y, 15Y) in a single call to minimize API requests
+ * Fetches NAV data once (15 years) and calculates all 4 returns from that dataset
+ * This reduces API calls from 8 (4 periods × 2 calls each) to just 2 calls total
+ */
+export async function calculateAllNAVReturns(
+  navSymbol: string | null
+): Promise<{
+  return3Yr: number | null;
+  return5Yr: number | null;
+  return10Yr: number | null;
+  return15Yr: number | null;
+}> {
+  if (!navSymbol) {
+    return {
+      return3Yr: null,
+      return5Yr: null,
+      return10Yr: null,
+      return15Yr: null,
+    };
+  }
+
+  try {
+    // Step 1: Get the most recent NAV to determine actual end date (single API call)
+    const endDateForLatest = new Date();
+    const startDateForLatest = new Date();
+    startDateForLatest.setDate(endDateForLatest.getDate() - 30);
+    const latestNav = await getPriceHistory(
+      navSymbol.toUpperCase(),
+      formatDate(startDateForLatest),
+      formatDate(endDateForLatest)
+    );
+
+    if (latestNav.length === 0) {
+      logger.info(
+        "CEF Metrics",
+        `No NAV data found for ${navSymbol} (checked database and Tiingo)`
+      );
+      return {
+        return3Yr: null,
+        return5Yr: null,
+        return10Yr: null,
+        return15Yr: null,
+      };
+    }
+
+    latestNav.sort((a, b) => a.date.localeCompare(b.date));
+    const endDate = latestNav[latestNav.length - 1].date;
+    const endDateObj = new Date(endDate);
+
+    // Step 2: Fetch ALL NAV data once (15 years with buffer) - single API call
+    const startDate15Y = new Date(endDateObj);
+    startDate15Y.setFullYear(endDateObj.getFullYear() - 15);
+    const bufferDate = new Date(startDate15Y);
+    bufferDate.setDate(bufferDate.getDate() - 60); // 60 day buffer for 15Y
+    const fetchStartDate = formatDate(bufferDate);
+
+    const navData = await getPriceHistory(
+      navSymbol.toUpperCase(),
+      fetchStartDate,
+      endDate
+    );
+
+    if (navData.length < 2) {
+      return {
+        return3Yr: null,
+        return5Yr: null,
+        return10Yr: null,
+        return15Yr: null,
+      };
+    }
+
+    navData.sort((a, b) => a.date.localeCompare(b.date));
+
+    // Helper function to calculate return for a specific period
+    const calculateReturn = (years: number): number | null => {
+      const startDateObj = new Date(endDateObj);
+      startDateObj.setFullYear(endDateObj.getFullYear() - years);
+      const startDate = formatDate(startDateObj);
+
+      const startRecord = navData.find((p) => p.date >= startDate);
+      if (!startRecord) return null;
+
+      const validEndNav = navData.filter((p) => p.date <= endDate);
+      const endRecord = validEndNav.length > 0 ? validEndNav[validEndNav.length - 1] : null;
+      if (!endRecord || startRecord.date > endRecord.date) return null;
+
+      const startNav = startRecord.adj_close ?? startRecord.close;
+      const endNav = endRecord.adj_close ?? endRecord.close;
+
+      if (!startNav || !endNav || startNav <= 0 || endNav <= 0) return null;
+
+      const totalReturn = (endNav / startNav - 1) * 100;
+      if (totalReturn <= -100) return -100;
+
+      const annualizedReturn = (Math.pow(1 + totalReturn / 100, 1 / years) - 1) * 100;
+
+      if (!isFinite(annualizedReturn) || annualizedReturn < -100 || annualizedReturn > 1000) {
+        return null;
+      }
+
+      return annualizedReturn;
+    };
+
+    // Calculate all 4 returns from the single dataset
+    const return3Yr = calculateReturn(3);
+    const return5Yr = calculateReturn(5);
+    const return10Yr = calculateReturn(10);
+    const return15Yr = calculateReturn(15);
+
+    return {
+      return3Yr,
+      return5Yr,
+      return10Yr,
+      return15Yr,
+    };
+  } catch (error) {
+    logger.warn(
+      "CEF Metrics",
+      `Failed to calculate all NAV returns for ${navSymbol}: ${error}`
+    );
+    return {
+      return3Yr: null,
+      return5Yr: null,
+      return10Yr: null,
+      return15Yr: null,
+    };
+  }
+}
+
+/**
  * Calculate TOTAL RETURNS for CEFs (3Y, 5Y, 10Y, 15Y) using NAV data
  *
  * For CEFs, Total Returns are calculated using NAV (Net Asset Value) instead of market price
@@ -431,6 +561,8 @@ export async function calculateNAVReturn12M(
  *
  * This is equivalent to calculateTotalReturnDrip but uses NAV data instead of price data.
  * These values are displayed as "TOTAL RETURNS" in the CEF table.
+ *
+ * NOTE: For batch processing, use calculateAllNAVReturns() instead to minimize API calls.
  */
 export async function calculateNAVReturns(
   navSymbol: string | null,
