@@ -67,6 +67,7 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
+
 // 15 years lookback for CEF metrics
 const LOOKBACK_DAYS = 5475; // 15 years = 15 * 365 = 5475 days
 // Extended dividend lookback to ensure split adjustments work correctly
@@ -653,10 +654,6 @@ function parseArgs() {
 }
 
 async function refreshCEF(ticker: string): Promise<void> {
-  console.log(`\n${"=".repeat(60)}`);
-  console.log(`Processing CEF: ${ticker}`);
-  console.log(`${"=".repeat(60)}`);
-
   try {
     // Get CEF from database
     const { data: cef, error } = await supabase
@@ -665,70 +662,50 @@ async function refreshCEF(ticker: string): Promise<void> {
       .eq("ticker", ticker.toUpperCase())
       .maybeSingle();
 
-    if (error) {
-      console.error(`  ❌ Database error: ${error.message}`);
-      return;
-    }
-
-    if (!cef) {
-      console.error(`  ❌ CEF not found: ${ticker}`);
+    if (error || !cef) {
+      console.error(`  ❌ ${ticker}: Error - ${error?.message || 'Not found'}`);
       return;
     }
 
     // Check if it's a CEF (has nav_symbol)
     const navSymbol = cef.nav_symbol || null;
     if (!navSymbol) {
-      console.log(`  ⚠ Not a CEF (no nav_symbol): ${ticker}`);
+      console.error(`  ❌ ${ticker}: Not a CEF (no nav_symbol)`);
       return;
     }
 
     const navSymbolForCalc = navSymbol || ticker;
-    console.log(`  Using NAV symbol: ${navSymbolForCalc}`);
 
     // Step 1: Fetch and store price data for both CEF ticker and NAV symbol
     // PARALLELIZE all data fetching for maximum speed
     const priceStartDate = getDateDaysAgo(LOOKBACK_DAYS);
     const dividendStartDate = getDateDaysAgo(DIVIDEND_LOOKBACK_DAYS);
-    
-    console.log(`  📥 Fetching data in parallel...`);
 
     // Fetch all data in parallel (market prices, NAV prices, dividends)
     const fetchPromises: Array<Promise<any>> = [
       fetchPriceHistory(ticker, priceStartDate)
         .then(prices => upsertPrices(ticker, prices))
-        .then(count => ({ type: 'market', count, ticker }))
-        .catch(err => ({ type: 'market', count: 0, ticker, error: err.message }))
+        .then(() => ({ type: 'market', ticker }))
+        .catch(() => ({ type: 'market', ticker, error: true }))
     ];
 
     if (navSymbolForCalc !== ticker) {
       fetchPromises.push(
         fetchPriceHistory(navSymbolForCalc, priceStartDate)
           .then(prices => upsertPrices(navSymbolForCalc, prices))
-          .then(count => ({ type: 'nav', count, ticker: navSymbolForCalc }))
-          .catch(err => ({ type: 'nav', count: 0, ticker: navSymbolForCalc, error: err.message }))
+          .then(() => ({ type: 'nav', ticker: navSymbolForCalc }))
+          .catch(() => ({ type: 'nav', ticker: navSymbolForCalc, error: true }))
       );
     }
 
     fetchPromises.push(
       fetchDividendHistory(ticker, dividendStartDate)
         .then(dividends => upsertDividends(ticker, dividends))
-        .then(count => ({ type: 'dividends', count, ticker }))
-        .catch(err => ({ type: 'dividends', count: 0, ticker, error: err.message }))
+        .then(() => ({ type: 'dividends', ticker }))
+        .catch(() => ({ type: 'dividends', ticker, error: true }))
     );
 
-    const fetchResults = await Promise.allSettled(fetchPromises);
-    
-    // Log results
-    for (const result of fetchResults) {
-      if (result.status === 'fulfilled') {
-        const res = result.value;
-        if (res.error) {
-          console.warn(`    ⚠ Failed to fetch ${res.type} for ${res.ticker}: ${res.error}`);
-        } else {
-          console.log(`    ✓ ${res.type === 'market' ? 'Market' : res.type === 'nav' ? 'NAV' : 'Dividend'} prices: ${res.count} records for ${res.ticker}`);
-        }
-      }
-    }
+    await Promise.allSettled(fetchPromises);
 
     // Import CEF calculation functions
     const {
@@ -743,44 +720,18 @@ async function refreshCEF(ticker: string): Promise<void> {
 
     const updateData: any = {};
 
-    // Calculate all CEF metrics
-    // PARALLELIZE independent calculations for speed
-    console.log(`  📊 Calculating CEF metrics...`);
-
-    // Run Z-Score, NAV Trend 6M, and NAV Return 12M in parallel (they're independent)
+    // Calculate all CEF metrics - PARALLELIZE independent calculations for speed
     const [fiveYearZScore, navTrend6M, navTrend12M] = await Promise.all([
       calculateCEFZScore(ticker, navSymbolForCalc).catch(() => null),
       calculateNAVTrend6M(navSymbolForCalc).catch(() => null),
       calculateNAVReturn12M(navSymbolForCalc).catch(() => null),
     ]);
 
-    // 1. Process 3-Year Z-Score result
     updateData.five_year_z_score = fiveYearZScore;
-    if (fiveYearZScore !== null) {
-      console.log(`    ✓ 3Y Z-Score: ${fiveYearZScore.toFixed(2)}`);
-    } else {
-      console.log(
-        `    ⚠ 3Y Z-Score: N/A (insufficient data, need at least 1 year) - clearing old value`
-      );
-    }
-
-    // 2. Process NAV Trend 6M result
     updateData.nav_trend_6m = navTrend6M;
-    if (navTrend6M !== null) {
-      console.log(`    ✓ 6M NAV Trend: ${navTrend6M.toFixed(2)}%`);
-    } else {
-      console.log(`    ⚠ 6M NAV Trend: N/A - clearing old value`);
-    }
-
-    // 3. Process NAV Return 12M result
     updateData.nav_trend_12m = navTrend12M;
-    if (navTrend12M !== null) {
-      console.log(`    ✓ 12M NAV Return: ${navTrend12M.toFixed(2)}%`);
-    } else {
-      console.log(`    ⚠ 12M NAV Return: N/A - clearing old value`);
-    }
 
-    // 4. Calculate Signal
+    // Calculate Signal
     let signal: number | null = null;
     try {
       signal = await calculateSignal(
@@ -791,70 +742,30 @@ async function refreshCEF(ticker: string): Promise<void> {
         navTrend12M
       );
       updateData.signal = signal;
-      if (signal !== null) {
-        const signalLabels: Record<number, string> = {
-          3: "Optimal",
-          2: "Good Value",
-          1: "Healthy",
-          0: "Neutral",
-          "-1": "Value Trap",
-          "-2": "Overvalued",
-        };
-        console.log(
-          `    ✓ Signal: ${signal} (${
-            signalLabels[signal as keyof typeof signalLabels] || "Unknown"
-          })`
-        );
-      } else {
-        console.log(`    ⚠ Signal: N/A - clearing old value`);
-      }
     } catch (error) {
       updateData.signal = null;
-      console.warn(
-        `    ⚠ Failed to calculate Signal: ${
-          (error as Error).message
-        } - clearing old value`
-      );
     }
 
-    // 5. Calculate Dividend History (X+ Y- format)
-    console.log(`  📊 Calculating Dividend History (X+ Y- format)...`);
+    // Calculate Dividend History (X+ Y- format)
     let dividendHistory: string | null = null;
     try {
-      // Get dividends from 2009-01-01 onwards for dividend history calculation
-      const dividends = await getDividendHistory(
-        ticker.toUpperCase(),
-        "2009-01-01"
-      );
+      const dividends = await getDividendHistory(ticker.toUpperCase(), "2009-01-01");
       if (dividends && dividends.length > 0) {
         dividendHistory = calculateDividendHistory(dividends);
         updateData.dividend_history = dividendHistory;
-        console.log(`    ✓ Dividend History: ${dividendHistory}`);
       } else {
-        console.log(
-          `    ⚠ Dividend History: N/A (no dividend data from 2009-01-01) - clearing old value`
-        );
         updateData.dividend_history = null;
       }
     } catch (error) {
       updateData.dividend_history = null;
-      console.warn(
-        `    ⚠ Failed to calculate Dividend History: ${
-          (error as Error).message
-        } - clearing old value`
-      );
     }
 
-    // 6. Calculate and update normalized dividends (for split ETFs like CONY, ULTY)
-    // CRITICAL: Must use adj_amount (adjusted dividends) for proper normalization
-    console.log(`  📊 Calculating normalized dividends...`);
+    // Calculate and update normalized dividends (silently)
     try {
       const { calculateNormalizedDividends } = await import("../src/services/dividendNormalization.js");
       const dividendsForNormalization = await getDividendHistory(ticker.toUpperCase(), "2009-01-01");
       
       if (dividendsForNormalization.length > 0) {
-        // Convert to format expected by calculateNormalizedDividends
-        // Filter out dividends without an id (required for database updates)
         const dividendInputs = dividendsForNormalization
           .filter(d => d.id !== undefined && d.id !== null)
           .map(d => ({
@@ -866,8 +777,6 @@ async function refreshCEF(ticker: string): Promise<void> {
           }));
         
         const normalizedResults = calculateNormalizedDividends(dividendInputs);
-        
-        // Batch update normalized values
         const updates = normalizedResults.map(result => ({
           id: result.id,
           days_since_prev: result.days_since_prev,
@@ -877,9 +786,7 @@ async function refreshCEF(ticker: string): Promise<void> {
           normalized_div: result.normalized_div,
         }));
         
-        // Update in batches to avoid overwhelming the database
         const BATCH_SIZE = 100;
-        let updatedCount = 0;
         for (let i = 0; i < updates.length; i += BATCH_SIZE) {
           const batch = updates.slice(i, i + BATCH_SIZE);
           const updatePromises = batch.map(update => 
@@ -895,68 +802,39 @@ async function refreshCEF(ticker: string): Promise<void> {
               .eq('id', update.id)
           );
           await Promise.all(updatePromises);
-          updatedCount += batch.length;
         }
-        
-        console.log(`    ✓ Normalized dividends: Updated ${updatedCount} records`);
-      } else {
-        console.log(`    ⚠ Normalized dividends: No dividends found`);
       }
     } catch (error) {
-      console.warn(
-        `    ⚠ Failed to calculate normalized dividends: ${(error as Error).message}`
-      );
+      // Silent fail
     }
 
-    // 7. Calculate DVI (Dividend Volatility Index)
-    console.log(`  📊 Calculating DVI (Dividend Volatility Index)...`);
-    let dviResult: any = null;
+    // Calculate DVI (silently)
     try {
-      const { calculateDividendVolatility } = await import(
-        "../src/services/metrics.js"
-      );
-
+      const { calculateDividendVolatility } = await import("../src/services/metrics.js");
       const dividends = await getDividendHistory(ticker.toUpperCase());
       if (dividends && dividends.length > 0) {
-        dviResult = calculateDividendVolatility(dividends, 12, ticker);
+        const dviResult = calculateDividendVolatility(dividends, 12, ticker);
         if (dviResult) {
           updateData.dividend_sd = dviResult.dividendSD;
           updateData.dividend_cv = dviResult.dividendCV;
           updateData.dividend_cv_percent = dviResult.dividendCVPercent;
           updateData.dividend_volatility_index = dviResult.volatilityIndex;
           updateData.annual_dividend = dviResult.annualDividend;
-          console.log(
-            `    ✓ DVI: ${dviResult.volatilityIndex || "N/A"} (CV: ${
-              dviResult.dividendCVPercent?.toFixed(2) || "N/A"
-            }%, SD: ${dviResult.dividendSD?.toFixed(4) || "N/A"}, Avg: ${
-              dviResult.annualDividend?.toFixed(2) || "N/A"
-            })`
-          );
         }
       } else {
-        console.log(`    ⚠ DVI: N/A (no dividend data) - clearing old values`);
         updateData.dividend_sd = null;
         updateData.dividend_cv = null;
         updateData.dividend_cv_percent = null;
         updateData.dividend_volatility_index = null;
       }
     } catch (error) {
-      console.warn(
-        `    ⚠ Failed to calculate DVI: ${
-          (error as Error).message
-        } - clearing old values`
-      );
       updateData.dividend_sd = null;
       updateData.dividend_cv = null;
       updateData.dividend_cv_percent = null;
       updateData.dividend_volatility_index = null;
     }
 
-    // 7. Calculate TOTAL RETURNS (3Y, 5Y, 10Y, 15Y) - NAV-based annualized returns
-    // PARALLELIZE for speed - all 4 calculations can run simultaneously
-    console.log(
-      `  📊 Calculating NAV-based total returns (3Y, 5Y, 10Y, 15Y)...`
-    );
+    // Calculate TOTAL RETURNS (3Y, 5Y, 10Y, 15Y) - NAV-based annualized returns
     const [return3Yr, return5Yr, return10Yr, return15Yr] = await Promise.all([
       calculateNAVReturns(navSymbolForCalc, "3Y"),
       calculateNAVReturns(navSymbolForCalc, "5Y"),
@@ -969,27 +847,7 @@ async function refreshCEF(ticker: string): Promise<void> {
     updateData.return_10yr = return10Yr;
     updateData.return_15yr = return15Yr;
 
-    console.log(`    ✓ Total Returns (annualized):`);
-    console.log(
-      `      - 3Y: ${return3Yr !== null ? `${return3Yr.toFixed(2)}%` : "N/A"}`
-    );
-    console.log(
-      `      - 5Y: ${return5Yr !== null ? `${return5Yr.toFixed(2)}%` : "N/A"}`
-    );
-    console.log(
-      `      - 10Y: ${
-        return10Yr !== null ? `${return10Yr.toFixed(2)}%` : "N/A"
-      }`
-    );
-    console.log(
-      `      - 15Y: ${
-        return15Yr !== null ? `${return15Yr.toFixed(2)}%` : "N/A"
-      }`
-    );
-
-    // 8. Update NAV, Market Price, and Premium/Discount from latest prices
-    // PARALLELIZE database queries for speed
-    console.log(`  📊 Updating NAV, Market Price, and Premium/Discount...`);
+    // Update NAV, Market Price, and Premium/Discount from latest prices
     let currentNav: number | null = cef.nav ?? null;
     let marketPrice: number | null = cef.price ?? null;
 
@@ -999,7 +857,6 @@ async function refreshCEF(ticker: string): Promise<void> {
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(endDate);
 
-    // Fetch NAV and market price in parallel
     const [navHistory, priceHistory] = await Promise.all([
       navSymbolForCalc
         ? getPriceHistory(navSymbolForCalc.toUpperCase(), startDateStr, endDateStr).catch(() => [])
@@ -1007,18 +864,15 @@ async function refreshCEF(ticker: string): Promise<void> {
       getPriceHistory(ticker.toUpperCase(), startDateStr, endDateStr).catch(() => [])
     ]);
 
-    // Process NAV
     if (navHistory.length > 0) {
       navHistory.sort((a, b) => a.date.localeCompare(b.date));
       const latestNav = navHistory[navHistory.length - 1];
       currentNav = latestNav.close ?? null;
       if (currentNav !== null) {
         updateData.nav = currentNav;
-        console.log(`    ✓ NAV: $${currentNav.toFixed(2)}`);
       }
     }
 
-    // Process Market Price
     if (priceHistory.length > 0) {
       priceHistory.sort((a, b) => a.date.localeCompare(b.date));
       const latestPrice = priceHistory[priceHistory.length - 1];
@@ -1026,131 +880,43 @@ async function refreshCEF(ticker: string): Promise<void> {
       if (fetchedPrice !== null) {
         marketPrice = fetchedPrice;
         updateData.price = marketPrice;
-        console.log(`    ✓ Market Price: $${marketPrice.toFixed(2)}`);
       }
     }
 
-    // Calculate premium/discount: ((MP / NAV - 1) * 100)
     if (currentNav && currentNav !== 0 && marketPrice && marketPrice > 0) {
       const premiumDiscount = (marketPrice / currentNav - 1) * 100;
       updateData.premium_discount = premiumDiscount;
-      console.log(
-        `    ✓ Premium/Discount: ${
-          premiumDiscount >= 0 ? "+" : ""
-        }${premiumDiscount.toFixed(2)}% (MP=$${marketPrice.toFixed(
-          2
-        )}, NAV=$${currentNav.toFixed(2)})`
-      );
     } else {
       updateData.premium_discount = null;
-      if (cef.premium_discount !== null && cef.premium_discount !== undefined) {
-        console.log(
-          `    ⚠ Premium/Discount: Cannot calculate (missing NAV or market price), clearing old value`
-        );
-      } else {
-        console.log(
-          `    ⚠ Premium/Discount: N/A (missing NAV or market price)`
-        );
-      }
     }
 
-    // Save to database with explicit last_updated timestamp
-    console.log(`  💾 Saving to database...`);
-
+    // Save to database
     const now = new Date().toISOString();
     updateData.last_updated = now;
     updateData.updated_at = now;
 
-    // Add timeout protection for database update to prevent hanging
-    await Promise.race([
-      batchUpdateETFMetricsPreservingCEFFields([
-        {
-          ticker,
-          metrics: updateData,
-        },
-      ]),
-      new Promise<void>((_, reject) => {
-        setTimeout(() => reject(new Error(`Database update timeout for ${ticker} (exceeded 2 minutes)`)), 2 * 60 * 1000);
-      })
-    ]).catch((error) => {
-      console.error(`  ❌ Database update failed/timed out for ${ticker}: ${error.message}`);
-      throw error; // Re-throw to be caught by outer try-catch
-    });
+    await batchUpdateETFMetricsPreservingCEFFields([
+      {
+        ticker,
+        metrics: updateData,
+      },
+    ]);
 
-    // Verify save - CRITICAL: Always verify last_updated was saved
-    console.log(`  🔍 Verifying database update...`);
-    // Try with dividend_history first, but if it fails due to schema cache, retry without it
-    let verify: any = null;
-    let verifyError: any = null;
-    
-    const { data: verifyData, error: verifyErr } = await supabase
+    // Get rank after save
+    const { data: savedData } = await supabase
       .from("etf_static")
-      .select(
-        "return_3yr, return_5yr, return_10yr, return_15yr, five_year_z_score, nav_trend_6m, nav_trend_12m, signal, premium_discount, nav, price, dividend_history, last_updated"
-      )
+      .select("weighted_rank")
       .eq("ticker", ticker.toUpperCase())
       .maybeSingle();
 
-    if (verifyErr && verifyErr.message.includes('dividend_history')) {
-      // Retry without dividend_history if schema cache issue
-      const { data: verifyData2, error: verifyErr2 } = await supabase
-        .from("etf_static")
-        .select(
-          "return_3yr, return_5yr, return_10yr, return_15yr, five_year_z_score, nav_trend_6m, nav_trend_12m, signal, premium_discount, nav, price, last_updated"
-        )
-        .eq("ticker", ticker.toUpperCase())
-        .maybeSingle();
-      verify = verifyData2;
-      verifyError = verifyErr2;
-    } else {
-      verify = verifyData;
-      verifyError = verifyErr;
-    }
-
-    if (verifyError) {
-      console.warn(`    ⚠ Verification query error: ${verifyError.message}`);
-    }
-
-    if (verify) {
-      console.log(`    ✓ Verified saved values:`);
-      console.log(
-        `      - Returns: 3Y=${verify.return_3yr ?? "NULL"}, 5Y=${
-          verify.return_5yr ?? "NULL"
-        }, 10Y=${verify.return_10yr ?? "NULL"}, 15Y=${
-          verify.return_15yr ?? "NULL"
-        }`
-      );
-      console.log(`      - Z-Score: ${verify.five_year_z_score ?? "NULL"}`);
-      console.log(
-        `      - NAV Trends: 6M=${verify.nav_trend_6m ?? "NULL"}, 12M=${
-          verify.nav_trend_12m ?? "NULL"
-        }`
-      );
-      console.log(`      - Signal: ${verify.signal ?? "NULL"}`);
-      console.log(
-        `      - Premium/Discount: ${
-          verify.premium_discount !== null &&
-          verify.premium_discount !== undefined
-            ? (verify.premium_discount >= 0 ? "+" : "") +
-              verify.premium_discount.toFixed(2) +
-              "%"
-            : "NULL"
-        } (MP=$${verify.price ?? "NULL"}, NAV=$${verify.nav ?? "NULL"})`
-      );
-      console.log(
-        `      - Dividend History: ${verify.dividend_history ?? "NULL"}`
-      );
-      // CRITICAL: Always show last_updated to verify it was saved
-      if (verify.last_updated) {
-        console.log(`      - Last Updated: ${verify.last_updated} ✅`);
-      } else {
-        console.warn(`      - Last Updated: NULL ⚠️ NOT SAVED!`);
-      }
-    } else {
-      console.warn(`    ⚠ Could not verify saved values (no data returned)`);
-    }
-
-    console.log(`  ✅ ${ticker} complete`);
+    // Display only essential table metrics
+    console.log(`\n${ticker}:`);
+    console.log(`  6M NAV: ${navTrend6M !== null ? navTrend6M.toFixed(2) + '%' : 'N/A'}`);
+    console.log(`  12M NAV: ${navTrend12M !== null ? navTrend12M.toFixed(2) + '%' : 'N/A'}`);
+    console.log(`  3Y Z-Score: ${fiveYearZScore !== null ? fiveYearZScore.toFixed(2) : 'N/A'}`);
+    console.log(`  Signal: ${signal !== null ? signal : 'N/A'}`);
+    console.log(`  Divs: ${dividendHistory || 'N/A'}`);
+    console.log(`  Rank: ${savedData?.weighted_rank ?? 'N/A'}`);
   } catch (error) {
     console.error(
       `  ❌ Error processing ${ticker}: ${(error as Error).message}`
@@ -1204,8 +970,8 @@ async function main() {
     console.log(`\nFound ${tickers.length} CEF(s) to refresh\n`);
   }
 
-  // Process CEFs in parallel batches for maximum speed
-  const BATCH_SIZE = 5; // Process 5 CEFs simultaneously
+  // Process CEFs in parallel batches for speed while avoiding rate limits
+  const BATCH_SIZE = 3; // Process 3 CEFs simultaneously (good balance of speed and rate limit safety)
   const startTime = Date.now();
   
   console.log(`\n🚀 Processing ${tickers.length} CEF(s) in parallel batches of ${BATCH_SIZE}...\n`);
@@ -1215,31 +981,13 @@ async function main() {
     const batchNum = Math.floor(i / BATCH_SIZE) + 1;
     const totalBatches = Math.ceil(tickers.length / BATCH_SIZE);
     
-    console.log(`\n📦 Batch ${batchNum}/${totalBatches} (${batch.length} CEFs): ${batch.join(", ")}`);
-    
-    // Process batch in parallel with timeout protection
-    const batchPromises = batch.map((ticker) => {
-      return Promise.race([
-        refreshCEF(ticker),
-        new Promise<void>((_, reject) => {
-          setTimeout(() => reject(new Error(`Timeout: ${ticker} took longer than 5 minutes`)), 5 * 60 * 1000);
-        })
-      ]).catch((error) => {
-        console.error(`  ❌ ${ticker} failed or timed out: ${error.message}`);
-        // Continue processing other CEFs
-      });
-    });
-    
-    const results = await Promise.allSettled(batchPromises);
-    
-    // Log batch completion status
-    const successCount = results.filter(r => r.status === 'fulfilled').length;
-    const failCount = results.filter(r => r.status === 'rejected').length;
-    console.log(`\n✓ Batch ${batchNum}/${totalBatches} complete: ${successCount} succeeded, ${failCount} failed`);
+    // Process batch in parallel
+    const batchPromises = batch.map((ticker) => refreshCEF(ticker));
+    await Promise.allSettled(batchPromises);
     
     // Small delay between batches to avoid overwhelming API
     if (i + BATCH_SIZE < tickers.length) {
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
 
@@ -1249,7 +997,6 @@ async function main() {
   console.log(`⚡ Average: ${(parseFloat(elapsed) / tickers.length).toFixed(1)}s per CEF`);
   console.log("=".repeat(60));
   
-  // CRITICAL: Explicitly exit to prevent hanging
   process.exit(0);
 }
 
