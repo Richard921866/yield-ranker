@@ -541,28 +541,46 @@ export async function getPriceHistory(
     return await withRetry(async () => {
       const db = getSupabase();
 
-      let query = db
-        .from('prices_daily')
-        .select('*')
-        .eq('ticker', ticker.toUpperCase())
-        .gte('date', startDate)
-        .order('date', { ascending: true });
+      // Supabase has a default limit of 1000 records, so we need to paginate
+      // to fetch all records for large date ranges (e.g., 15 years of daily data)
+      const PAGE_SIZE = 1000;
+      let allRecords: PriceRecord[] = [];
+      let offset = 0;
+      let hasMore = true;
 
-      if (endDate) {
-        query = query.lte('date', endDate);
+      while (hasMore) {
+        let query = db
+          .from('prices_daily')
+          .select('*')
+          .eq('ticker', ticker.toUpperCase())
+          .gte('date', startDate)
+          .order('date', { ascending: true })
+          .range(offset, offset + PAGE_SIZE - 1);
+
+        if (endDate) {
+          query = query.lte('date', endDate);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        const records = (data ?? []) as PriceRecord[];
+        allRecords = allRecords.concat(records);
+
+        // If we got fewer records than PAGE_SIZE, we've reached the end
+        if (records.length < PAGE_SIZE) {
+          hasMore = false;
+        } else {
+          offset += PAGE_SIZE;
+        }
       }
-
-      const { data, error } = await query;
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      const records = (data ?? []) as PriceRecord[];
 
       // Only fallback to API if database is completely empty
       // During refresh_cef, we just fetched fresh data, so database should have it
-      if (records.length === 0) {
+      if (allRecords.length === 0) {
         logger.debug('Database', `No price data in database for ${ticker}, attempting Tiingo API fallback`);
         try {
           const { getPriceHistoryFromAPI } = await import('./tiingo.js');
@@ -576,7 +594,7 @@ export async function getPriceHistory(
         }
       }
 
-      return records;
+      return allRecords;
     });
   } catch (error) {
     logger.error('Database', `Error fetching prices for ${ticker}: ${(error as Error).message}`);
