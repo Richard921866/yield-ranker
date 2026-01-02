@@ -1895,13 +1895,13 @@ router.post(
                 dividendStartDate.setDate(dividendStartDate.getDate() - 730); // 2 years
 
                 // Fetch data in parallel
-                const [prices, dividends] = await Promise.allSettled([
+                const [pricesResult, dividendsResult] = await Promise.allSettled([
                   fetchPriceHistory(ticker, formatDate(priceStartDate))
                     .then(async (prices) => {
                       // Upsert prices to database
                       if (prices && prices.length > 0) {
                         const { upsertPrices } = await import("../services/database.js");
-                        await upsertPrices(ticker, prices);
+                        await upsertPrices(prices);
                       }
                       return prices;
                     }),
@@ -1910,7 +1910,7 @@ router.post(
                       // Upsert dividends to database
                       if (dividends && dividends.length > 0) {
                         const { upsertDividends } = await import("../services/database.js");
-                        await upsertDividends(ticker, dividends);
+                        await upsertDividends(dividends);
                       }
                       return dividends;
                     }),
