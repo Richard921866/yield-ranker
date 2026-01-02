@@ -117,39 +117,47 @@ interface CalculatedDividend {
 /**
  * Determine frequency based on days between payments
  * Using ranges to account for weekends/holidays
- * Based on CEO specification: 7-10 days = weekly (52), 25-35 days = monthly (12)
+ * Based on DAYS FORMULA specification:
+ * - Weekly: 5-10 days
+ * - Monthly: 20-40 days
+ * - Quarterly: 60-110 days
+ * - Semi-Annually: 150-210 days
+ * - Annually: 300-380 days
+ * - Irregular/Special: Outside these ranges OR 1-4 days from last regular dividend
  */
 function getFrequencyFromDays(days: number): number {
-    // Clear weekly pattern: 5-10 days (standard weekly pattern)
+    // Weekly: 5-10 days
     if (days >= 5 && days <= 10) return 52;    // Weekly
-    
-    // Clear monthly pattern: 25-35 days
-    if (days >= 25 && days <= 35) return 12;   // Monthly  
-    
-    // Clear quarterly pattern: 80-100 days
-    if (days >= 80 && days <= 100) return 4;   // Quarterly
-    
-    // Clear semi-annual pattern: 170-200 days
-    if (days >= 170 && days <= 200) return 2;  // Semi-annual
-    
-    // Clear annual pattern: > 200 days
-    if (days > 200) return 1;                   // Annual or irregular
 
-    // Edge cases for irregular gaps
-    // 11-14 days: can occur during frequency transitions (monthly to weekly)
-    // Treat as weekly when it's part of a weekly sequence
-    if (days >= 11 && days <= 14) return 52;   // Transition periods (monthly to weekly)
-    
-    // 15-24 days: bi-weekly/irregular, treat as monthly (between weekly and monthly)
-    if (days >= 15 && days < 25) return 12;     // Bi-weekly/irregular, treat as monthly
-    
-    // 36-79 days: closer to monthly than quarterly, default to monthly
-    if (days > 35 && days < 80) return 12;     // Irregular monthly pattern
-    
-    // 101-169 days: closer to quarterly than semi-annual
-    if (days > 100 && days < 170) return 4;    // Irregular quarterly pattern
+    // Monthly: 20-40 days
+    if (days >= 20 && days <= 40) return 12;   // Monthly  
 
-    // Default to monthly for any other case
+    // Quarterly: 60-110 days
+    if (days >= 60 && days <= 110) return 4;   // Quarterly
+
+    // Semi-Annually: 150-210 days
+    if (days >= 150 && days <= 210) return 2;  // Semi-annual
+
+    // Annually: 300-380 days
+    if (days >= 300 && days <= 380) return 1;   // Annual
+
+    // Edge cases for gaps outside standard ranges but within reasonable bounds
+    // 11-19 days: between weekly and monthly, treat as weekly (transition periods)
+    if (days >= 11 && days < 20) return 52;   // Transition periods (monthly to weekly)
+
+    // 41-59 days: between monthly and quarterly, treat as monthly
+    if (days > 40 && days < 60) return 12;     // Irregular monthly pattern
+
+    // 111-149 days: between quarterly and semi-annual, treat as quarterly
+    if (days > 110 && days < 150) return 4;    // Irregular quarterly pattern
+
+    // 211-299 days: between semi-annual and annual, treat as semi-annual
+    if (days > 210 && days < 300) return 2;    // Irregular semi-annual pattern
+
+    // > 380 days: beyond annual range, treat as annual (irregular)
+    if (days > 380) return 1;                   // Irregular annual pattern
+
+    // Default to monthly for any other case (shouldn't happen with valid data)
     return 12;
 }
 
