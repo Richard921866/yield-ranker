@@ -1896,7 +1896,8 @@ router.post(
                 const dividendStartDate = new Date();
                 dividendStartDate.setDate(dividendStartDate.getDate() - 730); // 2 years
 
-                // Fetch data in parallel
+                // Fetch data in parallel and WAIT for it to be saved before calculating metrics
+                logger.info("CEF Upload", `${ticker}: Fetching price and dividend data...`);
                 const [pricesResult, dividendsResult] = await Promise.allSettled([
                   fetchPriceHistory(ticker, formatDate(priceStartDate))
                     .then(async (tiingoPrices) => {
@@ -1919,7 +1920,10 @@ router.post(
                           div_cash: p.divCash || 0,
                           split_factor: p.splitFactor || 1,
                         }));
-                        await upsertPrices(priceRecords);
+                        const count = await upsertPrices(priceRecords);
+                        logger.info("CEF Upload", `${ticker}: Saved ${count} price records`);
+                      } else {
+                        logger.warn("CEF Upload", `${ticker}: No price data fetched`);
                       }
                       return tiingoPrices;
                     }),
@@ -1944,11 +1948,22 @@ router.post(
                           description: null,
                           is_manual: false,
                         }));
-                        await upsertDividends(dividendRecords);
+                        const count = await upsertDividends(dividendRecords);
+                        logger.info("CEF Upload", `${ticker}: Saved ${count} dividend records`);
+                      } else {
+                        logger.warn("CEF Upload", `${ticker}: No dividend data fetched`);
                       }
                       return tiingoDividends;
                     }),
                 ]);
+
+                // Log fetch results
+                if (pricesResult.status === 'rejected') {
+                  logger.error("CEF Upload", `${ticker}: Failed to fetch prices: ${pricesResult.reason}`);
+                }
+                if (dividendsResult.status === 'rejected') {
+                  logger.error("CEF Upload", `${ticker}: Failed to fetch dividends: ${dividendsResult.reason}`);
+                }
 
                 // Calculate normalized dividends (same as refreshCEF)
                 try {
