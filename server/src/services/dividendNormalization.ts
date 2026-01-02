@@ -24,9 +24,11 @@
  *    - 25-35 days → 12 (Monthly)
  *    - 80-100 days → 4 (Quarterly)
  *    - else → 1 (Annual/Irregular)
- * 4. ANNUALIZED: adj_amount × frequency_num (only for Regular dividends)
+ * 4. ANNUALIZED: adj_amount × frequency_num (for Regular and Initial dividends)
  * 5. NORMALIZED: annualized / 52 = (adj_amount × frequency_num) / 52 (weekly equivalent rate)
- *    Only for Regular dividends. This normalizes all payments to weekly equivalent for line chart comparison.
+ *    Calculated for Regular and Initial dividends (not Special). 
+ *    This normalizes all payments to weekly equivalent for line chart comparison.
+ *    Initial dividends (first dividend with no previous) also get normalized using default frequency.
  */
 
 export interface DividendInput {
@@ -54,16 +56,16 @@ export interface NormalizedDividend {
 export function getFrequencyFromDays(days: number): number {
     // Clear weekly pattern: 5-10 days (standard weekly pattern)
     if (days >= 5 && days <= 10) return 52;    // Weekly
-    
+
     // Clear monthly pattern: 25-35 days
     if (days >= 25 && days <= 35) return 12;   // Monthly  
-    
+
     // Clear quarterly pattern: 80-100 days
     if (days >= 80 && days <= 100) return 4;   // Quarterly
-    
+
     // Clear semi-annual pattern: 170-200 days
     if (days >= 170 && days <= 200) return 2;  // Semi-annual
-    
+
     // Clear annual pattern: > 200 days
     if (days > 200) return 1;                   // Annual or irregular
 
@@ -71,13 +73,13 @@ export function getFrequencyFromDays(days: number): number {
     // 11-14 days: can occur during frequency transitions (monthly to weekly)
     // Treat as weekly when it's part of a weekly sequence, but this needs context
     if (days >= 11 && days <= 14) return 52;   // Transition periods (monthly to weekly)
-    
+
     // 15-24 days: bi-weekly/irregular, treat as monthly (between weekly and monthly)
     if (days >= 15 && days < 25) return 12;     // Bi-weekly/irregular, treat as monthly
-    
+
     // 36-79 days: closer to monthly than quarterly, default to monthly
     if (days > 35 && days < 80) return 12;     // Irregular monthly pattern
-    
+
     // 101-169 days: closer to quarterly than semi-annual
     if (days > 100 && days < 170) return 4;    // Irregular quarterly pattern
 
@@ -100,24 +102,24 @@ export function getPaymentType(
     daysToNext: number | null = null
 ): 'Regular' | 'Special' | 'Initial' {
     if (daysSincePrev === null) return 'Initial';
-    
+
     // Special case: If current dividend is tiny (< 1% of next) and comes 1-4 days before next,
     // it's likely a special dividend (e.g., $0.0003 before $0.4866)
-    if (currentAmount !== null && currentAmount > 0 && 
-        nextAmount !== null && nextAmount > 0 && 
+    if (currentAmount !== null && currentAmount > 0 &&
+        nextAmount !== null && nextAmount > 0 &&
         daysToNext !== null && daysToNext >= 1 && daysToNext <= 4) {
         const ratio = currentAmount / nextAmount;
         if (ratio < 0.01) { // Current is less than 1% of next
             return 'Special';
         }
     }
-    
+
     // If we have days since last regular, use that (more accurate)
     if (daysSinceLastRegular !== null) {
         if (daysSinceLastRegular >= 1 && daysSinceLastRegular <= 4) return 'Special';
         return 'Regular';
     }
-    
+
     // Fallback: use days since previous (less accurate but works for first pass)
     if (daysSincePrev >= 1 && daysSincePrev <= 4) return 'Special';
     return 'Regular';
@@ -212,7 +214,7 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
             const daysToNext = Math.round(
                 (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
             );
-            
+
             // Try to find the next Regular dividend (skip Special dividends)
             let nextRegularDiv: DividendInput | null = null;
             let daysToNextRegular: number | null = null;
@@ -233,7 +235,7 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
                     break;
                 }
             }
-            
+
             // Check for frequency transition: if previous gap indicates one frequency
             // and next gap indicates a different frequency, we're at a transition point
             // At transitions, use the frequency from the PREVIOUS gap for normalization
@@ -245,7 +247,7 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
                 const freqFromNext = daysToNextRegular !== null && daysToNextRegular > 4
                     ? getFrequencyFromDays(daysToNextRegular)
                     : getFrequencyFromDays(daysToNext);
-                
+
                 // If frequencies differ, we're at a transition point
                 // Use the frequency from the PREVIOUS gap for normalization
                 // This ensures the normalized line shows the correct value (1.07 for monthly, not 4.65 for weekly)
@@ -289,7 +291,7 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
                 frequencyNum = getFrequencyFromDays(daysSincePrev);
             }
         }
-        
+
         // Update the PREVIOUS dividend's frequency based on gap FROM previous TO current
         // This happens when we process the current dividend and can confirm the previous one's frequency
         // IMPORTANT: At frequency transition points, don't overwrite the previous dividend's frequency
@@ -297,7 +299,7 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
         if (i > 0 && previous !== null && daysSincePrev !== null && daysSincePrev > 4) {
             const prevFrequencyNum = getFrequencyFromDays(daysSincePrev);
             const prevResult = results[results.length - 1];
-            
+
             // Check if previous dividend was at a frequency transition point
             // The previous dividend's frequency was already set based on gap to next (current dividend)
             // If that frequency differs from what we'd assign based on gap from prevPrev to previous,
@@ -308,7 +310,7 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
                 const prevPrevDate = new Date(prevPrev.ex_date);
                 const prevDate = new Date(previous.ex_date);
                 const prevPrevDays = Math.round((prevDate.getTime() - prevPrevDate.getTime()) / (1000 * 60 * 60 * 24));
-                
+
                 if (prevPrevDays > 4) {
                     const prevPrevFreq = getFrequencyFromDays(prevPrevDays);
                     // Compare: frequency already set for previous (based on gap to current) vs frequency from prevPrev gap
@@ -318,10 +320,10 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
                     }
                 }
             }
-            
+
             if (shouldUpdatePrevFrequency) {
                 prevResult.frequency_num = prevFrequencyNum;
-                
+
                 // Recalculate annualized and normalized for previous dividend with updated frequency
                 if (prevResult.pmt_type === 'Regular') {
                     const prevAmount = previous.adj_amount !== null && previous.adj_amount > 0
@@ -347,14 +349,16 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
         let annualized: number | null = null;
         let normalizedDiv: number | null = null;
 
-        // Only calculate for Regular dividends with valid adjusted amounts
+        // Calculate for Regular AND Initial dividends with valid adjusted amounts
+        // Initial = first dividend (no previous to compare), should still be normalized
+        // Only skip Special dividends (tiny amounts paid 1-4 days after regular)
         // Must have adj_amount (not div_cash) for proper normalization after splits
-        if (pmtType === 'Regular' && amount !== null && amount > 0 && frequencyNum > 0) {
+        if ((pmtType === 'Regular' || pmtType === 'Initial') && amount !== null && amount > 0 && frequencyNum > 0) {
             // Calculate annualized: Amount × Frequency (DAYS column = frequency_num = payments per year)
             const annualizedRaw = amount * frequencyNum;
             // Round annualized to 2 decimals for storage/display
             annualized = Number(annualizedRaw.toFixed(2));
-            
+
             // Normalized value: convert to weekly equivalent rate for line chart
             // EXACT FORMULA: NORMLZD = (ADJ_DIV × DAYS) / 52
             // Where ADJ_DIV = adj_amount, DAYS = frequency_num (payments per year)
@@ -477,7 +481,7 @@ export function calculateNormalizedForResponse(
             const daysToNext = Math.round(
                 (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
             );
-            
+
             // Try to find the next Regular dividend (skip Special dividends)
             let nextRegularDiv: typeof current | null = null;
             let daysToNextRegular: number | null = null;
@@ -498,7 +502,7 @@ export function calculateNormalizedForResponse(
                     break;
                 }
             }
-            
+
             // SIMPLE RULE: Use gap to next Regular dividend if available, otherwise use gap to immediate next
             // This ensures frequency is based on actual dates, not complex transition logic
             // IMPORTANT: For Special dividends (small gaps <= 4 days), look back to last Regular dividend
@@ -533,7 +537,7 @@ export function calculateNormalizedForResponse(
                 frequencyNum = getFrequencyFromDays(daysSincePrev);
             }
         }
-        
+
         // Update the PREVIOUS dividend's frequency based on gap FROM previous TO current
         // This happens when we process the current dividend and can confirm the previous one's frequency
         // IMPORTANT: At frequency transition points, don't overwrite the previous dividend's frequency
@@ -541,12 +545,12 @@ export function calculateNormalizedForResponse(
         if (i > 0 && previous !== null && daysSincePrev !== null && daysSincePrev > 4) {
             const prevFrequencyNum = getFrequencyFromDays(daysSincePrev);
             const prevResult = results[results.length - 1];
-            
+
             // SIMPLE: Just update previous dividend's frequency based on gap from previous to current
             // Only update if previous dividend's frequency wasn't already set from gap to next
             if (prevResult.frequencyNum === 12 || prevResult.frequencyNum === prevFrequencyNum) {
                 prevResult.frequencyNum = prevFrequencyNum;
-                
+
                 // Recalculate annualized and normalized for previous dividend with updated frequency
                 if (prevResult.pmtType === 'Regular') {
                     const prevAmount = previous.adjAmount > 0 ? previous.adjAmount : null;
@@ -568,14 +572,16 @@ export function calculateNormalizedForResponse(
         let annualized: number | null = null;
         let normalizedDiv: number | null = null;
 
-        // Only calculate for Regular dividends with valid adjusted amounts
+        // Calculate for Regular AND Initial dividends with valid adjusted amounts
+        // Initial = first dividend (no previous to compare), should still be normalized
+        // Only skip Special dividends (tiny amounts paid 1-4 days after regular)
         // Must have adjAmount (not unadjusted amount) for proper normalization after splits
-        if (pmtType === 'Regular' && amount !== null && amount > 0 && frequencyNum > 0) {
+        if ((pmtType === 'Regular' || pmtType === 'Initial') && amount !== null && amount > 0 && frequencyNum > 0) {
             // Calculate annualized: Amount × Frequency (DAYS column = frequency_num = payments per year)
             const annualizedRaw = amount * frequencyNum;
             // Round annualized to 2 decimals for storage/display
             annualized = Number(annualizedRaw.toFixed(2));
-            
+
             // Normalized value: convert to weekly equivalent rate for line chart
             // EXACT FORMULA: NORMLZD = (ADJ_DIV × DAYS) / 52
             // Where ADJ_DIV = adjAmount, DAYS = frequencyNum (payments per year)
