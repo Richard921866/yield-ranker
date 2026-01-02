@@ -1989,10 +1989,65 @@ router.post(
                   logger.warn("CEF Upload", `Failed to calculate normalized dividends for ${ticker}: ${(normError as Error).message}`);
                 }
 
-                // Calculate all metrics (lastDividend, forwardYield, returns, etc.)
-                const metrics = await calculateMetrics(ticker);
+                // Get CEF data to determine NAV symbol
+                const { data: cefData } = await supabase
+                  .from("etf_static")
+                  .select("nav_symbol")
+                  .eq("ticker", ticker.toUpperCase())
+                  .maybeSingle();
 
-                // Update database with calculated metrics
+                const navSymbol = cefData?.nav_symbol || null;
+                const navSymbolForCalc = navSymbol || ticker;
+
+                // Calculate CEF-specific metrics (Z-Score, NAV Trends, Signal, etc.)
+                // Import CEF calculation functions
+                const {
+                  calculateCEFZScore,
+                  calculateNAVTrend6M,
+                  calculateNAVReturn12M,
+                  calculateSignal,
+                  calculateDividendHistory,
+                } = await import("./cefs.js");
+
+                // Calculate all metrics in parallel where possible
+                const [
+                  metrics,
+                  fiveYearZScore,
+                  navTrend6M,
+                  navTrend12M,
+                ] = await Promise.all([
+                  calculateMetrics(ticker),
+                  calculateCEFZScore(ticker, navSymbolForCalc).catch(() => null),
+                  navSymbolForCalc ? calculateNAVTrend6M(navSymbolForCalc).catch(() => null) : Promise.resolve(null),
+                  navSymbolForCalc ? calculateNAVReturn12M(navSymbolForCalc).catch(() => null) : Promise.resolve(null),
+                ]);
+
+                // Calculate Signal (requires Z-Score and NAV trends)
+                let signal: number | null = null;
+                try {
+                  signal = await calculateSignal(
+                    ticker,
+                    navSymbolForCalc,
+                    fiveYearZScore,
+                    navTrend6M,
+                    navTrend12M
+                  );
+                } catch (error) {
+                  logger.warn("CEF Upload", `Failed to calculate Signal for ${ticker}: ${(error as Error).message}`);
+                }
+
+                // Calculate Dividend History
+                let dividendHistory: string | null = null;
+                try {
+                  const dividends = await getDividendHistory(ticker, "2009-01-01");
+                  if (dividends && dividends.length > 0) {
+                    dividendHistory = calculateDividendHistory(dividends);
+                  }
+                } catch (error) {
+                  logger.warn("CEF Upload", `Failed to calculate Dividend History for ${ticker}: ${(error as Error).message}`);
+                }
+
+                // Update database with ALL calculated metrics (ETF + CEF-specific)
                 await batchUpdateETFMetricsPreservingCEFFields([
                   {
                     ticker,
@@ -2021,6 +2076,12 @@ router.post(
                       price_return_3m: metrics.priceReturn?.['3M'],
                       price_return_1m: metrics.priceReturn?.['1M'],
                       price_return_1w: metrics.priceReturn?.['1W'],
+                      // CEF-specific metrics
+                      five_year_z_score: fiveYearZScore,
+                      nav_trend_6m: navTrend6M,
+                      nav_trend_12m: navTrend12M,
+                      signal: signal,
+                      dividend_history: dividendHistory,
                     },
                   },
                 ]);
@@ -2043,6 +2104,28 @@ router.post(
           "CEF Upload",
           `Completed metric calculation for ${processedTickers.length} CEF(s)`
         );
+
+        // Recalculate rankings for ALL CEFs (new CEFs affect rankings of all CEFs)
+        logger.info("CEF Upload", "Recalculating CEF rankings...");
+        try {
+          const rankings = await calculateCEFRankings();
+          
+          // Update weighted_rank for all CEFs
+          const updatePromises: Promise<any>[] = [];
+          rankings.forEach((rank, ticker) => {
+            updatePromises.push(
+              supabase
+                .from("etf_static")
+                .update({ weighted_rank: rank })
+                .eq("ticker", ticker)
+            );
+          });
+          
+          await Promise.all(updatePromises);
+          logger.info("CEF Upload", `Updated rankings for ${rankings.size} CEF(s)`);
+        } catch (error) {
+          logger.warn("CEF Upload", `Failed to recalculate rankings: ${(error as Error).message}`);
+        }
       }
 
       // Clear CEF cache immediately
