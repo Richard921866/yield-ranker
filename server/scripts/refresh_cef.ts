@@ -571,11 +571,37 @@ async function refreshCEF(ticker: string): Promise<void> {
     const navSymbolForCalc = navSymbol || ticker;
 
     // Step 1: Fetch and store price data for both CEF ticker and NAV symbol
-    // PARALLELIZE all data fetching for maximum speed
-    const priceStartDate = getDateDaysAgo(LOOKBACK_DAYS);
-    const dividendStartDate = getDateDaysAgo(DIVIDEND_LOOKBACK_DAYS);
+    // OPTIMIZATION: Check database first to only fetch missing/new data (same as CC ETFs)
+    const fullPriceStartDate = getDateDaysAgo(LOOKBACK_DAYS);
+    const fullDividendStartDate = getDateDaysAgo(DIVIDEND_LOOKBACK_DAYS);
 
-    // Fetch all data in parallel (market prices, NAV prices, dividends)
+    // Check latest dates in database for both ticker and NAV symbol
+    const [latestPriceDate, latestNavPriceDate, latestDividendDate] = await Promise.all([
+      getLatestPriceDate(ticker),
+      navSymbolForCalc !== ticker ? getLatestPriceDate(navSymbolForCalc) : Promise.resolve(null),
+      getLatestDividendDate(ticker),
+    ]);
+
+    // Calculate fetch start dates: use latest date from DB + 1 day, or full lookback if no data
+    // Add 7-day buffer to catch any missing days due to weekends/holidays
+    const getFetchStartDate = (latestDate: string | null, fullStartDate: string): string => {
+      if (!latestDate) return fullStartDate; // No data yet, fetch everything
+      
+      const latest = new Date(latestDate);
+      latest.setDate(latest.getDate() - 7); // 7-day buffer for safety
+      const bufferDate = formatDate(latest);
+      
+      // Use the earlier of: buffer date or full start date
+      return bufferDate < fullStartDate ? fullStartDate : bufferDate;
+    };
+
+    const priceStartDate = getFetchStartDate(latestPriceDate, fullPriceStartDate);
+    const navPriceStartDate = navSymbolForCalc !== ticker 
+      ? getFetchStartDate(latestNavPriceDate, fullPriceStartDate)
+      : priceStartDate;
+    const dividendStartDate = getFetchStartDate(latestDividendDate, fullDividendStartDate);
+
+    // PARALLELIZE all data fetching for maximum speed
     const fetchPromises: Array<Promise<any>> = [
       fetchPriceHistory(ticker, priceStartDate)
         .then(prices => upsertPrices(ticker, prices))
@@ -585,7 +611,7 @@ async function refreshCEF(ticker: string): Promise<void> {
 
     if (navSymbolForCalc !== ticker) {
       fetchPromises.push(
-        fetchPriceHistory(navSymbolForCalc, priceStartDate)
+        fetchPriceHistory(navSymbolForCalc, navPriceStartDate)
           .then(prices => upsertPrices(navSymbolForCalc, prices))
           .then(() => ({ type: 'nav', ticker: navSymbolForCalc }))
           .catch(() => ({ type: 'nav', ticker: navSymbolForCalc, error: true }))
@@ -864,12 +890,12 @@ async function main() {
     console.log(`\nFound ${tickers.length} CEF(s) to refresh\n`);
   }
 
-  // Process CEFs in parallel batches for speed while avoiding rate limits
-  // Reduced batch size and increased delay to prevent rate limit spikes
-  // 2 CEFs per batch = 6-10 simultaneous API calls (safer than 9-15)
-  // 2.5s delay between batches = ~60 calls/minute = 360 calls/hour (well under 500 limit)
-  const BATCH_SIZE = 2; // Process 2 CEFs simultaneously (safer for rate limits)
-  const BATCH_DELAY_MS = 2500; // 2.5 seconds between batches (prevents spikes)
+  // Process CEFs in parallel batches - same strategy as CC ETFs for consistency
+  // With database optimization, we only fetch missing data, so we can use larger batches
+  // 10 CEFs per batch = same as CC ETFs (proven to work without rate limiting)
+  // 100ms delay between batches = same as CC ETFs (small delay to avoid overwhelming API)
+  const BATCH_SIZE = 10; // Process 10 CEFs simultaneously (same as CC ETFs)
+  const BATCH_DELAY_MS = 100; // 100ms delay between batches (same as CC ETFs)
   const startTime = Date.now();
   
   console.log(`\n🚀 Processing ${tickers.length} CEF(s) in parallel batches of ${BATCH_SIZE}...\n`);
