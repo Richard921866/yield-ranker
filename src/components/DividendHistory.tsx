@@ -778,7 +778,14 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                 return (
                   <React.Fragment key={year}>
                     {sortedRecords.map((div, idx) => {
-                      const exDate = new Date(div.exDate);
+                      // Parse date as local date to avoid timezone conversion issues
+                      // If exDate is "2025-10-16", parse it as local date, not UTC
+                      const exDateParts = div.exDate.split('T')[0].split('-');
+                      const exDate = new Date(
+                        parseInt(exDateParts[0]), // year
+                        parseInt(exDateParts[1]) - 1, // month (0-indexed)
+                        parseInt(exDateParts[2]) // day
+                      );
                       const exDateStr = div.exDate.split('T')[0];
                       const isFirstInYear = idx === 0;
                       const isLastInYear = idx === sortedRecords.length - 1;
