@@ -198,16 +198,14 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
         const pmtType = getPaymentType(daysSincePrev, daysSinceLastRegular, currentAmount, nextAmount, daysToNext);
         calculatedTypes.push(pmtType);
 
-        // Determine frequency using backward confirmation rule:
-        // SIMPLE: Frequency is determined by looking AHEAD to the NEXT dividend.
-        // The gap from current to next determines the current dividend's frequency.
-        // This is the "backward confirmation" rule: we confirm a dividend's frequency
-        // by seeing when the next one arrives.
-        // IMPORTANT: For Special dividends (small gaps), look back to last Regular dividend
+        // Determine frequency using backward confirmation rule with transition detection:
+        // At frequency transition points (e.g., monthly to weekly), the last payment of the old
+        // frequency should use the gap FROM the previous dividend, not the gap TO the next dividend.
+        // This ensures the 3/6 monthly payment shows normalized value of 1.07, not 4.65.
         let frequencyNum = 12; // Default to monthly
 
         if (i < sortedDividends.length - 1) {
-            // Not the last dividend: use gap to next (backward confirmation rule)
+            // Not the last dividend: check for frequency transition
             const nextDiv = sortedDividends[i + 1];
             const nextDate = new Date(nextDiv.ex_date);
             const currentDate = new Date(current.ex_date);
@@ -236,10 +234,32 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
                 }
             }
             
-            // SIMPLE RULE: Use gap to next Regular dividend if available, otherwise use gap to immediate next
-            // This ensures frequency is based on actual dates, not complex transition logic
-            // IMPORTANT: For Special dividends (small gaps <= 4 days), look back to last Regular dividend
-            if (nextRegularDiv && daysToNextRegular !== null && daysToNextRegular > 4) {
+            // Check for frequency transition: if previous gap indicates one frequency
+            // and next gap indicates a different frequency, we're at a transition point
+            // At transitions, use the frequency from the PREVIOUS gap for normalization
+            // This ensures the last payment of the old frequency normalizes correctly
+            // Example: Last monthly payment (28 days from prev) before switching to weekly (7 days to next)
+            // Should normalize as monthly (12) to show 1.07, not weekly (52) which would show 4.65
+            if (daysSincePrev !== null && daysSincePrev > 4 && daysToNext > 4) {
+                const freqFromPrev = getFrequencyFromDays(daysSincePrev);
+                const freqFromNext = daysToNextRegular !== null && daysToNextRegular > 4
+                    ? getFrequencyFromDays(daysToNextRegular)
+                    : getFrequencyFromDays(daysToNext);
+                
+                // If frequencies differ, we're at a transition point
+                // Use the frequency from the PREVIOUS gap for normalization
+                // This ensures the normalized line shows the correct value (1.07 for monthly, not 4.65 for weekly)
+                if (freqFromPrev !== freqFromNext) {
+                    frequencyNum = freqFromPrev; // Use old frequency for normalization
+                } else {
+                    // No transition: use gap to next (backward confirmation rule)
+                    if (nextRegularDiv && daysToNextRegular !== null && daysToNextRegular > 4) {
+                        frequencyNum = getFrequencyFromDays(daysToNextRegular);
+                    } else {
+                        frequencyNum = getFrequencyFromDays(daysToNext);
+                    }
+                }
+            } else if (nextRegularDiv && daysToNextRegular !== null && daysToNextRegular > 4) {
                 // Use gap to next Regular to determine frequency (backward confirmation rule)
                 frequencyNum = getFrequencyFromDays(daysToNextRegular);
             } else if (daysToNext > 4) {
@@ -247,7 +267,6 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
                 frequencyNum = getFrequencyFromDays(daysToNext);
             } else if (daysToNext <= 4 && lastRegular) {
                 // Small gap (Special dividend): look back to last Regular dividend to determine frequency
-                // This handles cases like 12/29 (Special) where gap to next is 1 day, but gap from last Regular (12/23) is 6 days = Weekly
                 const currentDate2 = new Date(current.ex_date);
                 const lastRegularDate = new Date(lastRegular.dividend.ex_date);
                 const daysFromLastRegular = Math.round((currentDate2.getTime() - lastRegularDate.getTime()) / (1000 * 60 * 60 * 24));
