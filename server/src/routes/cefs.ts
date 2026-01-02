@@ -63,75 +63,11 @@ export async function calculateCEFZScore(
     const endDateStr = formatDate(endDate);
 
     // Get price data for main ticker and NAV symbol
-    // First try database, but if data is stale (more than 7 days old), fetch from API
-    let [priceData, navData] = await Promise.all([
+    // getPriceHistory already handles API fallback if no data exists in database
+    const [priceData, navData] = await Promise.all([
       getPriceHistory(ticker, startDateStr, endDateStr),
       getPriceHistory(navSymbol.toUpperCase(), startDateStr, endDateStr),
     ]);
-
-    // Check if we have current data (within last 7 days)
-    const today = new Date();
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const minDateStr = formatDate(sevenDaysAgo);
-
-    // Check if we need to fetch from API (data is missing or stale)
-    const priceDataIsCurrent =
-      priceData.length > 0 &&
-      priceData[priceData.length - 1].date >= minDateStr;
-    const navDataIsCurrent =
-      navData.length > 0 && navData[navData.length - 1].date >= minDateStr;
-
-    // Fetch from API if data is missing or stale
-    if (!priceDataIsCurrent || priceData.length === 0) {
-      try {
-        const { getPriceHistoryFromAPI } = await import(
-          "../services/tiingo.js"
-        );
-        const apiData = await getPriceHistoryFromAPI(
-          ticker,
-          startDateStr,
-          endDateStr
-        );
-        if (apiData.length > 0) {
-          logger.info(
-            "CEF Metrics",
-            `Using API data for ${ticker} (database data was stale)`
-          );
-          priceData = apiData;
-        }
-      } catch (apiError) {
-        logger.warn(
-          "CEF Metrics",
-          `API fallback failed for ${ticker}: ${(apiError as Error).message}`
-        );
-      }
-    }
-
-    if (!navDataIsCurrent || navData.length === 0) {
-      try {
-        const { getPriceHistoryFromAPI } = await import(
-          "../services/tiingo.js"
-        );
-        const apiData = await getPriceHistoryFromAPI(
-          navSymbol.toUpperCase(),
-          startDateStr,
-          endDateStr
-        );
-        if (apiData.length > 0) {
-          logger.info(
-            "CEF Metrics",
-            `Using API data for ${navSymbol} (database data was stale)`
-          );
-          navData = apiData;
-        }
-      } catch (apiError) {
-        logger.warn(
-          "CEF Metrics",
-          `API fallback failed for ${navSymbol}: ${(apiError as Error).message}`
-        );
-      }
-    }
 
     if (priceData.length === 0 || navData.length === 0) return null;
 
@@ -267,71 +203,12 @@ export async function calculateNAVTrend6M(
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(today);
 
-    // CRITICAL: Always fetch fresh data from API to ensure we have the latest dates
-    // Database may have stale data (e.g., 12/24 instead of 12/29)
-    let navData = await getPriceHistory(
+    // getPriceHistory already handles API fallback if no data exists in database
+    const navData = await getPriceHistory(
       navSymbol.toUpperCase(),
       startDateStr,
       endDateStr
     );
-
-    // Check if we have recent data (within last 2 days)
-    // If not, fetch fresh from API to ensure we have the latest
-    const hasRecentData = navData.length > 0 && navData[navData.length - 1]?.date;
-    if (hasRecentData) {
-      const lastDate = new Date(navData[navData.length - 1].date + "T00:00:00");
-      const daysSinceLastUpdate = (today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
-      
-      // If data is more than 1 day old, fetch fresh from API
-      if (daysSinceLastUpdate > 1) {
-        logger.info(
-          "CEF Metrics",
-          `6M NAV Trend: Database data is ${daysSinceLastUpdate.toFixed(1)} days old, fetching fresh from API for ${navSymbol}`
-        );
-        try {
-          const { getPriceHistoryFromAPI } = await import("../services/tiingo.js");
-          const apiData = await getPriceHistoryFromAPI(
-            navSymbol.toUpperCase(),
-            startDateStr,
-            endDateStr
-          );
-          if (apiData.length > 0) {
-            navData = apiData;
-            logger.info(
-              "CEF Metrics",
-              `6M NAV Trend: Using fresh API data for ${navSymbol} (${apiData.length} records)`
-            );
-          }
-        } catch (apiError) {
-          logger.warn(
-            "CEF Metrics",
-            `6M NAV Trend: API fallback failed for ${navSymbol}: ${(apiError as Error).message}, using database data`
-          );
-        }
-      }
-    } else {
-      // No data in database, try API
-      try {
-        const { getPriceHistoryFromAPI } = await import("../services/tiingo.js");
-        const apiData = await getPriceHistoryFromAPI(
-          navSymbol.toUpperCase(),
-          startDateStr,
-          endDateStr
-        );
-        if (apiData.length > 0) {
-          navData = apiData;
-          logger.info(
-            "CEF Metrics",
-            `6M NAV Trend: Using API data for ${navSymbol} (database was empty)`
-          );
-        }
-      } catch (apiError) {
-        logger.warn(
-          "CEF Metrics",
-          `6M NAV Trend: API fallback failed for ${navSymbol}: ${(apiError as Error).message}`
-        );
-      }
-    }
 
     if (navData.length < 2) {
       logger.info(
@@ -443,71 +320,12 @@ export async function calculateNAVReturn12M(
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(today);
 
-    // CRITICAL: Always fetch fresh data from API to ensure we have the latest dates
-    // Database may have stale data (e.g., 12/24 instead of 12/29)
-    let navData = await getPriceHistory(
+    // getPriceHistory already handles API fallback if no data exists in database
+    const navData = await getPriceHistory(
       navSymbol.toUpperCase(),
       startDateStr,
       endDateStr
     );
-
-    // Check if we have recent data (within last 2 days)
-    // If not, fetch fresh from API to ensure we have the latest
-    const hasRecentData = navData.length > 0 && navData[navData.length - 1]?.date;
-    if (hasRecentData) {
-      const lastDate = new Date(navData[navData.length - 1].date + "T00:00:00");
-      const daysSinceLastUpdate = (today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
-      
-      // If data is more than 1 day old, fetch fresh from API
-      if (daysSinceLastUpdate > 1) {
-        logger.info(
-          "CEF Metrics",
-          `12M NAV Trend: Database data is ${daysSinceLastUpdate.toFixed(1)} days old, fetching fresh from API for ${navSymbol}`
-        );
-        try {
-          const { getPriceHistoryFromAPI } = await import("../services/tiingo.js");
-          const apiData = await getPriceHistoryFromAPI(
-            navSymbol.toUpperCase(),
-            startDateStr,
-            endDateStr
-          );
-          if (apiData.length > 0) {
-            navData = apiData;
-            logger.info(
-              "CEF Metrics",
-              `12M NAV Trend: Using fresh API data for ${navSymbol} (${apiData.length} records)`
-            );
-          }
-        } catch (apiError) {
-          logger.warn(
-            "CEF Metrics",
-            `12M NAV Trend: API fallback failed for ${navSymbol}: ${(apiError as Error).message}, using database data`
-          );
-        }
-      }
-    } else {
-      // No data in database, try API
-      try {
-        const { getPriceHistoryFromAPI } = await import("../services/tiingo.js");
-        const apiData = await getPriceHistoryFromAPI(
-          navSymbol.toUpperCase(),
-          startDateStr,
-          endDateStr
-        );
-        if (apiData.length > 0) {
-          navData = apiData;
-          logger.info(
-            "CEF Metrics",
-            `12M NAV Trend: Using API data for ${navSymbol} (database was empty)`
-          );
-        }
-      } catch (apiError) {
-        logger.warn(
-          "CEF Metrics",
-          `12M NAV Trend: API fallback failed for ${navSymbol}: ${(apiError as Error).message}`
-        );
-      }
-    }
 
     if (navData.length < 2) {
       logger.info(
