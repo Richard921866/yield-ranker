@@ -487,29 +487,26 @@ export const CEFTable = ({
                     <p className="font-semibold mb-2">
                       Health Rating: Based on Z-Score, 6mo and 12mo NAV trend
                     </p>
-                    <p className="mb-2 text-xs text-slate-300">
-                      <span className="font-bold">Scoring System:</span> 3-Point Binary (0 to +3)
-                    </p>
                     <ul className="space-y-1 text-left">
                       <li>
-                        <span className="font-bold text-green-400">High (3):</span>{" "}
-                        3 out of 3 rated as positive. The fund is historically cheap and growing strongly.
+                        <span className="font-bold text-green-400">High:</span>{" "}
+                        3 out of 3 rated as positive
                       </li>
                       <li>
-                        <span className="font-bold text-green-400">Good (2):</span>{" "}
-                        2 out of 3 rated as positive. The fund is healthy, but one metric is slightly off.
+                        <span className="font-bold text-green-400">Good:</span>{" "}
+                        2 out of 3 rated as positive
                       </li>
                       <li>
-                        <span className="font-bold text-blue-400">Low (1):</span>{" "}
-                        1 out of 3 rated as positive. Only one of the three metrics shows positive health.
+                        <span className="font-bold text-blue-400">Low:</span>{" "}
+                        1 out of 3 rated as positive
                       </li>
                       <li>
-                        <span className="font-bold text-gray-400">Weak (0):</span>{" "}
-                        0 out of 3 rated as positive. None of the health or value metrics are currently met.
+                        <span className="font-bold text-gray-400">Weak:</span>{" "}
+                        0 out of 3 rated as positive
                       </li>
                     </ul>
                     <p className="mt-2 text-xs text-slate-300">
-                      N/A = Insufficient history (&lt;2 years)
+                      N/A: Insufficient history (&lt;2 years)
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -702,13 +699,7 @@ export const CEFTable = ({
                                   : "text-gray-500 font-semibold cursor-help"
                           }
                         >
-                          {cef.signal === 3
-                            ? "High"
-                            : cef.signal === 2
-                              ? "Good"
-                              : cef.signal === 1
-                                ? "Low"
-                                : "Weak"}
+                          {cef.signal}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent
@@ -718,40 +709,26 @@ export const CEFTable = ({
                       >
                         <p className="font-semibold mb-1">
                           {cef.signal === 3
-                            ? "High: 3 out of 3 rated as positive"
+                            ? "High (Optimal)"
                             : cef.signal === 2
-                              ? "Good: 2 out of 3 rated as positive"
+                              ? "Good (Two Gates Pass)"
                               : cef.signal === 1
-                                ? "Low: 1 out of 3 rated as positive"
-                                : "Weak: 0 out of 3 rated as positive"}
+                                ? "Weak (One Gate Passes)"
+                                : "Low (Neutral)"}
                         </p>
                         <p className="text-slate-300 text-xs">
                           {cef.signal === 3
-                            ? "The fund is historically cheap and growing strongly."
+                            ? "All three gates pass: Value (Z < -1.0), 6M Health, 12M Health"
                             : cef.signal === 2
-                              ? "The fund is healthy, but one metric is slightly off."
+                              ? "Two gates pass: Value and/or Health metrics met"
                               : cef.signal === 1
-                                ? "Only one of the three metrics shows positive health."
-                                : "None of the health or value metrics are currently met."}
+                                ? "One gate passes: Value or Health metric met"
+                                : "No gates pass: Neutral signal"}
                         </p>
                       </TooltipContent>
                     </Tooltip>
                   ) : (
-                    <Tooltip delayDuration={200}>
-                      <TooltipTrigger asChild>
-                        <span className="text-muted-foreground cursor-help">N/A</span>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        side="top"
-                        sideOffset={8}
-                        className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg"
-                      >
-                        <p className="font-semibold mb-1">N/A: Insufficient history</p>
-                        <p className="text-slate-300 text-xs">
-                          Less than 2 years of data available
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
+                    <span className="text-muted-foreground">N/A</span>
                   )}
                 </td>
                 <td className="py-1 px-1.5 align-middle text-center font-bold text-sm tabular-nums border-r-2 border-slate-300">
