@@ -320,66 +320,12 @@ async function calculateNAVTrend6M(navSymbol: string): Promise<number | null> {
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(today);
 
-    // CRITICAL: Always fetch fresh data from API to ensure we have the latest dates
-    // Database may have stale data (e.g., 12/24 instead of 12/29)
-    let navData = await getPriceHistory(
+    // getPriceHistory already handles API fallback if no data exists in database
+    const navData = await getPriceHistory(
       navSymbol.toUpperCase(),
       startDateStr,
       endDateStr
     );
-
-    // Check if we have recent data (within last 2 days)
-    // If not, fetch fresh from API to ensure we have the latest
-    const hasRecentData = navData.length > 0 && navData[navData.length - 1]?.date;
-    if (hasRecentData) {
-      const lastDate = new Date(navData[navData.length - 1].date + "T00:00:00");
-      const daysSinceLastUpdate = (today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
-      
-      // If data is more than 1 day old, fetch fresh from API
-      if (daysSinceLastUpdate > 1) {
-        console.log(
-          `    📥 6M NAV Trend: Database data is ${daysSinceLastUpdate.toFixed(1)} days old, fetching fresh from API...`
-        );
-        try {
-          const { getPriceHistoryFromAPI } = await import("../src/services/tiingo.js");
-          const apiData = await getPriceHistoryFromAPI(
-            navSymbol.toUpperCase(),
-            startDateStr,
-            endDateStr
-          );
-          if (apiData.length > 0) {
-            navData = apiData;
-            console.log(
-              `    ✓ 6M NAV Trend: Using fresh API data (${apiData.length} records)`
-            );
-          }
-        } catch (apiError) {
-          console.warn(
-            `    ⚠ 6M NAV Trend: API fallback failed: ${(apiError as Error).message}, using database data`
-          );
-        }
-      }
-    } else {
-      // No data in database, try API
-      try {
-        const { getPriceHistoryFromAPI } = await import("../src/services/tiingo.js");
-        const apiData = await getPriceHistoryFromAPI(
-          navSymbol.toUpperCase(),
-          startDateStr,
-          endDateStr
-        );
-        if (apiData.length > 0) {
-          navData = apiData;
-          console.log(
-            `    ✓ 6M NAV Trend: Using API data (database was empty)`
-          );
-        }
-      } catch (apiError) {
-        console.warn(
-          `    ⚠ 6M NAV Trend: API fallback failed: ${(apiError as Error).message}`
-        );
-      }
-    }
 
     if (navData.length < 2) {
       console.log(
@@ -486,66 +432,12 @@ async function calculateNAVReturn12M(
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(today);
 
-    // CRITICAL: Always fetch fresh data from API to ensure we have the latest dates
-    // Database may have stale data (e.g., 12/24 instead of 12/29)
-    let navData = await getPriceHistory(
+    // getPriceHistory already handles API fallback if no data exists in database
+    const navData = await getPriceHistory(
       navSymbol.toUpperCase(),
       startDateStr,
       endDateStr
     );
-
-    // Check if we have recent data (within last 2 days)
-    // If not, fetch fresh from API to ensure we have the latest
-    const hasRecentData = navData.length > 0 && navData[navData.length - 1]?.date;
-    if (hasRecentData) {
-      const lastDate = new Date(navData[navData.length - 1].date + "T00:00:00");
-      const daysSinceLastUpdate = (today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
-      
-      // If data is more than 1 day old, fetch fresh from API
-      if (daysSinceLastUpdate > 1) {
-        console.log(
-          `    📥 12M NAV Return: Database data is ${daysSinceLastUpdate.toFixed(1)} days old, fetching fresh from API...`
-        );
-        try {
-          const { getPriceHistoryFromAPI } = await import("../src/services/tiingo.js");
-          const apiData = await getPriceHistoryFromAPI(
-            navSymbol.toUpperCase(),
-            startDateStr,
-            endDateStr
-          );
-          if (apiData.length > 0) {
-            navData = apiData;
-            console.log(
-              `    ✓ 12M NAV Return: Using fresh API data (${apiData.length} records)`
-            );
-          }
-        } catch (apiError) {
-          console.warn(
-            `    ⚠ 12M NAV Return: API fallback failed: ${(apiError as Error).message}, using database data`
-          );
-        }
-      }
-    } else {
-      // No data in database, try API
-      try {
-        const { getPriceHistoryFromAPI } = await import("../src/services/tiingo.js");
-        const apiData = await getPriceHistoryFromAPI(
-          navSymbol.toUpperCase(),
-          startDateStr,
-          endDateStr
-        );
-        if (apiData.length > 0) {
-          navData = apiData;
-          console.log(
-            `    ✓ 12M NAV Return: Using API data (database was empty)`
-          );
-        }
-      } catch (apiError) {
-        console.warn(
-          `    ⚠ 12M NAV Return: API fallback failed: ${(apiError as Error).message}`
-        );
-      }
-    }
 
     if (navData.length < 2) {
       console.log(
