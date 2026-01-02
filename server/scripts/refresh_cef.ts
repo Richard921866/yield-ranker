@@ -820,10 +820,12 @@ async function refreshCEF(ticker: string): Promise<void> {
       updateData.premium_discount = null;
     }
 
-    // Save to database
+    // Save to database with explicit timestamp
     const now = new Date().toISOString();
     updateData.last_updated = now;
     updateData.updated_at = now;
+
+    console.log(`  💾 Saving to database (last_updated: ${now})...`);
 
     await batchUpdateETFMetricsPreservingCEFFields([
       {
@@ -833,7 +835,7 @@ async function refreshCEF(ticker: string): Promise<void> {
     ]);
 
     // Simple output like CC ETFs - just show ticker name
-    console.log(`  ✓ ${ticker} refresh complete`);
+    console.log(`  ✓ ${ticker} refresh complete (last_updated: ${now})`);
   } catch (error) {
     console.error(`  ✗ Error refreshing ${ticker}:`, (error as Error).message);
     // Don't throw - continue processing other CEFs

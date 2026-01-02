@@ -224,10 +224,14 @@ export async function updateETFMetricsPreservingCEFFields(
     .eq('ticker', ticker.toUpperCase())
     .maybeSingle();
 
+  // Use the timestamp from metrics if provided, otherwise create a new one
+  // This ensures refresh scripts can control the exact timestamp
+  const now = new Date().toISOString();
   const updateData: any = {
     ...metrics,
-    last_updated: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    // Only set if not already provided in metrics (allows refresh scripts to set exact timestamp)
+    last_updated: metrics.last_updated || now,
+    updated_at: metrics.updated_at || now,
   };
 
   if (existing) {
@@ -278,12 +282,13 @@ export async function updateETFMetricsPreservingCEFFields(
   if ('dividend_history' in updateData) safeUpdateData.dividend_history = updateData.dividend_history;
   // CRITICAL: Always ensure last_updated and updated_at are explicitly set
   // Use the value from updateData if provided, otherwise use current timestamp
-  const now = new Date().toISOString();
-  safeUpdateData.last_updated = updateData.last_updated || now;
-  safeUpdateData.updated_at = updateData.updated_at || now;
+  // This ensures refresh scripts can control the exact timestamp
+  const timestampNow = new Date().toISOString();
+  safeUpdateData.last_updated = updateData.last_updated || timestampNow;
+  safeUpdateData.updated_at = updateData.updated_at || timestampNow;
   
   // Log that we're updating last_updated (critical for CEF tracking)
-  logger.debug('Database', `Updating ${ticker} with last_updated=${safeUpdateData.last_updated}`);
+  logger.info('Database', `Updating ${ticker} with last_updated=${safeUpdateData.last_updated}`);
   
   // Log what we're trying to update
   if ('return_3yr' in safeUpdateData || 'return_5yr' in safeUpdateData || 'return_10yr' in safeUpdateData || 'return_15yr' in safeUpdateData) {
