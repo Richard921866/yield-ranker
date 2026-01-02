@@ -558,8 +558,34 @@ async function backfillSingleTicker(ticker: string) {
                     }
                 }
                 
+                // Check for frequency transition: if previous gap indicates one frequency
+                // and next gap indicates a different frequency, we're at a transition point
+                // At transitions, use the frequency from the PREVIOUS gap for normalization
+                // This ensures the last payment of the old frequency normalizes correctly
+                // Example: Last monthly payment (28 days from prev) before switching to weekly (7 days to next)
+                // Should normalize as monthly (12) to show correct value, not weekly (52)
+                if (daysSincePrev !== null && daysSincePrev > 4 && daysToNext > 4) {
+                    const freqFromPrev = getFrequencyFromDays(daysSincePrev);
+                    const freqFromNext = daysToNextRegular !== null && daysToNextRegular > 4
+                        ? getFrequencyFromDays(daysToNextRegular)
+                        : getFrequencyFromDays(daysToNext);
+
+                    // If frequencies differ, we're at a transition point
+                    // Use the frequency from the PREVIOUS gap for normalization
+                    // This ensures the normalized line shows the correct value
+                    if (freqFromPrev !== freqFromNext) {
+                        frequencyNum = freqFromPrev; // Use old frequency for normalization
+                    } else {
+                        // No transition: use gap to next (backward confirmation rule)
+                        if (nextRegularDiv && daysToNextRegular !== null && daysToNextRegular > 4) {
+                            frequencyNum = getFrequencyFromDays(daysToNextRegular);
+                        } else {
+                            frequencyNum = getFrequencyFromDays(daysToNext);
+                        }
+                    }
+                }
                 // PRIORITY 1: Use gap to next Regular dividend if available and > 4 days
-                if (nextRegularDiv && daysToNextRegular !== null && daysToNextRegular > 4) {
+                else if (nextRegularDiv && daysToNextRegular !== null && daysToNextRegular > 4) {
                     frequencyNum = getFrequencyFromDays(daysToNextRegular);
                 }
                 // PRIORITY 2: If gap to next is small (Special dividend case), use gap from last Regular
