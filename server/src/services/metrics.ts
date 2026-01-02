@@ -315,10 +315,21 @@ export function calculateDividendVolatility(
     normalizedAnnualAmounts.push(normalizedAnnual);
   }
 
-  // 5. Use ALL annualized payments within the 365-day period
-  // IMPORTANT: Always use all payments in the period (per CEO specification)
-  // No "12-or-all" rule - use ALL payments within the time period
-  const finalNormalizedAmounts = normalizedAnnualAmounts;
+  // 5. For ETFs: Exclude highest and lowest dividends from DVI calculation (per CEO request)
+  //    "TAKE OUT HIGH AND LOW DIVIDEND FROM CALCULATION OVER 1 YEAR PERIOD"
+  //    This removes outliers that could skew volatility calculations
+  //    Only apply this if we have at least 3 data points (need at least 1 after removing high/low)
+  let finalNormalizedAmounts: number[];
+  if (normalizedAnnualAmounts.length >= 3) {
+    // Create a copy to avoid mutating the original, sort ascending
+    const sorted = [...normalizedAnnualAmounts].sort((a, b) => a - b);
+    // Remove the lowest (first) and highest (last) values
+    const filtered = sorted.slice(1, -1);
+    finalNormalizedAmounts = filtered;
+  } else {
+    // If less than 3 data points, use all (can't remove high/low)
+    finalNormalizedAmounts = normalizedAnnualAmounts;
+  }
   
   // Store raw payment details for detailed output
   const rawPaymentDetails = recentSeries.map((d, i) => {
