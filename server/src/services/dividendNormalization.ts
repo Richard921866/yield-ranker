@@ -312,6 +312,8 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
             // The previous dividend's frequency was already set based on gap to next (current dividend)
             // If that frequency differs from what we'd assign based on gap from prevPrev to previous,
             // then previous was at a transition and should keep its original frequency (from gap to next)
+            // FIX: At transition points, prevPrevFreq will differ from prevFrequencyNum (the incoming update).
+            // When they differ, we should NOT update - keep the already-set frequency from the transition detection.
             let shouldUpdatePrevFrequency = true;
             if (i > 1) {
                 const prevPrev = sortedDividends[i - 2];
@@ -321,9 +323,10 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
 
                 if (prevPrevDays > 4) {
                     const prevPrevFreq = getFrequencyFromDays(prevPrevDays);
-                    // Compare: frequency already set for previous (based on gap to current) vs frequency from prevPrev gap
-                    // If they differ, previous was at a transition point - keep the already-set frequency
-                    if (prevPrevFreq !== prevResult.frequency_num) {
+                    // FIX: Compare prevPrevFreq with the INCOMING update (prevFrequencyNum), not the already-set value
+                    // If they differ, we're at a transition point - the previous dividend should keep its 
+                    // frequency based on its own previous gap (prevPrevFreq), NOT get overwritten to prevFrequencyNum
+                    if (prevPrevFreq !== prevFrequencyNum) {
                         shouldUpdatePrevFrequency = false;
                     }
                 }
