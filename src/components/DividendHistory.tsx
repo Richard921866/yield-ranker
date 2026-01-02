@@ -129,60 +129,58 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
 
     const dividends = getFilteredDividends.slice().reverse();
 
-    // Detect if frequency changed using backend-provided frequencyNum field
-    // Or fall back to API frequency field detection
-    const frequencyNums = dividends
-      .map(div => div.frequencyNum)
-      .filter((f): f is number => f !== undefined && f !== null);
+    // CRITICAL: Only detect frequency changes for REGULAR dividends
+    // Special/Initial dividends should not affect frequency change detection
+    // Filter to only Regular dividends for frequency detection
+    const regularDividends = dividends.filter(div => {
+      const pmtType = div.pmtType || (div.daysSincePrev !== undefined && div.daysSincePrev !== null && div.daysSincePrev <= 5 ? 'Special' : 'Regular');
+      return pmtType === 'Regular';
+    });
 
-    const uniqueFrequencyNums = new Set(frequencyNums);
-    let frequencyChanged = uniqueFrequencyNums.size > 1;
-
-    // Also check using frequency string field as fallback
-    if (!frequencyChanged) {
-      const frequencies = dividends
-        .map(div => {
-          const freq = div.frequency || '';
-          // Normalize frequency strings for comparison
-          const normalized = freq.toLowerCase();
-          if (normalized.includes('week') || normalized === 'weekly') return 'weekly';
-          if (normalized.includes('month') || normalized === 'monthly' || normalized === 'mo') return 'monthly';
-          if (normalized.includes('quarter') || normalized === 'quarterly' || normalized.includes('qtr')) return 'quarterly';
-          if (normalized.includes('semi') || normalized.includes('semi-annual')) return 'semi-annual';
-          if (normalized.includes('annual') || normalized === 'annual' || normalized === 'yearly') return 'annual';
-          return null;
-        })
-        .filter((f): f is 'weekly' | 'monthly' | 'quarterly' | 'semi-annual' | 'annual' => f !== null);
-
-      const uniqueFrequencies = new Set(frequencies);
-      frequencyChanged = uniqueFrequencies.size > 1;
-    }
-
-    // Also check actual payment intervals to verify frequency change
-    // If all intervals are similar, frequency hasn't actually changed
-    if (dividends.length >= 3 && frequencyChanged) {
-      const intervals: number[] = [];
-      for (let i = 0; i < dividends.length - 1; i++) {
-        const currentDate = new Date(dividends[i].exDate);
-        const nextDate = new Date(dividends[i + 1].exDate);
-        const daysBetween = (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24);
-        if (daysBetween > 0 && daysBetween < 365) { // Valid interval
-          intervals.push(daysBetween);
+    // Only check frequency changes if we have at least 2 regular dividends
+    let frequencyChanged = false;
+    if (regularDividends.length >= 2) {
+      // Check for actual frequency transitions between consecutive regular dividends
+      // Look for a clear change in frequencyNum between consecutive regular payments
+      for (let i = 0; i < regularDividends.length - 1; i++) {
+        const current = regularDividends[i];
+        const next = regularDividends[i + 1];
+        
+        const currentFreq = current.frequencyNum;
+        const nextFreq = next.frequencyNum;
+        
+        // Both must have valid frequency numbers
+        if (currentFreq !== undefined && currentFreq !== null && 
+            nextFreq !== undefined && nextFreq !== null &&
+            currentFreq !== nextFreq) {
+          // Found a frequency change between consecutive regular dividends
+          frequencyChanged = true;
+          break;
         }
       }
+      
+      // If no frequencyNum changes found, check frequency string field as fallback
+      if (!frequencyChanged) {
+        const frequencies = regularDividends
+          .map(div => {
+            const freq = div.frequency || '';
+            // Normalize frequency strings for comparison
+            const normalized = freq.toLowerCase();
+            if (normalized.includes('week') || normalized === 'weekly') return 'weekly';
+            if (normalized.includes('month') || normalized === 'monthly' || normalized === 'mo') return 'monthly';
+            if (normalized.includes('quarter') || normalized === 'quarterly' || normalized.includes('qtr')) return 'quarterly';
+            if (normalized.includes('semi') || normalized.includes('semi-annual')) return 'semi-annual';
+            if (normalized.includes('annual') || normalized === 'annual' || normalized === 'yearly') return 'annual';
+            return null;
+          })
+          .filter((f): f is 'weekly' | 'monthly' | 'quarterly' | 'semi-annual' | 'annual' => f !== null);
 
-      if (intervals.length >= 2) {
-        // Calculate average interval
-        const avgInterval = intervals.reduce((sum, d) => sum + d, 0) / intervals.length;
-        // Check if intervals are consistent (within 20% of average)
-        const isConsistent = intervals.every(d => {
-          const deviation = Math.abs(d - avgInterval) / avgInterval;
-          return deviation <= 0.2; // Within 20% of average
-        });
-
-        // Only show frequency change if intervals are NOT consistent
-        if (isConsistent) {
-          frequencyChanged = false;
+        // Check for actual transitions in frequency strings
+        for (let i = 0; i < frequencies.length - 1; i++) {
+          if (frequencies[i] !== frequencies[i + 1]) {
+            frequencyChanged = true;
+            break;
+          }
         }
       }
     }

@@ -100,14 +100,22 @@ export const NotebookEditor: React.FC<NotebookEditorProps> = ({
 }) => {
     const [blocks, setBlocks] = useState<NotebookBlock[]>(initialData?.blocks || []);
     const [hasChanges, setHasChanges] = useState(false);
+    // Use ref to track latest blocks for immediate save access
+    const blocksRef = useRef<NotebookBlock[]>(initialData?.blocks || []);
 
     // Update blocks when initialData changes
     useEffect(() => {
         if (initialData?.blocks) {
             setBlocks(initialData.blocks);
+            blocksRef.current = initialData.blocks;
             setHasChanges(false);
         }
     }, [initialData]);
+
+    // Keep ref in sync with blocks state - ensures immediate save access
+    useEffect(() => {
+        blocksRef.current = blocks;
+    }, [blocks]);
 
     const addBlock = useCallback((type: BlockType, afterBlockId?: string) => {
         const newBlock: NotebookBlock = {
@@ -123,38 +131,54 @@ export const NotebookEditor: React.FC<NotebookEditorProps> = ({
         };
 
         setBlocks(prev => {
+            let newBlocks: NotebookBlock[];
             if (afterBlockId) {
                 const index = prev.findIndex(b => b.id === afterBlockId);
                 if (index !== -1) {
-                    const newBlocks = [...prev];
+                    newBlocks = [...prev];
                     newBlocks.splice(index + 1, 0, newBlock);
-                    return newBlocks;
+                } else {
+                    newBlocks = [...prev, newBlock];
                 }
+            } else {
+                newBlocks = [...prev, newBlock];
             }
-            return [...prev, newBlock];
+            // Update ref immediately for immediate save access
+            blocksRef.current = newBlocks;
+            return newBlocks;
         });
         setHasChanges(true);
     }, []);
 
     const updateBlock = useCallback((id: string, updates: Partial<NotebookBlock>) => {
-        setBlocks(prev => prev.map(block =>
-            block.id === id
-                ? {
-                    ...block,
-                    ...updates,
-                    metadata: {
-                        ...block.metadata,
-                        ...updates.metadata,
-                        updatedAt: new Date().toISOString()
+        setBlocks(prev => {
+            const newBlocks = prev.map(block =>
+                block.id === id
+                    ? {
+                        ...block,
+                        ...updates,
+                        metadata: {
+                            ...block.metadata,
+                            ...updates.metadata,
+                            updatedAt: new Date().toISOString()
+                        }
                     }
-                }
-                : block
-        ));
+                    : block
+            );
+            // Update ref immediately for immediate save access
+            blocksRef.current = newBlocks;
+            return newBlocks;
+        });
         setHasChanges(true);
     }, []);
 
     const deleteBlock = useCallback((id: string) => {
-        setBlocks(prev => prev.filter(block => block.id !== id));
+        setBlocks(prev => {
+            const newBlocks = prev.filter(block => block.id !== id);
+            // Update ref immediately for immediate save access
+            blocksRef.current = newBlocks;
+            return newBlocks;
+        });
         setHasChanges(true);
     }, []);
 
@@ -168,20 +192,24 @@ export const NotebookEditor: React.FC<NotebookEditorProps> = ({
             const newBlocks = [...prev];
             const targetIndex = direction === 'up' ? index - 1 : index + 1;
             [newBlocks[index], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[index]];
+            // Update ref immediately for immediate save access
+            blocksRef.current = newBlocks;
             return newBlocks;
         });
         setHasChanges(true);
     }, []);
 
     const handleSave = useCallback(async () => {
+        // Use ref to get latest blocks immediately, avoiding stale closure issues
+        // This fixes the delay issue when saving right after adding new blocks
         const data: NotebookData = {
-            blocks,
+            blocks: blocksRef.current,
             lastUpdated: new Date().toISOString(),
             version: (initialData?.version || 0) + 1,
         };
         await onSave(data);
         setHasChanges(false);
-    }, [blocks, initialData?.version, onSave]);
+    }, [initialData?.version, onSave]);
 
     // Keyboard shortcut for save
     useEffect(() => {
