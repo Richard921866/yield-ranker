@@ -91,6 +91,7 @@ export function NewsletterManagement() {
 
     useEffect(() => {
         loadCampaigns();
+        loadSubscribers(); // Load subscribers when component mounts
     }, []);
 
     const loadCampaigns = async () => {
@@ -558,6 +559,90 @@ export function NewsletterManagement() {
                                 <br />
                                 <strong>Reply To:</strong> {DEFAULT_REPLY_TO}
                             </p>
+                        </div>
+                        
+                        {/* Subscriber Selection */}
+                        <div className="border-t pt-4 mt-4">
+                            <div className="flex items-center justify-between mb-3">
+                                <label className="text-sm font-medium">Select Subscribers</label>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        if (selectedSubscribers.size === subscribers.length && subscribers.length > 0) {
+                                            setSelectedSubscribers(new Set());
+                                        } else {
+                                            setSelectedSubscribers(new Set(subscribers.map(s => s.email)));
+                                        }
+                                    }}
+                                    disabled={loadingSubscribers || subscribers.length === 0}
+                                >
+                                    {selectedSubscribers.size === subscribers.length && subscribers.length > 0 ? (
+                                        <>
+                                            <CheckSquare className="w-4 h-4 mr-2" />
+                                            Deselect All
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Square className="w-4 h-4 mr-2" />
+                                            Select All ({subscribers.length})
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                            {loadingSubscribers ? (
+                                <div className="flex items-center justify-center py-4">
+                                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                                </div>
+                            ) : subscribers.length === 0 ? (
+                                <div className="text-center py-4 text-muted-foreground text-sm">
+                                    <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                    <p>No subscribers found. Add subscribers in the subscriber management section.</p>
+                                </div>
+                            ) : (
+                                <div className="border rounded-lg border-slate-200 max-h-48 overflow-y-auto">
+                                    <div className="divide-y divide-slate-200">
+                                        {subscribers.map((subscriber) => (
+                                            <div
+                                                key={subscriber.id}
+                                                className="flex items-center gap-3 p-2 hover:bg-slate-50 cursor-pointer"
+                                                onClick={() => {
+                                                    const newSelected = new Set(selectedSubscribers);
+                                                    if (newSelected.has(subscriber.email)) {
+                                                        newSelected.delete(subscriber.email);
+                                                    } else {
+                                                        newSelected.add(subscriber.email);
+                                                    }
+                                                    setSelectedSubscribers(newSelected);
+                                                }}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedSubscribers.has(subscriber.email)}
+                                                    onChange={() => {
+                                                        const newSelected = new Set(selectedSubscribers);
+                                                        if (newSelected.has(subscriber.email)) {
+                                                            newSelected.delete(subscriber.email);
+                                                        } else {
+                                                            newSelected.add(subscriber.email);
+                                                        }
+                                                        setSelectedSubscribers(newSelected);
+                                                    }}
+                                                    className="w-4 h-4 cursor-pointer"
+                                                />
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium">{subscriber.email}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {selectedSubscribers.size > 0 && (
+                                <p className="text-xs text-muted-foreground mt-2">
+                                    {selectedSubscribers.size} subscriber{selectedSubscribers.size !== 1 ? 's' : ''} selected
+                                </p>
+                            )}
                         </div>
                     </div>
                     <DialogFooter>

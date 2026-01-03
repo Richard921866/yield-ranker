@@ -26,6 +26,8 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { listCampaigns, getCampaign, type Campaign } from '@/services/newsletterAdmin';
+import { useFavorites } from '@/hooks/useFavorites';
+import { useCategory } from '@/utils/category';
 
 const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
@@ -43,6 +45,9 @@ const formatDate = (dateString?: string) => {
 export default function Newsletters() {
     const { user, profile, signOut } = useAuth();
     const navigate = useNavigate();
+    const currentCategory = useCategory();
+    const { favorites } = useFavorites(currentCategory === "cef" ? "cef" : "etf");
+    const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
@@ -300,6 +305,45 @@ export default function Newsletters() {
                     >
                         <BarChart3 className="w-5 h-5" />
                         {!sidebarCollapsed && "Dashboard"}
+                    </button>
+                    <button
+                        onClick={() => {
+                            setShowFavoritesOnly(!showFavoritesOnly);
+                        }}
+                        className={`w-full flex items-center ${sidebarCollapsed
+                            ? "justify-center px-0 py-2.5"
+                            : "gap-3 px-4 py-3"
+                            } rounded-lg text-sm font-medium transition-colors ${showFavoritesOnly
+                            ? sidebarCollapsed
+                                ? "bg-yellow-50 text-yellow-600"
+                                : "bg-yellow-500 text-white"
+                            : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
+                            }`}
+                        title={sidebarCollapsed ? "Favorites" : ""}
+                    >
+                        <Star
+                            className={`w-5 h-5 ${showFavoritesOnly && !sidebarCollapsed
+                                ? "fill-white"
+                                : showFavoritesOnly
+                                    ? "fill-yellow-400 text-yellow-400"
+                                    : ""
+                                }`}
+                        />
+                        {!sidebarCollapsed && (
+                            <span className="flex items-center gap-2">
+                                Favorites
+                                {favorites.size > 0 && (
+                                    <span
+                                        className={`text-xs px-2 py-0.5 rounded-full ${showFavoritesOnly
+                                            ? "bg-yellow-600 text-white"
+                                            : "bg-yellow-100 text-yellow-700"
+                                            }`}
+                                    >
+                                        {favorites.size}
+                                    </span>
+                                )}
+                            </span>
+                        )}
                     </button>
                     <button
                         onClick={() => navigate('/newsletters')}

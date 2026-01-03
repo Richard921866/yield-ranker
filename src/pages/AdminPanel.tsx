@@ -166,7 +166,10 @@ const AdminPanel = () => {
 
   useEffect(() => {
     const path = location.pathname;
-    if (path.endsWith("/users")) {
+    // Check for newsletters first to ensure it's prioritized
+    if (path.endsWith("/newsletters") || path.includes("/admin/newsletters")) {
+      setActiveTab("newsletters");
+    } else if (path.endsWith("/users")) {
       setActiveTab("users");
     } else if (path.endsWith("/upload")) {
       setActiveTab("upload");
@@ -180,8 +183,6 @@ const AdminPanel = () => {
       setActiveTab("site-settings");
     } else if (path.endsWith("/notebook")) {
       setActiveTab("notebook");
-    } else if (path.endsWith("/newsletters") || path.includes("/admin/newsletters")) {
-      setActiveTab("newsletters");
     } else {
       const params = new URLSearchParams(location.search);
       const tab = params.get("tab");
