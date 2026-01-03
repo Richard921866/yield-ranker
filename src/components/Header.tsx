@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { NavLink } from "./NavLink";
 import { Logo } from "./Logo";
 import { Button } from "./ui/button";
@@ -33,6 +33,7 @@ import { useCategory } from "@/utils/category";
 export const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, profile, signOut, loading } = useAuth();
   const currentCategory = useCategory();
   const isAuthenticated = !!user;
