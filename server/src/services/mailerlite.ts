@@ -1,7 +1,7 @@
 /**
  * MailerLite Service
  * 
- * Handles newsletter subscriptions via MailerLite API
+ * Handles newsletter subscriptions and campaign management via MailerLite API
  */
 
 import { logger } from '../utils/index.js';
@@ -14,6 +14,41 @@ interface SubscribeResult {
     success: boolean;
     message: string;
     subscriberId?: string;
+}
+
+export interface Campaign {
+    id?: string;
+    name: string;
+    subject: string;
+    type: 'regular' | 'ab';
+    content?: {
+        html?: string;
+        plain?: string;
+    };
+    from_name?: string;
+    from_email?: string;
+    reply_to?: string;
+    status?: 'draft' | 'outbox' | 'sent';
+    created_at?: string;
+    updated_at?: string;
+    sent_at?: string;
+}
+
+export interface CampaignListResult {
+    success: boolean;
+    campaigns?: Campaign[];
+    message?: string;
+}
+
+export interface CampaignResult {
+    success: boolean;
+    campaign?: Campaign;
+    message?: string;
+}
+
+export interface UnsubscribeResult {
+    success: boolean;
+    message: string;
 }
 
 // ============================================================================
@@ -94,6 +129,203 @@ export async function addSubscriber(email: string): Promise<SubscribeResult> {
         return {
             success: false,
             message: 'Failed to subscribe. Please try again later.',
+        };
+    }
+}
+
+/**
+ * Remove a subscriber from the MailerLite list
+ */
+export async function removeSubscriber(email: string): Promise<UnsubscribeResult> {
+    const mailerlite = getClient();
+
+    if (!mailerlite) {
+        return {
+            success: false,
+            message: 'Newsletter service is not configured',
+        };
+    }
+
+    try {
+        await mailerlite.subscribers.delete(email.toLowerCase().trim());
+        logger.info('MailerLite', `Subscriber removed: ${email}`);
+        return {
+            success: true,
+            message: 'Successfully unsubscribed from newsletter',
+        };
+    } catch (error: unknown) {
+        const err = error as { response?: { data?: { message?: string } }; message?: string };
+        const errorMessage = err?.response?.data?.message || err?.message || 'Unknown error';
+        logger.error('MailerLite', `Failed to remove subscriber: ${errorMessage}`);
+        return {
+            success: false,
+            message: 'Failed to unsubscribe. Please try again later.',
+        };
+    }
+}
+
+/**
+ * Create a new campaign/newsletter
+ */
+export async function createCampaign(campaign: Omit<Campaign, 'id' | 'status' | 'created_at' | 'updated_at' | 'sent_at'>): Promise<CampaignResult> {
+    const mailerlite = getClient();
+
+    if (!mailerlite) {
+        return {
+            success: false,
+            message: 'Newsletter service is not configured',
+        };
+    }
+
+    try {
+        const response = await mailerlite.campaigns.create({
+            name: campaign.name,
+            subject: campaign.subject,
+            type: campaign.type || 'regular',
+            content: campaign.content || {},
+            from_name: campaign.from_name,
+            from_email: campaign.from_email,
+            reply_to: campaign.reply_to,
+        });
+
+        logger.info('MailerLite', `Campaign created: ${campaign.name}`);
+        return {
+            success: true,
+            campaign: response.data?.data as Campaign,
+            message: 'Campaign created successfully',
+        };
+    } catch (error: unknown) {
+        const err = error as { response?: { data?: { message?: string } }; message?: string };
+        const errorMessage = err?.response?.data?.message || err?.message || 'Unknown error';
+        logger.error('MailerLite', `Failed to create campaign: ${errorMessage}`);
+        return {
+            success: false,
+            message: `Failed to create campaign: ${errorMessage}`,
+        };
+    }
+}
+
+/**
+ * Update an existing campaign/newsletter
+ */
+export async function updateCampaign(campaignId: string, updates: Partial<Campaign>): Promise<CampaignResult> {
+    const mailerlite = getClient();
+
+    if (!mailerlite) {
+        return {
+            success: false,
+            message: 'Newsletter service is not configured',
+        };
+    }
+
+    try {
+        const response = await mailerlite.campaigns.update(campaignId, updates);
+        logger.info('MailerLite', `Campaign updated: ${campaignId}`);
+        return {
+            success: true,
+            campaign: response.data?.data as Campaign,
+            message: 'Campaign updated successfully',
+        };
+    } catch (error: unknown) {
+        const err = error as { response?: { data?: { message?: string } }; message?: string };
+        const errorMessage = err?.response?.data?.message || err?.message || 'Unknown error';
+        logger.error('MailerLite', `Failed to update campaign: ${errorMessage}`);
+        return {
+            success: false,
+            message: `Failed to update campaign: ${errorMessage}`,
+        };
+    }
+}
+
+/**
+ * Send a campaign/newsletter
+ */
+export async function sendCampaign(campaignId: string): Promise<CampaignResult> {
+    const mailerlite = getClient();
+
+    if (!mailerlite) {
+        return {
+            success: false,
+            message: 'Newsletter service is not configured',
+        };
+    }
+
+    try {
+        const response = await mailerlite.campaigns.send(campaignId);
+        logger.info('MailerLite', `Campaign sent: ${campaignId}`);
+        return {
+            success: true,
+            campaign: response.data?.data as Campaign,
+            message: 'Campaign sent successfully',
+        };
+    } catch (error: unknown) {
+        const err = error as { response?: { data?: { message?: string } }; message?: string };
+        const errorMessage = err?.response?.data?.message || err?.message || 'Unknown error';
+        logger.error('MailerLite', `Failed to send campaign: ${errorMessage}`);
+        return {
+            success: false,
+            message: `Failed to send campaign: ${errorMessage}`,
+        };
+    }
+}
+
+/**
+ * Get a single campaign by ID
+ */
+export async function getCampaign(campaignId: string): Promise<CampaignResult> {
+    const mailerlite = getClient();
+
+    if (!mailerlite) {
+        return {
+            success: false,
+            message: 'Newsletter service is not configured',
+        };
+    }
+
+    try {
+        const response = await mailerlite.campaigns.get(campaignId);
+        return {
+            success: true,
+            campaign: response.data?.data as Campaign,
+        };
+    } catch (error: unknown) {
+        const err = error as { response?: { data?: { message?: string } }; message?: string };
+        const errorMessage = err?.response?.data?.message || err?.message || 'Unknown error';
+        logger.error('MailerLite', `Failed to get campaign: ${errorMessage}`);
+        return {
+            success: false,
+            message: `Failed to get campaign: ${errorMessage}`,
+        };
+    }
+}
+
+/**
+ * List all campaigns/newsletters
+ */
+export async function listCampaigns(limit: number = 100, offset: number = 0): Promise<CampaignListResult> {
+    const mailerlite = getClient();
+
+    if (!mailerlite) {
+        return {
+            success: false,
+            message: 'Newsletter service is not configured',
+        };
+    }
+
+    try {
+        const response = await mailerlite.campaigns.get({ limit, offset });
+        const campaigns = (response.data?.data || []) as Campaign[];
+        return {
+            success: true,
+            campaigns,
+        };
+    } catch (error: unknown) {
+        const err = error as { response?: { data?: { message?: string } }; message?: string };
+        const errorMessage = err?.response?.data?.message || err?.message || 'Unknown error';
+        logger.error('MailerLite', `Failed to list campaigns: ${errorMessage}`);
+        return {
+            success: false,
+            message: `Failed to list campaigns: ${errorMessage}`,
         };
     }
 }

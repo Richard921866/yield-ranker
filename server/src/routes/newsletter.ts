@@ -5,7 +5,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { addSubscriber } from '../services/mailerlite.js';
+import { addSubscriber, removeSubscriber } from '../services/mailerlite.js';
 import { logger } from '../utils/index.js';
 
 const router: Router = Router();
@@ -67,6 +67,56 @@ router.post('/subscribe', async (req: Request, res: Response): Promise<void> => 
         }
     } catch (error) {
         logger.error('Newsletter', `Subscription error: ${(error as Error).message}`);
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred. Please try again later.',
+        });
+    }
+});
+
+/**
+ * POST /unsubscribe - Unsubscribe from newsletter
+ */
+router.post('/unsubscribe', async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { email } = req.body;
+
+        // Validate email presence
+        if (!email || typeof email !== 'string') {
+            res.status(400).json({
+                success: false,
+                message: 'Email is required',
+            });
+            return;
+        }
+
+        // Validate email format
+        const trimmedEmail = email.trim();
+        if (!isValidEmail(trimmedEmail)) {
+            res.status(400).json({
+                success: false,
+                message: 'Please enter a valid email address',
+            });
+            return;
+        }
+
+        // Remove subscriber via MailerLite
+        const result = await removeSubscriber(trimmedEmail);
+
+        if (result.success) {
+            logger.info('Newsletter', `Subscriber unsubscribed: ${trimmedEmail}`);
+            res.status(200).json({
+                success: true,
+                message: result.message,
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                message: result.message,
+            });
+        }
+    } catch (error) {
+        logger.error('Newsletter', `Unsubscription error: ${(error as Error).message}`);
         res.status(500).json({
             success: false,
             message: 'An error occurred. Please try again later.',

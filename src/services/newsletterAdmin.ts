@@ -1,0 +1,286 @@
+/**
+ * Newsletter Admin Service
+ * 
+ * Handles newsletter/campaign management API calls for admins
+ */
+
+export interface Campaign {
+    id?: string;
+    name: string;
+    subject: string;
+    type: 'regular' | 'ab';
+    content?: {
+        html?: string;
+        plain?: string;
+    };
+    from_name?: string;
+    from_email?: string;
+    reply_to?: string;
+    status?: 'draft' | 'outbox' | 'sent';
+    created_at?: string;
+    updated_at?: string;
+    sent_at?: string;
+}
+
+export interface CampaignListResponse {
+    success: boolean;
+    campaigns?: Campaign[];
+    message?: string;
+}
+
+export interface CampaignResponse {
+    success: boolean;
+    campaign?: Campaign;
+    message?: string;
+}
+
+export interface SubscriberResponse {
+    success: boolean;
+    message: string;
+    subscriberId?: string;
+}
+
+import { supabase } from '@/lib/supabase';
+
+const API_URL = import.meta.env.VITE_API_URL || '';
+
+async function getAuthHeaders(): Promise<HeadersInit> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+    };
+    
+    if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+    
+    return headers;
+}
+
+/**
+ * List all campaigns/newsletters
+ */
+export async function listCampaigns(limit: number = 100, offset: number = 0): Promise<CampaignListResponse> {
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(
+            `${API_URL}/api/admin/newsletters?limit=${limit}&offset=${offset}`,
+            {
+                method: 'GET',
+                headers,
+            }
+        );
+
+        if (!response.ok) {
+            const error = await response.json();
+            return {
+                success: false,
+                message: error.message || 'Failed to fetch campaigns',
+            };
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        return {
+            success: false,
+            message: `Error: ${(error as Error).message}`,
+        };
+    }
+}
+
+/**
+ * Get a single campaign by ID
+ */
+export async function getCampaign(campaignId: string): Promise<CampaignResponse> {
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(
+            `${API_URL}/api/admin/newsletters/${campaignId}`,
+            {
+                method: 'GET',
+                headers,
+            }
+        );
+
+        if (!response.ok) {
+            const error = await response.json();
+            return {
+                success: false,
+                message: error.message || 'Failed to fetch campaign',
+            };
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        return {
+            success: false,
+            message: `Error: ${(error as Error).message}`,
+        };
+    }
+}
+
+/**
+ * Create a new campaign
+ */
+export async function createCampaign(campaign: Omit<Campaign, 'id' | 'status' | 'created_at' | 'updated_at' | 'sent_at'>): Promise<CampaignResponse> {
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(
+            `${API_URL}/api/admin/newsletters`,
+            {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(campaign),
+            }
+        );
+
+        if (!response.ok) {
+            const error = await response.json();
+            return {
+                success: false,
+                message: error.message || 'Failed to create campaign',
+            };
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        return {
+            success: false,
+            message: `Error: ${(error as Error).message}`,
+        };
+    }
+}
+
+/**
+ * Update an existing campaign
+ */
+export async function updateCampaign(campaignId: string, updates: Partial<Campaign>): Promise<CampaignResponse> {
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(
+            `${API_URL}/api/admin/newsletters/${campaignId}`,
+            {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify(updates),
+            }
+        );
+
+        if (!response.ok) {
+            const error = await response.json();
+            return {
+                success: false,
+                message: error.message || 'Failed to update campaign',
+            };
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        return {
+            success: false,
+            message: `Error: ${(error as Error).message}`,
+        };
+    }
+}
+
+/**
+ * Send a campaign
+ */
+export async function sendCampaign(campaignId: string): Promise<CampaignResponse> {
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(
+            `${API_URL}/api/admin/newsletters/${campaignId}/send`,
+            {
+                method: 'POST',
+                headers,
+            }
+        );
+
+        if (!response.ok) {
+            const error = await response.json();
+            return {
+                success: false,
+                message: error.message || 'Failed to send campaign',
+            };
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        return {
+            success: false,
+            message: `Error: ${(error as Error).message}`,
+        };
+    }
+}
+
+/**
+ * Add a subscriber (admin only)
+ */
+export async function addSubscriber(email: string): Promise<SubscriberResponse> {
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(
+            `${API_URL}/api/admin/newsletters/subscribers`,
+            {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ email }),
+            }
+        );
+
+        if (!response.ok) {
+            const error = await response.json();
+            return {
+                success: false,
+                message: error.message || 'Failed to add subscriber',
+            };
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        return {
+            success: false,
+            message: `Error: ${(error as Error).message}`,
+        };
+    }
+}
+
+/**
+ * Remove a subscriber (admin only)
+ */
+export async function removeSubscriber(email: string): Promise<SubscriberResponse> {
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(
+            `${API_URL}/api/admin/newsletters/subscribers/${encodeURIComponent(email)}`,
+            {
+                method: 'DELETE',
+                headers,
+            }
+        );
+
+        if (!response.ok) {
+            const error = await response.json();
+            return {
+                success: false,
+                message: error.message || 'Failed to remove subscriber',
+            };
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        return {
+            success: false,
+            message: `Error: ${(error as Error).message}`,
+        };
+    }
+}
+

@@ -28,6 +28,7 @@ import cefRoutes from './routes/cefs.js';
 import userRoutes from './routes/user.js';
 import newsletterRoutes from './routes/newsletter.js';
 import contactRoutes from './routes/contact.js';
+import adminNewsletterRoutes from './routes/admin/newsletters.js';
 
 // ============================================================================
 // Config Validation (non-fatal)
@@ -144,6 +145,7 @@ app.use('/api/cefs', cefRoutes);
 app.use('/api/admin', etfRoutes); // legacy
 app.use('/api/user', userRoutes);
 app.use('/api/newsletter', newsletterRoutes);
+app.use('/api/admin/newsletters', adminNewsletterRoutes);
 app.use('/api', contactRoutes);
 
 // ============================================================================

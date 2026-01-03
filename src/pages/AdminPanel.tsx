@@ -58,7 +58,9 @@ import {
   Users,
   Globe,
   BookOpen,
+  Mail,
 } from "lucide-react";
+import { NewsletterManagement } from "@/components/NewsletterManagement";
 
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat("en-US", {
@@ -87,7 +89,7 @@ const AdminPanel = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "users" | "upload" | "delete" | "favorites" | "site-settings" | "notebook"
+    "users" | "upload" | "delete" | "favorites" | "site-settings" | "notebook" | "newsletters"
   >("users");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -195,6 +197,8 @@ const AdminPanel = () => {
         setActiveTab("site-settings");
       } else if (tab === "notebook") {
         setActiveTab("notebook");
+      } else if (location.pathname.includes("/admin/newsletters")) {
+        setActiveTab("newsletters");
       } else {
         setActiveTab("users");
       }
@@ -893,6 +897,20 @@ const AdminPanel = () => {
             {!sidebarCollapsed && "Notebook"}
           </button>
           <button
+            onClick={() => navigate("/admin/newsletters")}
+            className={`w-full flex items-center ${sidebarCollapsed
+              ? "justify-center px-0 py-2.5"
+              : "gap-3 px-4 py-3"
+              } rounded-lg text-sm font-medium ${activeTab === "newsletters"
+                ? "bg-primary text-white"
+                : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
+              } transition-colors`}
+            title={sidebarCollapsed ? "Newsletters" : ""}
+          >
+            <Mail className="w-5 h-5" />
+            {!sidebarCollapsed && "Newsletters"}
+          </button>
+          <button
             onClick={() => navigate("/settings")}
             className={`w-full flex items-center ${sidebarCollapsed
               ? "justify-center px-0 py-2.5"
@@ -944,7 +962,9 @@ const AdminPanel = () => {
                         ? "Favorites"
                         : activeTab === "notebook"
                           ? "Notebook"
-                          : "Site Settings"}
+                          : activeTab === "newsletters"
+                            ? "Newsletter Management"
+                            : "Site Settings"}
               </h1>
             </div>
             <div className="flex items-center gap-3">
@@ -1795,6 +1815,14 @@ const AdminPanel = () => {
                     saving={notebookSaving}
                     loading={notebookLoading}
                   />
+                </div>
+              </Card>
+            )}
+
+            {activeTab === "newsletters" && (
+              <Card className="border-2 border-slate-200">
+                <div className="p-4 sm:p-6">
+                  <NewsletterManagement />
                 </div>
               </Card>
             )}

@@ -113,6 +113,18 @@ export const Header = () => {
               Resources
             </Button>
 
+            {/* Newsletters - Premium users only */}
+            {isAuthenticated && (profile?.is_premium || user?.user_metadata?.is_premium) && (
+              <Button
+                variant="ghost"
+                className="px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-100 hover:text-foreground transition-colors rounded-md"
+                onClick={() => go("/newsletters")}
+              >
+                <Mail className="w-4 h-4 mr-1.5" />
+                Newsletters
+              </Button>
+            )}
+
             {/* Plans */}
             <Button
               variant="ghost"
@@ -234,6 +246,16 @@ export const Header = () => {
             >
               Resources
             </Button>
+            {isAuthenticated && (profile?.is_premium || user?.user_metadata?.is_premium) && (
+              <Button
+                variant="ghost"
+                className="justify-start px-4 py-3 text-base font-semibold text-foreground hover:bg-slate-100 rounded-md"
+                onClick={() => go("/newsletters")}
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Newsletters
+              </Button>
+            )}
             <Button
               variant="ghost"
               className="justify-start px-4 py-3 text-base font-semibold text-foreground hover:bg-slate-100 rounded-md"
