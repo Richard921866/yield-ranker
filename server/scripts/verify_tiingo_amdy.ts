@@ -88,16 +88,22 @@ async function verifyAMDY() {
     url.searchParams.append('endDate', '2025-10-31');
     
     const response = await fetch(url.toString());
-    const priceData = await response.json();
+    const priceData = await response.json() as Array<{
+      date: string;
+      divCash: number;
+      close: number;
+      adjClose: number;
+      splitFactor: number;
+    }>;
     
     console.log(`Raw API response: ${priceData.length} price records\n`);
     
     // Find records with divCash > 0
-    const dividendRecords = priceData.filter((p: any) => p.divCash && p.divCash > 0);
+    const dividendRecords = priceData.filter((p) => p.divCash && p.divCash > 0);
     
     console.log(`Records with divCash > 0: ${dividendRecords.length}\n`);
     
-    dividendRecords.forEach((p: any) => {
+    dividendRecords.forEach((p) => {
       console.log('Raw Tiingo Record:');
       console.log('----------------------------------------');
       console.log(`Date: ${p.date}`);
