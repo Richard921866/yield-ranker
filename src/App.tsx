@@ -245,6 +245,14 @@ const AppRoutes = () => {
             }
           />
           <Route
+            path="/admin/newsletters"
+            element={
+              <RequireAuth>
+                <AdminPanel />
+              </RequireAuth>
+            }
+          />
+          <Route
             path="/settings"
             element={
               <RequireAuth>
