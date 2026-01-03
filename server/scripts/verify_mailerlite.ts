@@ -79,9 +79,9 @@ async function verifyMailerLite() {
 
     try {
         // Dynamic import to handle missing package gracefully
+        // Use require() to match the pattern in mailerlite.ts service
         // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const MailerLiteModule = await import('@mailerlite/mailerlite-nodejs');
-        const MailerLite = MailerLiteModule.default || MailerLiteModule;
+        const MailerLite = require('@mailerlite/mailerlite-nodejs');
         
         console.log('✅ MailerLite SDK loaded\n');
         console.log('Available SDK methods:');
