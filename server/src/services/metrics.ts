@@ -315,9 +315,10 @@ export function calculateDividendVolatility(
     normalizedAnnualAmounts.push(normalizedAnnual);
   }
 
-  // 5. For ETFs: Exclude highest and lowest dividends from DVI calculation (per CEO request)
+  // 5. Exclude highest and lowest dividends from DVI calculation (per CEO request)
   //    "TAKE OUT HIGH AND LOW DIVIDEND FROM CALCULATION OVER 1 YEAR PERIOD"
   //    This removes outliers that could skew volatility calculations
+  //    Applies to all asset types (CEFs and ETFs) when using 1-year period
   //    Only apply this if we have at least 3 data points (need at least 1 after removing high/low)
   let finalNormalizedAmounts: number[];
   if (normalizedAnnualAmounts.length >= 3) {
