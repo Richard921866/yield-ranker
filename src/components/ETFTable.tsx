@@ -438,7 +438,7 @@ export const ETFTable = ({
                         navigate(`/etf/${etf.symbol}/dividends`);
                       }
                     }}
-                    className="tabular-nums text-xs text-primary font-medium hover:underline cursor-pointer transition-colors"
+                    className="tabular-nums text-xs text-primary font-bold hover:underline cursor-pointer transition-colors"
                     title="Click to view dividend history"
                   >
                     {etf.dividend != null ? etf.dividend.toFixed(4) : 'N/A'}
