@@ -138,88 +138,81 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
     });
 
     // Only check frequency changes if we have at least 2 regular dividends
+    // CRITICAL: Only show line if frequency change occurred WITHIN the visible chart time period
     let frequencyChanged = false;
     if (regularDividends.length >= 2) {
-      // CRITICAL: Verify frequency consistency using ACTUAL payment intervals
-      // Calculate days between consecutive regular dividends to verify consistency
-      const intervals: number[] = [];
+      // Determine frequency category for an interval using DAYS FORMULA ranges
+      const getFrequencyCategory = (days: number): string => {
+        if (days >= 5 && days <= 10) return 'weekly';
+        if (days >= 20 && days <= 40) return 'monthly';
+        if (days >= 60 && days <= 110) return 'quarterly';
+        if (days >= 150 && days <= 210) return 'semi-annual';
+        if (days >= 300 && days <= 380) return 'annual';
+        return 'irregular';
+      };
+      
+      // Helper to get frequency category from frequencyNum
+      const getFrequencyCategoryFromNum = (freqNum: number | null | undefined): string | null => {
+        if (freqNum === 52) return 'weekly';
+        if (freqNum === 12) return 'monthly';
+        if (freqNum === 4) return 'quarterly';
+        if (freqNum === 2) return 'semi-annual';
+        if (freqNum === 1) return 'annual';
+        return null;
+      };
+      
+      // Helper to get frequency category from frequency string
+      const getFrequencyCategoryFromString = (freq: string | null | undefined): string | null => {
+        if (!freq) return null;
+        const normalized = freq.toLowerCase();
+        if (normalized.includes('week') || normalized === 'weekly') return 'weekly';
+        if (normalized.includes('month') || normalized === 'monthly' || normalized === 'mo') return 'monthly';
+        if (normalized.includes('quarter') || normalized === 'quarterly' || normalized.includes('qtr')) return 'quarterly';
+        if (normalized.includes('semi') || normalized.includes('semi-annual')) return 'semi-annual';
+        if (normalized.includes('annual') || normalized === 'annual' || normalized === 'yearly') return 'annual';
+        return null;
+      };
+      
+      // Check for frequency changes WITHIN the visible period by comparing consecutive dividends
+      // We need to detect if there's an actual transition from one frequency to another
       for (let i = 0; i < regularDividends.length - 1; i++) {
         const current = regularDividends[i];
         const next = regularDividends[i + 1];
         
-        const currentDate = new Date(current.exDate);
-        const nextDate = new Date(next.exDate);
-        const daysBetween = Math.round((nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+        // Get frequency categories for current and next dividend
+        let currentCategory: string | null = null;
+        let nextCategory: string | null = null;
         
-        if (daysBetween > 0 && daysBetween < 400) { // Valid interval
-          intervals.push(daysBetween);
+        // Try to get category from frequencyNum first (most reliable)
+        currentCategory = getFrequencyCategoryFromNum(current.frequencyNum);
+        nextCategory = getFrequencyCategoryFromNum(next.frequencyNum);
+        
+        // If frequencyNum not available, try frequency string
+        if (!currentCategory) {
+          currentCategory = getFrequencyCategoryFromString(current.frequency);
         }
-      }
-      
-      // If we have intervals, check if they're consistent (all within same frequency range)
-      if (intervals.length >= 2) {
-        // Determine frequency category for each interval using DAYS FORMULA ranges
-        const getFrequencyCategory = (days: number): string => {
-          if (days >= 5 && days <= 10) return 'weekly';
-          if (days >= 20 && days <= 40) return 'monthly';
-          if (days >= 60 && days <= 110) return 'quarterly';
-          if (days >= 150 && days <= 210) return 'semi-annual';
-          if (days >= 300 && days <= 380) return 'annual';
-          return 'irregular';
-        };
+        if (!nextCategory) {
+          nextCategory = getFrequencyCategoryFromString(next.frequency);
+        }
         
-        const categories = intervals.map(getFrequencyCategory);
-        const uniqueCategories = new Set(categories);
+        // If still no category, calculate from interval
+        if (!currentCategory || !nextCategory) {
+          const currentDate = new Date(current.exDate);
+          const nextDate = new Date(next.exDate);
+          const daysBetween = Math.round((nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (daysBetween > 0 && daysBetween < 400) {
+            const intervalCategory = getFrequencyCategory(daysBetween);
+            // Use interval category for whichever dividend doesn't have a category yet
+            if (!currentCategory) currentCategory = intervalCategory;
+            if (!nextCategory) nextCategory = intervalCategory;
+          }
+        }
         
-        // If all intervals fall into the same frequency category, frequency hasn't changed
-        if (uniqueCategories.size === 1) {
-          frequencyChanged = false; // All intervals are consistent - no frequency change
-        } else {
-          // Intervals fall into different categories - frequency has changed
+        // If we have valid categories for both and they differ, frequency has changed
+        if (currentCategory && nextCategory && currentCategory !== nextCategory) {
           frequencyChanged = true;
-        }
-      } else {
-        // Fallback: Check frequencyNum values if we don't have enough intervals
-        for (let i = 0; i < regularDividends.length - 1; i++) {
-          const current = regularDividends[i];
-          const next = regularDividends[i + 1];
-          
-          const currentFreq = current.frequencyNum;
-          const nextFreq = next.frequencyNum;
-          
-          // Both must have valid frequency numbers
-          if (currentFreq !== undefined && currentFreq !== null && 
-              nextFreq !== undefined && nextFreq !== null &&
-              currentFreq !== nextFreq) {
-            // Found a frequency change between consecutive regular dividends
-            frequencyChanged = true;
-            break;
-          }
-        }
-        
-        // If no frequencyNum changes found, check frequency string field as fallback
-        if (!frequencyChanged) {
-          const frequencies = regularDividends
-            .map(div => {
-              const freq = div.frequency || '';
-              // Normalize frequency strings for comparison
-              const normalized = freq.toLowerCase();
-              if (normalized.includes('week') || normalized === 'weekly') return 'weekly';
-              if (normalized.includes('month') || normalized === 'monthly' || normalized === 'mo') return 'monthly';
-              if (normalized.includes('quarter') || normalized === 'quarterly' || normalized.includes('qtr')) return 'quarterly';
-              if (normalized.includes('semi') || normalized.includes('semi-annual')) return 'semi-annual';
-              if (normalized.includes('annual') || normalized === 'annual' || normalized === 'yearly') return 'annual';
-              return null;
-            })
-            .filter((f): f is 'weekly' | 'monthly' | 'quarterly' | 'semi-annual' | 'annual' => f !== null);
-
-          // Check for actual transitions in frequency strings
-          for (let i = 0; i < frequencies.length - 1; i++) {
-            if (frequencies[i] !== frequencies[i + 1]) {
-              frequencyChanged = true;
-              break;
-            }
-          }
+          break; // Found a frequency change within the visible period
         }
       }
     }
