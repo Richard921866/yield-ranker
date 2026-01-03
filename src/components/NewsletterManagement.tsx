@@ -89,11 +89,6 @@ export function NewsletterManagement() {
         emailContent: '', // Single content field
     });
 
-    useEffect(() => {
-        loadCampaigns();
-        loadSubscribers(); // Load subscribers when component mounts
-    }, []);
-
     const loadCampaigns = async () => {
         setLoading(true);
         try {
@@ -145,6 +140,12 @@ export function NewsletterManagement() {
             setLoadingSubscribers(false);
         }
     };
+
+    useEffect(() => {
+        loadCampaigns();
+        // Lazy load subscribers - only load when user interacts with subscriber selection
+        // This prevents blocking the initial render
+    }, []);
 
     const handleCreate = () => {
         setFormData({
@@ -568,16 +569,31 @@ export function NewsletterManagement() {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => {
+                                    onClick={async () => {
+                                        // Lazy load subscribers if not already loaded
+                                        if (subscribers.length === 0 && !loadingSubscribers) {
+                                            await loadSubscribers();
+                                            return; // Return early, will re-render with subscribers
+                                        }
+                                        // Wait if currently loading
+                                        if (loadingSubscribers) {
+                                            return;
+                                        }
+                                        // Toggle selection
                                         if (selectedSubscribers.size === subscribers.length && subscribers.length > 0) {
                                             setSelectedSubscribers(new Set());
                                         } else {
                                             setSelectedSubscribers(new Set(subscribers.map(s => s.email)));
                                         }
                                     }}
-                                    disabled={loadingSubscribers || subscribers.length === 0}
+                                    disabled={loadingSubscribers}
                                 >
-                                    {selectedSubscribers.size === subscribers.length && subscribers.length > 0 ? (
+                                    {loadingSubscribers ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                            Loading...
+                                        </>
+                                    ) : selectedSubscribers.size === subscribers.length && subscribers.length > 0 ? (
                                         <>
                                             <CheckSquare className="w-4 h-4 mr-2" />
                                             Deselect All
@@ -585,7 +601,7 @@ export function NewsletterManagement() {
                                     ) : (
                                         <>
                                             <Square className="w-4 h-4 mr-2" />
-                                            Select All ({subscribers.length})
+                                            Select All ({subscribers.length || 0})
                                         </>
                                     )}
                                 </Button>
