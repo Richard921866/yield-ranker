@@ -86,38 +86,41 @@ let rateLimitMutex: Promise<void> = Promise.resolve();
 // ============================================================================
 
 async function waitForRateLimit(): Promise<void> {
-    // Queue requests to prevent race conditions
-    rateLimitMutex = rateLimitMutex.then(async () => {
-        const now = Date.now();
-        const { rateLimit } = config.tiingo;
+    // Queue requests to prevent race conditions - ensure atomic check and increment
+    await new Promise<void>((resolve) => {
+        rateLimitMutex = rateLimitMutex.then(async () => {
+            const now = Date.now();
+            const { rateLimit } = config.tiingo;
 
-        // Reset hourly counter if hour has passed
-        if (now - state.hourStartTime > 3600000) {
-            state.hourlyRequestCount = 0;
-            state.hourStartTime = now;
-        }
+            // Reset hourly counter if hour has passed
+            if (now - state.hourStartTime > 3600000) {
+                state.hourlyRequestCount = 0;
+                state.hourStartTime = now;
+            }
 
-        // Check if we've hit hourly limit
-        if (state.hourlyRequestCount >= rateLimit.requestsPerHour) {
-            const waitTime = 3600000 - (now - state.hourStartTime);
-            logger.warn('Tiingo', `Hourly rate limit reached. Waiting ${Math.ceil(waitTime / 1000 / 60)} minutes`);
-            await sleep(waitTime);
-            state.hourlyRequestCount = 0;
-            state.hourStartTime = Date.now();
-        }
+            // Check if we've hit hourly limit BEFORE incrementing
+            if (state.hourlyRequestCount >= rateLimit.requestsPerHour) {
+                const waitTime = 3600000 - (now - state.hourStartTime);
+                logger.warn('Tiingo', `Hourly rate limit reached. Waiting ${Math.ceil(waitTime / 1000 / 60)} minutes`);
+                await sleep(waitTime);
+                state.hourlyRequestCount = 0;
+                state.hourStartTime = Date.now();
+            }
 
-        // Ensure minimum delay between requests
-        const timeSinceLastRequest = now - state.lastRequestTime;
-        if (timeSinceLastRequest < rateLimit.minDelayMs) {
-            await sleep(rateLimit.minDelayMs - timeSinceLastRequest);
-        }
+            // Ensure minimum delay between requests
+            const timeSinceLastRequest = now - state.lastRequestTime;
+            if (timeSinceLastRequest < rateLimit.minDelayMs) {
+                await sleep(rateLimit.minDelayMs - timeSinceLastRequest);
+            }
 
-        state.lastRequestTime = Date.now();
-        state.requestCount++;
-        state.hourlyRequestCount++;
+            // Increment counters atomically - this must happen before the request is made
+            state.lastRequestTime = Date.now();
+            state.requestCount++;
+            state.hourlyRequestCount++;
+            
+            resolve();
+        });
     });
-
-    await rateLimitMutex;
 }
 
 // ============================================================================
