@@ -67,6 +67,9 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
+// If we hit Tiingo rate limits, stop cleanly instead of sleeping for ~1 hour.
+let globalRateLimitHit = false;
+
 
 // 15 years lookback for CEF metrics
 const LOOKBACK_DAYS = 5475; // 15 years = 15 * 365 = 5475 days
@@ -569,6 +572,11 @@ function parseArgs() {
 async function refreshCEF(ticker: string): Promise<void> {
   console.log(`\n[Refresh] ${ticker}`);
   try {
+    if (globalRateLimitHit) {
+      console.log(`  ⚠ Skipping ${ticker}: Tiingo rate limit already hit in this run`);
+      return;
+    }
+
     // Get CEF from database
     const { data: cef, error } = await supabase
       .from("etf_static")
@@ -924,7 +932,13 @@ async function refreshCEF(ticker: string): Promise<void> {
     // Simple output like CC ETFs - just show ticker name
     console.log(`  ✓ ${ticker} refresh complete (last_updated: ${now})`);
   } catch (error) {
-    console.error(`  ✗ Error refreshing ${ticker}:`, (error as Error).message);
+    const msg = (error as Error).message || String(error);
+    if (msg.toLowerCase().includes("tiingo hourly rate limit reached")) {
+      globalRateLimitHit = true;
+      console.error(`  ✗ Tiingo rate limit hit. Stopping after current batch: ${msg}`);
+      return;
+    }
+    console.error(`  ✗ Error refreshing ${ticker}:`, msg);
     // Don't throw - continue processing other CEFs
     // Return resolved promise to prevent batch from stopping
     return;
@@ -993,6 +1007,12 @@ async function main() {
     // Delay between batches to prevent rate limit spikes
     if (i + BATCH_SIZE < tickers.length) {
       await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+    }
+
+    // If we hit Tiingo limits, stop cleanly (don't keep hammering and don't wait an hour)
+    if (globalRateLimitHit) {
+      console.log(`\n🛑 Stopped early due to Tiingo rate limit. Processed ${Math.min(i + BATCH_SIZE, tickers.length)}/${tickers.length} CEF(s).`);
+      break;
     }
   }
 

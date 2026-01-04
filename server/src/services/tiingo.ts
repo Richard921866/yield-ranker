@@ -85,6 +85,17 @@ let rateLimitMutex: Promise<void> = Promise.resolve();
 // API Request Handler
 // ============================================================================
 
+function getMaxWaitMs(): number {
+    // Default: fail fast rather than sleeping for nearly an hour (bad for scripts and API routes).
+    // Override by setting TIINGO_MAX_WAIT_MS (milliseconds).
+    const raw = process.env.TIINGO_MAX_WAIT_MS;
+    const parsed = raw ? parseInt(raw, 10) : NaN;
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return 15_000; // 15s
+    }
+    return parsed;
+}
+
 async function tiingoRequest<T>(
     endpoint: string,
     params: Record<string, string> = {}
@@ -105,6 +116,14 @@ async function tiingoRequest<T>(
                 // Check if we've hit hourly limit BEFORE making request
                 if (state.hourlyRequestCount >= rateLimit.requestsPerHour) {
                     const waitTime = 3600000 - (now - state.hourStartTime);
+                    const maxWaitMs = getMaxWaitMs();
+                    if (waitTime > maxWaitMs) {
+                        throw new Error(
+                            `Tiingo hourly rate limit reached (would wait ~${Math.ceil(
+                                waitTime / 1000 / 60
+                            )} min; TIINGO_MAX_WAIT_MS=${maxWaitMs}).`
+                        );
+                    }
                     logger.warn('Tiingo', `Hourly rate limit reached. Waiting ${Math.ceil(waitTime / 1000 / 60)} minutes`);
                     await sleep(waitTime);
                     state.hourlyRequestCount = 0;
@@ -189,6 +208,14 @@ async function tiingoIEXRequest<T>(
                 // Check if we've hit hourly limit BEFORE making request
                 if (state.hourlyRequestCount >= rateLimit.requestsPerHour) {
                     const waitTime = 3600000 - (now - state.hourStartTime);
+                    const maxWaitMs = getMaxWaitMs();
+                    if (waitTime > maxWaitMs) {
+                        throw new Error(
+                            `Tiingo hourly rate limit reached (would wait ~${Math.ceil(
+                                waitTime / 1000 / 60
+                            )} min; TIINGO_MAX_WAIT_MS=${maxWaitMs}).`
+                        );
+                    }
                     logger.warn('Tiingo', `Hourly rate limit reached. Waiting ${Math.ceil(waitTime / 1000 / 60)} minutes`);
                     await sleep(waitTime);
                     state.hourlyRequestCount = 0;
