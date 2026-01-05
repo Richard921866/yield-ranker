@@ -417,14 +417,14 @@ export const ETFTable = ({
                 <td className="py-1 px-1.5 align-middle text-center text-xs text-muted-foreground">
                   {etf.payDay || "N/A"}
                 </td>
-                <td className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium ${etf.ipoPrice && etf.price > etf.ipoPrice ? 'bg-green-100 text-green-700' : ''
+                <td className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold ${etf.ipoPrice && etf.price > etf.ipoPrice ? 'bg-green-100 text-green-700' : ''
                   }`}>
                   {etf.ipoPrice != null ? `$${etf.ipoPrice.toFixed(2)}` : 'N/A'}
                 </td>
                 <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold text-foreground">
                   ${etf.price.toFixed(2)}
                 </td>
-                <td className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium ${etf.priceChange != null && etf.priceChange >= 0 ? 'text-green-600' : 'text-red-600'
+                <td className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold ${etf.priceChange != null && etf.priceChange >= 0 ? 'text-green-600' : 'text-red-600'
                   }`}>
                   {etf.priceChange != null ? `${etf.priceChange >= 0 ? '+' : ''}${etf.priceChange.toFixed(2)}` : 'N/A'}
                 </td>
@@ -444,10 +444,10 @@ export const ETFTable = ({
                     {etf.dividend != null ? etf.dividend.toFixed(4) : 'N/A'}
                   </button>
                 </td>
-                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs text-muted-foreground">
+                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold text-muted-foreground">
                   {etf.numPayments}
                 </td>
-                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs text-muted-foreground">
+                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold text-muted-foreground">
                   {(() => {
                     // Calculate Annual Div = Div × #Pmt to ensure accuracy
                     const calculatedAnnualDiv = etf.dividend && etf.numPayments
@@ -463,7 +463,7 @@ export const ETFTable = ({
                 <td className="py-1 px-1.5 align-middle text-center font-bold tabular-nums text-primary text-sm">
                   {etf.forwardYield != null ? `${etf.forwardYield.toFixed(1)}%` : 'N/A'}
                 </td>
-                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs text-muted-foreground">
+                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold text-muted-foreground">
                   {etf.dividendCVPercent != null ? `${etf.dividendCVPercent.toFixed(1)}%` : (etf.dividendCV != null ? `${(etf.dividendCV * 100).toFixed(1)}%` : 'N/A')}
                 </td>
                 <td className="py-1 px-1.5 align-middle text-center font-bold text-sm tabular-nums border-r-2 border-slate-300">
