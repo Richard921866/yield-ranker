@@ -404,21 +404,14 @@ export function NewsletterManagement() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h2 className="text-2xl font-bold">Newsletter Management</h2>
                     <p className="text-sm text-muted-foreground mt-1">
                         Create, edit, and send newsletters to your subscribers
                     </p>
                 </div>
-                <div className="flex gap-2">
-                    <Button
-                        variant="outline"
-                        onClick={handleOpenSubscriberDialog}
-                    >
-                        <Users className="w-4 h-4 mr-2" />
-                        Manage Subscribers ({subscribers.length})
-                    </Button>
+                <div className="flex flex-col md:flex-row gap-2 md:gap-2">
                     <Button onClick={handleCreate}>
                         <Plus className="w-4 h-4 mr-2" />
                         New Newsletter
@@ -427,7 +420,28 @@ export function NewsletterManagement() {
                         <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                         Refresh
                     </Button>
+                    {/* Manage Subscribers button - inline on desktop */}
+                    <div className="hidden md:block">
+                        <Button
+                            variant="outline"
+                            onClick={handleOpenSubscriberDialog}
+                        >
+                            <Users className="w-4 h-4 mr-2" />
+                            Manage Subscribers ({subscribers.length})
+                        </Button>
+                    </div>
                 </div>
+            </div>
+            {/* Manage Subscribers button - on its own row, only on mobile */}
+            <div className="md:hidden">
+                <Button
+                    variant="outline"
+                    onClick={handleOpenSubscriberDialog}
+                    className="w-full"
+                >
+                    <Users className="w-4 h-4 mr-2" />
+                    Manage Subscribers ({subscribers.length})
+                </Button>
             </div>
 
             {loading ? (

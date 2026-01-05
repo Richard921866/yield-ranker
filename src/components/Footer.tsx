@@ -1,8 +1,6 @@
 import { Link } from "react-router-dom";
 import { NewsletterSubscribe } from "./NewsletterSubscribe";
 import { useAuth } from "@/contexts/AuthContext";
-import { Mail, Settings } from "lucide-react";
-import { Button } from "./ui/button";
 
 export const Footer = () => {
   const { profile, user } = useAuth();
@@ -22,21 +20,7 @@ export const Footer = () => {
                 Get the latest ETF insights and market updates delivered to your inbox.
               </p>
             </div>
-            <div className="flex flex-col gap-3 w-full md:w-auto">
-              <NewsletterSubscribe />
-              {/* Manage Subscriptions button - only on mobile */}
-              <div className="md:hidden">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full border-2 text-sm font-medium"
-                  onClick={() => window.open('https://dashboard.mailerlite.com/forms/1163804/143468965883892672/share', '_blank')}
-                >
-                  <Settings className="h-4 w-4 mr-2" />
-                  Manage Subscriptions
-                </Button>
-              </div>
-            </div>
+            <NewsletterSubscribe />
           </div>
         </div>
 
@@ -52,13 +36,6 @@ export const Footer = () => {
           <Link to="/do-not-sell" className="hover:text-foreground transition-colors font-medium hover:underline">
             Do Not Sell My Personal Information
           </Link>
-          {/* Manage Subscriptions link - only on desktop */}
-          <button
-            onClick={() => window.open('https://dashboard.mailerlite.com/forms/1163804/143468965883892672/share', '_blank')}
-            className="hidden md:inline hover:text-foreground transition-colors font-medium hover:underline"
-          >
-            Manage Subscriptions
-          </button>
         </div>
       </div>
       <div className="rounded-2xl border-2 border-slate-200 bg-slate-50 px-5 sm:px-6 md:px-8 py-6 sm:py-8 shadow-sm">
