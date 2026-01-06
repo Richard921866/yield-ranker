@@ -57,6 +57,7 @@ async function main() {
           last_dividend: metrics.lastDividend,
           annual_dividend: metrics.annualizedDividend,
           forward_yield: metrics.forwardYield,
+          payments_per_year: metrics.paymentsPerYear, // Update detected frequency to database
           dividend_sd: metrics.dividendSD,
           dividend_cv: metrics.dividendCV,
           dividend_cv_percent: metrics.dividendCVPercent,
