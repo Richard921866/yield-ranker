@@ -387,33 +387,45 @@ export function NewsletterManagement() {
     };
 
     const handleBulkRemove = async () => {
+        if (selectedSubscribers.size === 0) {
+            setShowRemoveConfirm(false);
+            return;
+        }
+        
         setShowRemoveConfirm(false);
         setSubscriberLoading(true);
         let successCount = 0;
         let failCount = 0;
 
-        for (const email of selectedSubscribers) {
-            try {
-                const result = await removeSubscriber(email);
-                if (result.success) {
-                    successCount++;
-                } else {
+        try {
+            for (const email of selectedSubscribers) {
+                try {
+                    const result = await removeSubscriber(email);
+                    if (result.success) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                } catch (error) {
+                    console.error(`Error removing subscriber ${email}:`, error);
                     failCount++;
                 }
-            } catch {
-                failCount++;
             }
+        } catch (error) {
+            console.error('Error in bulk remove:', error);
+            failCount = selectedSubscribers.size;
+        } finally {
+            setSubscriberLoading(false);
+            const removedCount = selectedSubscribers.size;
+            setSelectedSubscribers(new Set());
+            await loadSubscribers();
+
+            toast({
+                title: successCount > 0 ? 'Success' : 'Error',
+                description: `Removed ${successCount} subscriber(s)${failCount > 0 ? `, ${failCount} failed` : ''}`,
+                variant: failCount > 0 && successCount === 0 ? 'destructive' : 'default',
+            });
         }
-
-        setSubscriberLoading(false);
-        setSelectedSubscribers(new Set());
-        await loadSubscribers();
-
-        toast({
-            title: successCount > 0 ? 'Success' : 'Error',
-            description: `Removed ${successCount} subscriber(s)${failCount > 0 ? `, ${failCount} failed` : ''}`,
-            variant: failCount > 0 ? 'destructive' : 'default',
-        });
     };
 
     const getStatusBadge = (status?: string) => {
@@ -910,8 +922,13 @@ export function NewsletterManagement() {
             </AlertDialog>
 
             {/* Remove Subscribers Confirmation Dialog */}
-            <AlertDialog open={showRemoveConfirm} onOpenChange={setShowRemoveConfirm}>
-                <AlertDialogContent>
+            <AlertDialog open={showRemoveConfirm} onOpenChange={(open) => {
+                setShowRemoveConfirm(open);
+                if (!open) {
+                    // Reset state when dialog is closed
+                }
+            }}>
+                <AlertDialogContent className="z-[101]">
                     <AlertDialogHeader>
                         <AlertDialogTitle>Confirm Remove Subscribers</AlertDialogTitle>
                         <AlertDialogDescription>
@@ -919,9 +936,18 @@ export function NewsletterManagement() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleBulkRemove} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                            Remove Subscribers
+                        <AlertDialogCancel 
+                            onClick={() => setShowRemoveConfirm(false)}
+                            disabled={subscriberLoading}
+                        >
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={handleBulkRemove} 
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            disabled={subscriberLoading}
+                        >
+                            {subscriberLoading ? 'Removing...' : 'Remove Subscribers'}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
