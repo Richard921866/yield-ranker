@@ -235,7 +235,27 @@ export async function createCampaign(campaign: Omit<Campaign, 'id' | 'status' | 
     }
 
     try {
-        const response = await mailerlite.campaigns.create({
+        // For regular campaigns, MailerLite requires an 'emails' field
+        // Get all active subscribers to populate the emails field
+        let subscriberEmails: string[] = [];
+        
+        if (campaign.type === 'regular' || !campaign.type) {
+            try {
+                const subscribersResult = await listSubscribers(1000, 0);
+                if (subscribersResult.success && subscribersResult.subscribers) {
+                    // Filter for active/subscribed subscribers only
+                    subscriberEmails = subscribersResult.subscribers
+                        .filter(s => s.status === 'active' || s.status === 'subscribed')
+                        .map(s => s.email);
+                }
+            } catch (subError) {
+                logger.warn('MailerLite', `Failed to fetch subscribers for campaign: ${(subError as Error).message}`);
+                // Continue with empty array - some MailerLite configurations allow this for drafts
+            }
+        }
+
+        // Prepare campaign data
+        const campaignData: any = {
             name: campaign.name,
             subject: campaign.subject,
             type: campaign.type || 'regular',
@@ -243,18 +263,27 @@ export async function createCampaign(campaign: Omit<Campaign, 'id' | 'status' | 
             from_name: campaign.from_name,
             from_email: campaign.from_email,
             reply_to: campaign.reply_to,
-        });
+        };
 
-        logger.info('MailerLite', `Campaign created: ${campaign.name}`);
+        // Add emails field for regular campaigns (required by MailerLite API)
+        if (campaign.type === 'regular' || !campaign.type) {
+            campaignData.emails = subscriberEmails;
+        }
+
+        const response = await mailerlite.campaigns.create(campaignData);
+
+        logger.info('MailerLite', `Campaign created: ${campaign.name} with ${subscriberEmails.length} subscribers`);
         return {
             success: true,
             campaign: response.data?.data as Campaign,
             message: 'Campaign created successfully',
         };
     } catch (error: unknown) {
-        const err = error as { response?: { data?: { message?: string } }; message?: string };
+        const err = error as { response?: { data?: { message?: string; errors?: any } }; message?: string };
         const errorMessage = err?.response?.data?.message || err?.message || 'Unknown error';
-        logger.error('MailerLite', `Failed to create campaign: ${errorMessage}`);
+        const errorDetails = err?.response?.data?.errors ? JSON.stringify(err.response.data.errors) : '';
+        
+        logger.error('MailerLite', `Failed to create campaign: ${errorMessage}${errorDetails ? ` - Details: ${errorDetails}` : ''}`);
         return {
             success: false,
             message: `Failed to create campaign: ${errorMessage}`,
