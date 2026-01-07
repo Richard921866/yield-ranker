@@ -28,8 +28,13 @@ export function GlobalErrorDialog() {
     useEffect(() => {
         const handleErrorDialog = (event: Event) => {
             const customEvent = event as CustomEvent<ErrorDialogData>;
-            setDialogData(customEvent.detail);
-            setOpen(true);
+            // Close any existing dialog first
+            setOpen(false);
+            // Use setTimeout to ensure state updates properly
+            setTimeout(() => {
+                setDialogData(customEvent.detail);
+                setOpen(true);
+            }, 100);
         };
 
         window.addEventListener(ERROR_DIALOG_EVENT, handleErrorDialog);

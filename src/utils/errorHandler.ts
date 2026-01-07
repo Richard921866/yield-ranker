@@ -142,6 +142,11 @@ export function setupGlobalErrorHandlers() {
   // Save state before any navigation or error
   saveAppState();
 
+  // Track if we've already shown an error dialog to prevent spam
+  let errorDialogShown = false;
+  let lastErrorTime = 0;
+  const ERROR_COOLDOWN = 5000; // 5 seconds cooldown between error dialogs
+
   // Handle unhandled promise rejections (like failed module imports)
   window.addEventListener("unhandledrejection", (event) => {
     const error = event.reason;
@@ -158,11 +163,42 @@ export function setupGlobalErrorHandlers() {
       // Save state before showing error
       saveAppState();
       
+      // Prevent showing multiple dialogs in quick succession
+      const now = Date.now();
+      if (errorDialogShown && (now - lastErrorTime) < ERROR_COOLDOWN) {
+        console.log("[Global Error Handler] Error dialog recently shown, attempting automatic recovery");
+        // Try automatic recovery: clear cache and reload after a short delay
+        setTimeout(() => {
+          if ("caches" in window) {
+            caches.keys().then((names) => {
+              names.forEach((name) => {
+                caches.delete(name);
+              });
+              window.location.reload();
+            }).catch(() => {
+              window.location.reload();
+            });
+          } else {
+            window.location.reload();
+          }
+        }, 2000);
+        return;
+      }
+      
+      errorDialogShown = true;
+      lastErrorTime = now;
+      
+      // Reset flag after cooldown
+      setTimeout(() => {
+        errorDialogShown = false;
+      }, ERROR_COOLDOWN);
+      
       // Show user-friendly dialog via custom event with resume option
       showErrorDialog({
         title: "Page Loading Error",
         message: "A required resource failed to load. This can happen due to network issues or after a deployment.\n\nWould you like to:\n• Reload the page (recommended)\n• Try to resume where you were\n• Continue anyway",
         onConfirm: () => {
+          errorDialogShown = false;
           // Clear cache and reload
           stopStateSaving();
           if ("caches" in window) {
@@ -179,12 +215,14 @@ export function setupGlobalErrorHandlers() {
           }
         },
         onResume: () => {
+          errorDialogShown = false;
           // Try to restore state and continue
           const restored = restoreAppState();
           console.log("[Global Error Handler] Attempting to resume:", restored);
           // Don't reload, just let the app continue
         },
         onCancel: () => {
+          errorDialogShown = false;
           // User wants to continue anyway
           console.warn("[Global Error Handler] User chose to continue");
         },
@@ -196,28 +234,64 @@ export function setupGlobalErrorHandlers() {
     }
   });
 
+  // Track error dialog state for script errors too
+  let scriptErrorDialogShown = false;
+  let lastScriptErrorTime = 0;
+
   // Handle general errors (including script loading errors)
   window.addEventListener("error", (event) => {
     const error = event.error || event;
+    const isChunkError = event.message?.includes("Loading chunk") ||
+                         event.message?.includes("ChunkLoadError") ||
+                         event.message?.includes("Failed to load") ||
+                         (event.target && (event.target as any).tagName === "SCRIPT" && 
+                          (event.target as any).src && 
+                          (event.target as any).src.includes(".js"));
     
     // Check if it's a module or network loading error
-    const isError = isModuleOrNetworkError(error) || 
-                    event.message?.includes("Loading chunk") ||
-                    event.message?.includes("ChunkLoadError") ||
-                    (event.target && (event.target as any).tagName === "SCRIPT");
+    const isError = isModuleOrNetworkError(error) || isChunkError;
 
-    if (isError && !event.error) {
-      // Script tag loading error
-      console.error("[Global Error Handler] Script loading error detected:", event.message);
+    if (isError && !event.error && isChunkError) {
+      // Script/chunk loading error - try automatic recovery first
+      console.error("[Global Error Handler] Chunk/Script loading error detected:", event.message);
       event.preventDefault();
       
-      // Save state before showing error
+      // Save state before recovery
       saveAppState();
       
+      const now = Date.now();
+      if (scriptErrorDialogShown && (now - lastScriptErrorTime) < ERROR_COOLDOWN) {
+        // Automatic recovery: clear cache and reload
+        console.log("[Global Error Handler] Attempting automatic recovery for chunk error");
+        setTimeout(() => {
+          if ("caches" in window) {
+            caches.keys().then((names) => {
+              names.forEach((name) => {
+                caches.delete(name);
+              });
+              window.location.reload();
+            }).catch(() => {
+              window.location.reload();
+            });
+          } else {
+            window.location.reload();
+          }
+        }, 1000);
+        return;
+      }
+      
+      scriptErrorDialogShown = true;
+      lastScriptErrorTime = now;
+      
+      setTimeout(() => {
+        scriptErrorDialogShown = false;
+      }, ERROR_COOLDOWN);
+      
       showErrorDialog({
-        title: "Script Loading Error",
-        message: "A script failed to load. This often happens after a deployment.\n\nWould you like to reload the page to get the latest version?",
+        title: "Page Loading Error",
+        message: "A script or module failed to load. This often happens after a deployment or due to network issues.\n\nWould you like to reload the page to get the latest version?",
         onConfirm: () => {
+          scriptErrorDialogShown = false;
           stopStateSaving();
           if ("caches" in window) {
             caches.keys().then((names) => {
@@ -233,6 +307,7 @@ export function setupGlobalErrorHandlers() {
           }
         },
         onResume: () => {
+          scriptErrorDialogShown = false;
           restoreAppState();
         },
         showResume: true,
@@ -241,6 +316,23 @@ export function setupGlobalErrorHandlers() {
       console.error("[Global Error Handler] Error detected:", error);
       event.preventDefault();
       saveAppState();
+      
+      // For critical errors, attempt automatic recovery
+      if (error?.name === "ChunkLoadError" || 
+          (typeof error?.message === "string" && error.message.includes("chunk"))) {
+        setTimeout(() => {
+          if ("caches" in window) {
+            caches.keys().then((names) => {
+              names.forEach((name) => {
+                caches.delete(name);
+              });
+              window.location.reload();
+            }).catch(() => {
+              window.location.reload();
+            });
+          }
+        }, 2000);
+      }
     }
   }, true); // Use capture phase to catch all errors
 
