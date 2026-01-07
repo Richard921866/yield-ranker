@@ -272,9 +272,9 @@ export async function createCampaign(campaign: Omit<Campaign, 'id' | 'status' | 
             contentValue = '';
         }
 
-        // Prepare campaign data - MailerLite SDK expects specific structure
-        // For regular campaigns, do NOT include content during creation (add it after via update if needed)
-        // OR use content_html/content_plain fields instead of content object
+        // Prepare campaign data
+        // CRITICAL: For regular campaigns, MailerLite interprets both HTML and plain as content variations
+        // Solution: Only send HTML content, skip plain text to avoid the variations error
         const campaignData: any = {
             name: campaign.name,
             subject: campaign.subject,
@@ -284,13 +284,17 @@ export async function createCampaign(campaign: Omit<Campaign, 'id' | 'status' | 
             reply_to: campaign.reply_to,
         };
 
-        // Try using content_html and content_plain as separate fields instead of content object
-        // This might be what MailerLite expects to avoid content variations
+        // For regular campaigns: Only include HTML content, NOT plain text
+        // Having both HTML and plain text makes MailerLite think it's an A/B test
         if (campaign.content?.html) {
-            campaignData.content_html = campaign.content.html;
-        }
-        if (campaign.content?.plain) {
-            campaignData.content_plain = campaign.content.plain;
+            // Use 'content' as a string containing HTML (MailerLite SDK format)
+            campaignData.content = campaign.content.html;
+        } else if (campaign.content?.plain) {
+            // Fallback to plain if no HTML (convert to simple HTML)
+            campaignData.content = campaign.content.plain.replace(/\n/g, '<br>');
+        } else {
+            // Empty content for draft
+            campaignData.content = '';
         }
 
         // Add emails field for regular campaigns (REQUIRED by MailerLite API)
