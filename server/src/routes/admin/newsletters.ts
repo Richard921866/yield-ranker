@@ -5,6 +5,9 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { getSupabase } from '../../services/database.js';
 import { logger } from '../../utils/index.js';
 import {
@@ -20,6 +23,56 @@ import {
 } from '../../services/mailerlite.js';
 
 const router: Router = Router();
+
+// ============================================================================
+// File Upload Configuration for Attachments
+// ============================================================================
+
+const attachmentStorage = multer.diskStorage({
+    destination: (_req, _file, cb) => {
+        const attachmentsDir = path.join(process.cwd(), 'temp', 'newsletter-attachments');
+        if (!fs.existsSync(attachmentsDir)) {
+            fs.mkdirSync(attachmentsDir, { recursive: true });
+        }
+        cb(null, attachmentsDir);
+    },
+    filename: (_req, file, cb) => {
+        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+        cb(null, `attachment-${uniqueSuffix}${path.extname(file.originalname)}`);
+    },
+});
+
+const attachmentUpload = multer({
+    storage: attachmentStorage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB per file
+    fileFilter: (_req, file, cb) => {
+        const allowedMimes = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'text/plain',
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/gif',
+        ];
+        if (allowedMimes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only PDF, DOC, DOCX, TXT, JPG, PNG, and GIF files are allowed'));
+        }
+    },
+});
+
+function cleanupAttachment(filePath: string | null): void {
+    if (filePath && fs.existsSync(filePath)) {
+        try {
+            fs.unlinkSync(filePath);
+        } catch (e) {
+            logger.warn('Newsletter Upload', `Failed to cleanup attachment: ${filePath}`);
+        }
+    }
+}
 
 // ============================================================================
 // Types
@@ -163,12 +216,66 @@ router.get('/', verifyToken, requireAdmin, async (req: Request, res: Response): 
 
 /**
  * POST /admin/newsletters - Create a new campaign/newsletter
+ * Supports both JSON (no attachments) and multipart/form-data (with attachments)
  */
-router.post('/', verifyToken, requireAdmin, async (req: Request, res: Response): Promise<void> => {
+router.post('/', verifyToken, requireAdmin, attachmentUpload.array('attachments', 5), async (req: Request, res: Response): Promise<void> => {
+    const attachmentFiles: Array<{ path: string; originalName: string }> = [];
+    
     try {
-        const { name, subject, type, content, from_name, from_email, reply_to } = req.body;
+        let campaignData: Omit<Campaign, 'id' | 'status' | 'created_at' | 'updated_at' | 'sent_at'>;
+        
+        // Check if request has files (multipart/form-data) or JSON body
+        if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+            // Handle multipart/form-data with attachments
+            const files = req.files as Express.Multer.File[];
+            const campaignJson = req.body.campaign;
+            
+            if (!campaignJson) {
+                // Cleanup uploaded files
+                files.forEach(file => cleanupAttachment(file.path));
+                res.status(400).json({
+                    success: false,
+                    message: 'Campaign data is required',
+                });
+                return;
+            }
 
-        if (!name || !subject) {
+            try {
+                campaignData = JSON.parse(campaignJson);
+            } catch (parseError) {
+                // Cleanup uploaded files
+                files.forEach(file => cleanupAttachment(file.path));
+                res.status(400).json({
+                    success: false,
+                    message: 'Invalid campaign data format',
+                });
+                return;
+            }
+
+            // Store attachment file info
+            files.forEach(file => {
+                attachmentFiles.push({
+                    path: file.path,
+                    originalName: file.originalname,
+                });
+            });
+        } else {
+            // Handle JSON body (no attachments)
+            const { name, subject, type, content, from_name, from_email, reply_to } = req.body;
+            campaignData = {
+                name,
+                subject,
+                type: type || 'regular',
+                content: content || {},
+                from_name,
+                from_email,
+                reply_to,
+            };
+        }
+
+        if (!campaignData.name || !campaignData.subject) {
+            // Cleanup uploaded files
+            attachmentFiles.forEach(att => cleanupAttachment(att.path));
             res.status(400).json({
                 success: false,
                 message: 'Name and subject are required',
@@ -176,31 +283,36 @@ router.post('/', verifyToken, requireAdmin, async (req: Request, res: Response):
             return;
         }
 
-        const campaign: Omit<Campaign, 'id' | 'status' | 'created_at' | 'updated_at' | 'sent_at'> = {
-            name,
-            subject,
-            type: type || 'regular',
-            content: content || {},
-            from_name,
-            from_email,
-            reply_to,
-        };
-
-        const result = await createCampaign(campaign);
+        const result = await createCampaign(campaignData);
 
         if (result.success && result.campaign) {
+            // Note: Attachments are stored on disk. In a production system, you might want to:
+            // 1. Store attachment metadata in a database linked to the campaign
+            // 2. Upload to cloud storage (S3, etc.)
+            // 3. Attach files when sending via MailerLite API (if supported)
+            
+            // For now, we'll store the attachment info in the response
+            // In production, you should persist this in a database
             res.status(201).json({
                 success: true,
                 campaign: result.campaign,
                 message: result.message,
+                attachments: attachmentFiles.length > 0 ? attachmentFiles.map(att => ({
+                    name: att.originalName,
+                    path: att.path, // In production, return a URL or reference ID instead
+                })) : undefined,
             });
         } else {
+            // Cleanup uploaded files on failure
+            attachmentFiles.forEach(att => cleanupAttachment(att.path));
             res.status(500).json({
                 success: false,
                 message: result.message || 'Failed to create campaign',
             });
         }
     } catch (error) {
+        // Cleanup uploaded files on error
+        attachmentFiles.forEach(att => cleanupAttachment(att.path));
         logger.error('Admin Newsletters', `Error creating campaign: ${(error as Error).message}`);
         res.status(500).json({
             success: false,

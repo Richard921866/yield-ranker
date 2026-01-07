@@ -3,6 +3,22 @@
  * Prevents white page crashes from module loading failures
  */
 
+// Custom event for showing error dialogs from outside React
+export const ERROR_DIALOG_EVENT = 'showErrorDialog';
+
+interface ErrorDialogData {
+  title: string;
+  message: string;
+  onConfirm?: () => void;
+  onCancel?: () => void;
+}
+
+export function showErrorDialog(data: ErrorDialogData) {
+  window.dispatchEvent(
+    new CustomEvent(ERROR_DIALOG_EVENT, { detail: data })
+  );
+}
+
 export function setupGlobalErrorHandlers() {
   // Handle unhandled promise rejections (like failed module imports)
   window.addEventListener("unhandledrejection", (event) => {
@@ -23,23 +39,25 @@ export function setupGlobalErrorHandlers() {
       // Prevent default error handling
       event.preventDefault();
       
-      // Show user-friendly message and offer reload
-      const shouldReload = window.confirm(
-        "A required module failed to load. This usually happens after a deployment.\n\n" +
-        "Would you like to reload the page to get the latest version?"
-      );
-      
-      if (shouldReload) {
-        // Clear cache and reload
-        if ("caches" in window) {
-          caches.keys().then((names) => {
-            names.forEach((name) => {
-              caches.delete(name);
+      // Show user-friendly dialog via custom event
+      showErrorDialog({
+        title: "Module Loading Error",
+        message: "A required module failed to load. This usually happens after a deployment. Would you like to reload the page to get the latest version?",
+        onConfirm: () => {
+          // Clear cache and reload
+          if ("caches" in window) {
+            caches.keys().then((names) => {
+              names.forEach((name) => {
+                caches.delete(name);
+              });
             });
-          });
-        }
-        window.location.reload();
-      }
+          }
+          window.location.reload();
+        },
+        onCancel: () => {
+          console.warn("[Global Error Handler] User chose not to reload");
+        },
+      });
     } else {
       // Log other errors but don't prevent default handling
       console.error("[Global Error Handler] Unhandled promise rejection:", error);

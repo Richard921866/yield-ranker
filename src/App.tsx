@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { RequireAuth } from "@/auth/RequireAuth";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { GlobalErrorDialog } from "@/components/GlobalErrorDialog";
 import { setupGlobalErrorHandlers } from "@/utils/errorHandler";
 
 // Setup global error handlers on app initialization
@@ -273,6 +274,7 @@ const App = () => (
       <TooltipProvider delayDuration={200}>
         <Toaster />
         <Sonner />
+        <GlobalErrorDialog />
         <BrowserRouter>
           <ScrollToTop />
           <AuthProvider>

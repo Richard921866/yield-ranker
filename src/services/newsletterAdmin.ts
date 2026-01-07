@@ -155,6 +155,55 @@ export async function createCampaign(campaign: Omit<Campaign, 'id' | 'status' | 
 }
 
 /**
+ * Create a new campaign with attachments
+ */
+export async function createCampaignWithAttachments(
+    campaign: Omit<Campaign, 'id' | 'status' | 'created_at' | 'updated_at' | 'sent_at'>,
+    attachments: File[]
+): Promise<CampaignResponse> {
+    try {
+        const headers = await getAuthHeaders();
+        const formData = new FormData();
+        
+        // Add campaign data as JSON
+        formData.append('campaign', JSON.stringify(campaign));
+        
+        // Add attachments
+        attachments.forEach((file) => {
+            formData.append('attachments', file);
+        });
+
+        // Remove Content-Type header to let browser set it with boundary for FormData
+        const { 'Content-Type': _, ...headersWithoutContentType } = headers as Record<string, string>;
+        
+        const response = await fetch(
+            `${API_URL}/api/admin/newsletters`,
+            {
+                method: 'POST',
+                headers: headersWithoutContentType,
+                body: formData,
+            }
+        );
+
+        if (!response.ok) {
+            const error = await response.json();
+            return {
+                success: false,
+                message: error.message || 'Failed to create campaign',
+            };
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        return {
+            success: false,
+            message: `Error: ${(error as Error).message}`,
+        };
+    }
+}
+
+/**
  * Update an existing campaign
  */
 export async function updateCampaign(campaignId: string, updates: Partial<Campaign>): Promise<CampaignResponse> {

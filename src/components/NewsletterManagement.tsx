@@ -17,11 +17,22 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import {
     listCampaigns,
     getCampaign,
     createCampaign,
+    createCampaignWithAttachments,
     updateCampaign,
     sendCampaign,
     addSubscriber,
@@ -43,6 +54,8 @@ import {
     Users,
     CheckSquare,
     Square,
+    Paperclip,
+    X,
 } from 'lucide-react';
 
 const formatDate = (dateString?: string) => {
@@ -81,6 +94,9 @@ export function NewsletterManagement() {
     const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
     const [loadingSubscribers, setLoadingSubscribers] = useState(false);
     const [selectedSubscribers, setSelectedSubscribers] = useState<Set<string>>(new Set());
+    const [showSendConfirm, setShowSendConfirm] = useState(false);
+    const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+    const [campaignToSend, setCampaignToSend] = useState<string | null>(null);
 
     // Form state - simplified to single email content
     const [formData, setFormData] = useState({
@@ -88,6 +104,7 @@ export function NewsletterManagement() {
         subject: '',
         emailContent: '', // Single content field
     });
+    const [attachments, setAttachments] = useState<File[]>([]);
 
     const loadCampaigns = async () => {
         setLoading(true);
@@ -153,6 +170,7 @@ export function NewsletterManagement() {
             subject: '',
             emailContent: '',
         });
+        setAttachments([]);
         setIsCreateDialogOpen(true);
     };
 
@@ -217,7 +235,12 @@ export function NewsletterManagement() {
             if (editingCampaign?.id) {
                 result = await updateCampaign(editingCampaign.id, campaignData);
             } else {
-                result = await createCampaign(campaignData);
+                // If there are attachments, upload them with the campaign
+                if (attachments.length > 0) {
+                    result = await createCampaignWithAttachments(campaignData, attachments);
+                } else {
+                    result = await createCampaign(campaignData);
+                }
             }
 
             if (result.success) {
@@ -228,6 +251,7 @@ export function NewsletterManagement() {
                 setIsCreateDialogOpen(false);
                 setIsEditDialogOpen(false);
                 setEditingCampaign(null);
+                setAttachments([]);
                 await loadCampaigns();
             } else {
                 toast({
@@ -247,14 +271,17 @@ export function NewsletterManagement() {
         }
     };
 
-    const handleSend = async (campaignId: string) => {
-        if (!confirm('Are you sure you want to send this newsletter to all subscribers? This action cannot be undone.')) {
-            return;
-        }
+    const handleSendClick = (campaignId: string) => {
+        setCampaignToSend(campaignId);
+        setShowSendConfirm(true);
+    };
 
-        setSending(true);
+    const handleSend = async () => {
+        if (!campaignToSend) return;
+        
+        setShowSendConfirm(false);
         try {
-            const result = await sendCampaign(campaignId);
+            const result = await sendCampaign(campaignToSend);
             if (result.success) {
                 toast({
                     title: 'Success',
@@ -276,6 +303,7 @@ export function NewsletterManagement() {
             });
         } finally {
             setSending(false);
+            setCampaignToSend(null);
         }
     };
 
@@ -346,7 +374,7 @@ export function NewsletterManagement() {
         setSelectedSubscribers(newSelected);
     };
 
-    const handleBulkRemove = async () => {
+    const handleBulkRemoveClick = () => {
         if (selectedSubscribers.size === 0) {
             toast({
                 variant: 'destructive',
@@ -355,11 +383,11 @@ export function NewsletterManagement() {
             });
             return;
         }
+        setShowRemoveConfirm(true);
+    };
 
-        if (!confirm(`Are you sure you want to remove ${selectedSubscribers.size} subscriber(s)?`)) {
-            return;
-        }
-
+    const handleBulkRemove = async () => {
+        setShowRemoveConfirm(false);
         setSubscriberLoading(true);
         let successCount = 0;
         let failCount = 0;
@@ -499,7 +527,7 @@ export function NewsletterManagement() {
                                                 <Button
                                                     variant="default"
                                                     size="sm"
-                                                    onClick={() => campaign.id && handleSend(campaign.id)}
+                                                    onClick={() => campaign.id && handleSendClick(campaign.id)}
                                                     disabled={sending}
                                                 >
                                                     <Send className="w-4 h-4 mr-2" />
@@ -568,6 +596,72 @@ export function NewsletterManagement() {
                                 You can use HTML tags for formatting (e.g., &lt;p&gt;, &lt;strong&gt;, &lt;a&gt;)
                             </p>
                         </div>
+                        
+                        {/* Attachments Section */}
+                        <div>
+                            <label className="text-sm font-medium">Attachments (Optional)</label>
+                            <div className="mt-2 space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="file"
+                                        id="attachment-input"
+                                        multiple
+                                        onChange={(e) => {
+                                            const files = Array.from(e.target.files || []);
+                                            setAttachments((prev) => [...prev, ...files]);
+                                            // Reset input
+                                            e.target.value = '';
+                                        }}
+                                        className="hidden"
+                                        accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => document.getElementById('attachment-input')?.click()}
+                                        className="border-2"
+                                    >
+                                        <Paperclip className="w-4 h-4 mr-2" />
+                                        Add Attachment
+                                    </Button>
+                                </div>
+                                {attachments.length > 0 && (
+                                    <div className="space-y-1 border rounded-lg p-2 bg-slate-50">
+                                        {attachments.map((file, index) => (
+                                            <div
+                                                key={index}
+                                                className="flex items-center justify-between p-2 bg-white rounded border"
+                                            >
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                    <Paperclip className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                                    <span className="text-sm truncate" title={file.name}>
+                                                        {file.name}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                                                        ({(file.size / 1024).toFixed(1)} KB)
+                                                    </span>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setAttachments((prev) => prev.filter((_, i) => i !== index));
+                                                    }}
+                                                    className="h-6 w-6 p-0"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <p className="text-xs text-muted-foreground">
+                                    Supported formats: PDF, DOC, DOCX, TXT, JPG, PNG, GIF (Max 10MB per file)
+                                </p>
+                            </div>
+                        </div>
+                        
                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
                             <p className="text-xs text-muted-foreground">
                                 <strong>From:</strong> {DEFAULT_FROM_NAME} &lt;{DEFAULT_FROM_EMAIL}&gt;
@@ -728,7 +822,7 @@ export function NewsletterManagement() {
                                         <Button
                                             variant="destructive"
                                             size="sm"
-                                            onClick={handleBulkRemove}
+                                            onClick={handleBulkRemoveClick}
                                             disabled={subscriberLoading}
                                         >
                                             <Trash2 className="w-4 h-4 mr-2" />
@@ -798,6 +892,40 @@ export function NewsletterManagement() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Send Campaign Confirmation Dialog */}
+            <AlertDialog open={showSendConfirm} onOpenChange={setShowSendConfirm}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirm Send Newsletter</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to send this newsletter to all subscribers? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleSend}>Send Newsletter</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Remove Subscribers Confirmation Dialog */}
+            <AlertDialog open={showRemoveConfirm} onOpenChange={setShowRemoveConfirm}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirm Remove Subscribers</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to remove {selectedSubscribers.size} subscriber(s)? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleBulkRemove} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            Remove Subscribers
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
