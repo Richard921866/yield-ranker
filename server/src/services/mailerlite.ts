@@ -237,8 +237,11 @@ export async function createCampaign(campaign: Omit<Campaign, 'id' | 'status' | 
     }
 
     try {
-        // For regular campaigns, MailerLite REQUIRES the emails field
-        // Get all active subscribers to populate the emails field
+        // Strategy: Create campaign without content first, then update with content
+        // This avoids the "content variations" error that occurs when MailerLite
+        // interprets content structure as A/B test variations
+        
+        // Get all active subscribers
         let subscriberEmails: string[] = [];
         
         if (campaign.type === 'regular' || !campaign.type) {
@@ -253,29 +256,12 @@ export async function createCampaign(campaign: Omit<Campaign, 'id' | 'status' | 
                 }
             } catch (subError) {
                 logger.warn('MailerLite', `Failed to fetch subscribers for campaign: ${(subError as Error).message}`);
-                // If we can't get subscribers, use empty array - MailerLite might accept it for drafts
                 subscriberEmails = [];
             }
         }
 
-        // Format content properly - For regular campaigns, MailerLite expects content as a single HTML string
-        // NOT as an object with html/plain (that structure is for A/B test variations)
-        // This is critical to avoid the "content variations" error
-        let contentValue: string;
-        if (campaign.content?.html) {
-            // For regular campaigns, use HTML content as a string, not an object
-            contentValue = campaign.content.html;
-        } else if (campaign.content?.plain) {
-            // Fallback to plain text if HTML not available
-            contentValue = campaign.content.plain;
-        } else {
-            contentValue = '';
-        }
-
-        // Prepare campaign data
-        // CRITICAL: For regular campaigns, MailerLite interprets both HTML and plain as content variations
-        // Solution: Only send HTML content, skip plain text to avoid the variations error
-        const campaignData: any = {
+        // Step 1: Create campaign with minimal data (no content to avoid variations error)
+        const createPayload: any = {
             name: campaign.name,
             subject: campaign.subject,
             type: campaign.type || 'regular',
@@ -284,50 +270,82 @@ export async function createCampaign(campaign: Omit<Campaign, 'id' | 'status' | 
             reply_to: campaign.reply_to,
         };
 
-        // For regular campaigns: Only include HTML content, NOT plain text
-        // Having both HTML and plain text makes MailerLite think it's an A/B test
-        if (campaign.content?.html) {
-            // Use 'content' as a string containing HTML (MailerLite SDK format)
-            campaignData.content = campaign.content.html;
-        } else if (campaign.content?.plain) {
-            // Fallback to plain if no HTML (convert to simple HTML)
-            campaignData.content = campaign.content.plain.replace(/\n/g, '<br>');
-        } else {
-            // Empty content for draft
-            campaignData.content = '';
-        }
-
-        // Add emails field for regular campaigns (REQUIRED by MailerLite API)
-        // Must be a simple array of email strings
+        // Add emails field (REQUIRED for regular campaigns)
         if (campaign.type === 'regular' || !campaign.type) {
-            campaignData.emails = subscriberEmails; // Simple array of strings
+            createPayload.emails = subscriberEmails;
         }
 
-        // Log the payload for debugging
-        logger.info('MailerLite', `Creating campaign with payload: ${JSON.stringify({
-            ...campaignData,
-            emails: `[${subscriberEmails.length} emails]`, // Don't log all emails
-            content_html: campaignData.content_html ? `[${campaignData.content_html.length} chars]` : undefined,
-            content_plain: campaignData.content_plain ? `[${campaignData.content_plain.length} chars]` : undefined,
-        })}`);
+        logger.info('MailerLite', `Creating campaign (step 1): ${campaign.name} with ${subscriberEmails.length} subscribers`);
+        const createResponse = await mailerlite.campaigns.create(createPayload);
+        
+        const campaignId = createResponse.data?.data?.id;
+        if (!campaignId) {
+            throw new Error('Campaign created but no ID returned');
+        }
 
-        const response = await mailerlite.campaigns.create(campaignData);
+        // Step 2: Update campaign with content (if provided)
+        // This two-step approach avoids the content variations error
+        if (campaign.content?.html || campaign.content?.plain) {
+            const htmlContent = campaign.content.html || '';
+            const plainContent = campaign.content.plain || (htmlContent ? htmlContent.replace(/<[^>]*>/g, '') : '');
+            
+            logger.info('MailerLite', `Updating campaign (step 2) with content: ${campaignId}`);
+            
+            // Update with content - use plain object structure
+            const updatePayload: any = {
+                content: {
+                    html: htmlContent,
+                    plain: plainContent,
+                },
+            };
+            
+            await mailerlite.campaigns.update(campaignId, updatePayload);
+        }
 
-        logger.info('MailerLite', `Campaign created: ${campaign.name} (draft)`);
+        // Fetch the final campaign data
+        const finalResponse = await mailerlite.campaigns.get(campaignId);
+        const response = { data: { data: finalResponse.data?.data } };
+
+        logger.info('MailerLite', `Campaign created successfully: ${campaign.name} (ID: ${campaignId})`);
         return {
             success: true,
             campaign: response.data?.data as Campaign,
             message: 'Campaign created successfully',
         };
     } catch (error: unknown) {
-        const err = error as { response?: { data?: { message?: string; errors?: any } }; message?: string };
-        const errorMessage = err?.response?.data?.message || err?.message || 'Unknown error';
-        const errorDetails = err?.response?.data?.errors ? JSON.stringify(err.response.data.errors) : '';
+        const err = error as { 
+            response?: { 
+                data?: { 
+                    message?: string; 
+                    errors?: any;
+                    error?: any;
+                }; 
+                status?: number;
+                statusText?: string;
+            }; 
+            message?: string;
+        };
         
-        logger.error('MailerLite', `Failed to create campaign: ${errorMessage}${errorDetails ? ` - Details: ${errorDetails}` : ''}`);
+        // Enhanced error logging
+        const errorMessage = err?.response?.data?.message || err?.response?.data?.error?.message || err?.message || 'Unknown error';
+        const errorDetails = err?.response?.data?.errors ? JSON.stringify(err.response.data.errors, null, 2) : '';
+        const errorData = err?.response?.data?.error ? JSON.stringify(err.response.data.error, null, 2) : '';
+        const statusInfo = err?.response?.status ? ` (Status: ${err.response.status} ${err.response.statusText || ''})` : '';
+        
+        logger.error('MailerLite', `Failed to create campaign: ${errorMessage}${statusInfo}`);
+        if (errorDetails) {
+            logger.error('MailerLite', `Error details: ${errorDetails}`);
+        }
+        if (errorData) {
+            logger.error('MailerLite', `Error data: ${errorData}`);
+        }
+        if (err?.response?.data) {
+            logger.error('MailerLite', `Full error response: ${JSON.stringify(err.response.data, null, 2)}`);
+        }
+        
         return {
             success: false,
-            message: `Failed to create campaign: ${errorMessage}`,
+            message: `Failed to create campaign: ${errorMessage}${errorDetails ? `. Details: ${errorDetails.substring(0, 200)}` : ''}`,
         };
     }
 }
