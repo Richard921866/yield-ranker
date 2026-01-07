@@ -272,23 +272,40 @@ export async function createCampaign(campaign: Omit<Campaign, 'id' | 'status' | 
             contentValue = '';
         }
 
-        // Prepare campaign data
+        // Prepare campaign data - MailerLite SDK expects specific structure
+        // For regular campaigns, do NOT include content during creation (add it after via update if needed)
+        // OR use content_html/content_plain fields instead of content object
         const campaignData: any = {
             name: campaign.name,
             subject: campaign.subject,
             type: campaign.type || 'regular',
-            // For regular campaigns, content should be a string (HTML), not an object
-            content: contentValue,
             from_name: campaign.from_name,
             from_email: campaign.from_email,
             reply_to: campaign.reply_to,
         };
+
+        // Try using content_html and content_plain as separate fields instead of content object
+        // This might be what MailerLite expects to avoid content variations
+        if (campaign.content?.html) {
+            campaignData.content_html = campaign.content.html;
+        }
+        if (campaign.content?.plain) {
+            campaignData.content_plain = campaign.content.plain;
+        }
 
         // Add emails field for regular campaigns (REQUIRED by MailerLite API)
         // Must be a simple array of email strings
         if (campaign.type === 'regular' || !campaign.type) {
             campaignData.emails = subscriberEmails; // Simple array of strings
         }
+
+        // Log the payload for debugging
+        logger.info('MailerLite', `Creating campaign with payload: ${JSON.stringify({
+            ...campaignData,
+            emails: `[${subscriberEmails.length} emails]`, // Don't log all emails
+            content_html: campaignData.content_html ? `[${campaignData.content_html.length} chars]` : undefined,
+            content_plain: campaignData.content_plain ? `[${campaignData.content_plain.length} chars]` : undefined,
+        })}`);
 
         const response = await mailerlite.campaigns.create(campaignData);
 
