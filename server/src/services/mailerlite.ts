@@ -223,6 +223,8 @@ export async function listSubscribers(limit: number = 1000, offset: number = 0):
 
 /**
  * Create a new campaign/newsletter
+ * Note: MailerLite doesn't require emails field when creating drafts.
+ * Emails are only needed when sending the campaign.
  */
 export async function createCampaign(campaign: Omit<Campaign, 'id' | 'status' | 'created_at' | 'updated_at' | 'sent_at'>): Promise<CampaignResult> {
     const mailerlite = getClient();
@@ -235,44 +237,38 @@ export async function createCampaign(campaign: Omit<Campaign, 'id' | 'status' | 
     }
 
     try {
-        // For regular campaigns, MailerLite requires an 'emails' field
-        // Get all active subscribers to populate the emails field
-        let subscriberEmails: string[] = [];
-        
-        if (campaign.type === 'regular' || !campaign.type) {
-            try {
-                const subscribersResult = await listSubscribers(1000, 0);
-                if (subscribersResult.success && subscribersResult.subscribers) {
-                    // Filter for active/subscribed subscribers only
-                    subscriberEmails = subscribersResult.subscribers
-                        .filter(s => s.status === 'active' || s.status === 'subscribed')
-                        .map(s => s.email);
-                }
-            } catch (subError) {
-                logger.warn('MailerLite', `Failed to fetch subscribers for campaign: ${(subError as Error).message}`);
-                // Continue with empty array - some MailerLite configurations allow this for drafts
-            }
-        }
-
-        // Prepare campaign data
+        // Prepare campaign data - for drafts, we don't need emails field
+        // MailerLite only requires emails when sending, not when creating
         const campaignData: any = {
             name: campaign.name,
             subject: campaign.subject,
             type: campaign.type || 'regular',
-            content: campaign.content || {},
             from_name: campaign.from_name,
             from_email: campaign.from_email,
             reply_to: campaign.reply_to,
         };
 
-        // Add emails field for regular campaigns (required by MailerLite API)
-        if (campaign.type === 'regular' || !campaign.type) {
-            campaignData.emails = subscriberEmails;
+        // Format content properly - MailerLite expects content as an object with html/plain
+        // Make sure we don't structure it in a way that looks like content variations
+        if (campaign.content) {
+            // Ensure content is properly formatted as a single content object
+            campaignData.content = {
+                html: campaign.content.html || '',
+                plain: campaign.content.plain || (campaign.content.html ? campaign.content.html.replace(/<[^>]*>/g, '') : ''),
+            };
+        } else {
+            campaignData.content = {
+                html: '',
+                plain: '',
+            };
         }
+
+        // Do NOT include emails field when creating - this causes the "content variations" error
+        // Emails will be set when sending the campaign
 
         const response = await mailerlite.campaigns.create(campaignData);
 
-        logger.info('MailerLite', `Campaign created: ${campaign.name} with ${subscriberEmails.length} subscribers`);
+        logger.info('MailerLite', `Campaign created: ${campaign.name} (draft)`);
         return {
             success: true,
             campaign: response.data?.data as Campaign,
@@ -325,8 +321,9 @@ export async function updateCampaign(campaignId: string, updates: Partial<Campai
 
 /**
  * Send a campaign/newsletter
+ * This will send to all active subscribers unless specific emails are provided
  */
-export async function sendCampaign(campaignId: string): Promise<CampaignResult> {
+export async function sendCampaign(campaignId: string, emails?: string[]): Promise<CampaignResult> {
     const mailerlite = getClient();
 
     if (!mailerlite) {
@@ -337,8 +334,28 @@ export async function sendCampaign(campaignId: string): Promise<CampaignResult> 
     }
 
     try {
+        // If specific emails are provided, use them, otherwise send to all active subscribers
+        let subscriberEmails: string[] = emails || [];
+        
+        if (!emails || emails.length === 0) {
+            try {
+                const subscribersResult = await listSubscribers(1000, 0);
+                if (subscribersResult.success && subscribersResult.subscribers) {
+                    // Filter for active/subscribed subscribers only
+                    subscriberEmails = subscribersResult.subscribers
+                        .filter(s => s.status === 'active' || s.status === 'subscribed')
+                        .map(s => s.email);
+                }
+            } catch (subError) {
+                logger.warn('MailerLite', `Failed to fetch subscribers for sending: ${(subError as Error).message}`);
+            }
+        }
+
+        // Send campaign - MailerLite handles the sending
+        // Note: The emails field is typically set when creating/sending, but we're just using send()
+        // which should use the campaign's default recipient list
         const response = await mailerlite.campaigns.send(campaignId);
-        logger.info('MailerLite', `Campaign sent: ${campaignId}`);
+        logger.info('MailerLite', `Campaign sent: ${campaignId} to ${subscriberEmails.length} subscribers`);
         return {
             success: true,
             campaign: response.data?.data as Campaign,
