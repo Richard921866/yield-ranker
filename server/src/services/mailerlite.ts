@@ -258,20 +258,18 @@ export async function createCampaign(campaign: Omit<Campaign, 'id' | 'status' | 
             }
         }
 
-        // Format content properly - MailerLite expects content as a single object, not an array
+        // Format content properly - For regular campaigns, MailerLite expects content as a single HTML string
+        // NOT as an object with html/plain (that structure is for A/B test variations)
         // This is critical to avoid the "content variations" error
-        let contentObj: any;
-        if (campaign.content) {
-            // Ensure content is a single object, not an array or nested structure
-            contentObj = {
-                html: campaign.content.html || '',
-                plain: campaign.content.plain || (campaign.content.html ? campaign.content.html.replace(/<[^>]*>/g, '') : ''),
-            };
+        let contentValue: string;
+        if (campaign.content?.html) {
+            // For regular campaigns, use HTML content as a string, not an object
+            contentValue = campaign.content.html;
+        } else if (campaign.content?.plain) {
+            // Fallback to plain text if HTML not available
+            contentValue = campaign.content.plain;
         } else {
-            contentObj = {
-                html: '',
-                plain: '',
-            };
+            contentValue = '';
         }
 
         // Prepare campaign data
@@ -279,7 +277,8 @@ export async function createCampaign(campaign: Omit<Campaign, 'id' | 'status' | 
             name: campaign.name,
             subject: campaign.subject,
             type: campaign.type || 'regular',
-            content: contentObj, // Single content object, not array
+            // For regular campaigns, content should be a string (HTML), not an object
+            content: contentValue,
             from_name: campaign.from_name,
             from_email: campaign.from_email,
             reply_to: campaign.reply_to,
