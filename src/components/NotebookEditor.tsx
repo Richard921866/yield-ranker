@@ -445,97 +445,136 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
     const contentRef = useRef<HTMLDivElement>(null);
     const [isFocused, setIsFocused] = useState(false);
     const [showFormatToolbar, setShowFormatToolbar] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
     const toolbarRef = useRef<HTMLDivElement>(null);
     const [formatState, setFormatState] = useState({
         bold: false,
         italic: false,
         underline: false,
-        fontSize: '',
+        fontSize: '16px',
         alignment: 'left',
     });
 
+    // Ensure component is mounted before accessing browser APIs
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     // Show toolbar only when actively editing text blocks (not tables or formulas)
     useEffect(() => {
-        const shouldShow = isFocused && block.type !== 'table' && block.type !== 'formula';
+        const shouldShow = isMounted && isFocused && block.type !== 'table' && block.type !== 'formula';
         setShowFormatToolbar(shouldShow);
-    }, [isFocused, block.type]);
+    }, [isMounted, isFocused, block.type]);
 
     // Update format state based on current selection - simplified
     useEffect(() => {
-        if (!isFocused || !contentRef.current) return;
+        if (!isMounted || !isFocused || !contentRef.current || typeof document === 'undefined') {
+            return;
+        }
         
         const updateFormatState = () => {
             try {
-                const selection = window.getSelection();
-                if (!selection || selection.rangeCount === 0) return;
+                if (!contentRef.current || typeof document.queryCommandState !== 'function') {
+                    return;
+                }
+                
+                const selection = window.getSelection?.();
+                if (!selection || selection.rangeCount === 0) {
+                    return;
+                }
                 
                 const range = selection.getRangeAt(0);
-                if (!contentRef.current?.contains(range.commonAncestorContainer)) return;
+                if (!range || !contentRef.current.contains(range.commonAncestorContainer)) {
+                    return;
+                }
                 
-                setFormatState(prev => ({
-                    ...prev,
-                    bold: document.queryCommandState('bold'),
-                    italic: document.queryCommandState('italic'),
-                    underline: document.queryCommandState('underline'),
-                    alignment: contentRef.current?.style.textAlign || 'left',
-                }));
+                try {
+                    const bold = document.queryCommandState('bold') || false;
+                    const italic = document.queryCommandState('italic') || false;
+                    const underline = document.queryCommandState('underline') || false;
+                    const alignment = contentRef.current?.style?.textAlign || 'left';
+                    
+                    setFormatState(prev => ({
+                        ...prev,
+                        bold,
+                        italic,
+                        underline,
+                        alignment: alignment || 'left',
+                    }));
+                } catch (cmdError) {
+                    // If queryCommandState fails, just keep previous state
+                }
             } catch (error) {
                 // Silently handle errors
-                console.error('Error updating format state:', error);
             }
         };
         
         const handleSelectionChange = () => {
-            if (isFocused) {
+            if (isFocused && contentRef.current) {
                 setTimeout(updateFormatState, 50);
             }
         };
         
-        document.addEventListener('selectionchange', handleSelectionChange);
-        updateFormatState();
+        if (typeof document !== 'undefined') {
+            document.addEventListener('selectionchange', handleSelectionChange);
+            setTimeout(updateFormatState, 10);
+        }
         
         return () => {
-            document.removeEventListener('selectionchange', handleSelectionChange);
+            if (typeof document !== 'undefined') {
+                document.removeEventListener('selectionchange', handleSelectionChange);
+            }
         };
-    }, [isFocused]);
+    }, [isMounted, isFocused]);
 
     // Position toolbar when visible - simplified and safer
     useEffect(() => {
-        if (!showFormatToolbar || !contentRef.current || !toolbarRef.current) return;
+        if (!isMounted || !showFormatToolbar || !contentRef.current || !toolbarRef.current) {
+            return;
+        }
         
         const updateToolbarPosition = () => {
             try {
-                const contentRect = contentRef.current?.getBoundingClientRect();
-                const toolbar = toolbarRef.current;
-                if (!contentRect || !toolbar) return;
+                if (!contentRef.current || !toolbarRef.current) {
+                    return;
+                }
                 
-                const selection = window.getSelection();
-                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-                const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+                const contentRect = contentRef.current.getBoundingClientRect();
+                const toolbar = toolbarRef.current;
+                
+                if (!contentRect || !toolbar) {
+                    return;
+                }
+                
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop || 0;
+                const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft || 0;
                 
                 let top = contentRect.top + scrollTop - 50;
                 let left = contentRect.left + scrollLeft;
                 
                 // Try to position above selection if available
-                if (selection && selection.rangeCount > 0) {
-                    try {
+                try {
+                    const selection = window.getSelection();
+                    if (selection && selection.rangeCount > 0) {
                         const range = selection.getRangeAt(0);
-                        const rect = range.getBoundingClientRect();
-                        if (rect.top > 60) {
-                            top = rect.top + scrollTop - 50;
-                            left = rect.left + scrollLeft;
+                        if (range) {
+                            const rect = range.getBoundingClientRect();
+                            if (rect && rect.top > 60) {
+                                top = rect.top + scrollTop - 50;
+                                left = rect.left + scrollLeft;
+                            }
                         }
-                    } catch (e) {
-                        // Use content position if selection fails
                     }
+                } catch (e) {
+                    // Use content position if selection fails
                 }
                 
                 // Ensure toolbar stays within viewport
                 const toolbarWidth = toolbar.offsetWidth || 300;
-                const viewportWidth = window.innerWidth;
+                const viewportWidth = window.innerWidth || 800;
                 
                 if (left + toolbarWidth > viewportWidth - 10) {
-                    left = viewportWidth - toolbarWidth - 10;
+                    left = Math.max(10, viewportWidth - toolbarWidth - 10);
                 }
                 if (left < 10) {
                     left = 10;
@@ -548,33 +587,39 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                 toolbar.style.top = `${top}px`;
                 toolbar.style.left = `${left}px`;
             } catch (error) {
-                console.error('Error positioning toolbar:', error);
+                // Silently handle positioning errors
             }
         };
         
         updateToolbarPosition();
         const interval = setInterval(updateToolbarPosition, 200);
-        window.addEventListener('scroll', updateToolbarPosition, true);
-        window.addEventListener('resize', updateToolbarPosition);
+        
+        const handleScroll = () => updateToolbarPosition();
+        const handleResize = () => updateToolbarPosition();
+        
+        window.addEventListener('scroll', handleScroll, true);
+        window.addEventListener('resize', handleResize);
         
         return () => {
             clearInterval(interval);
-            window.removeEventListener('scroll', updateToolbarPosition, true);
-            window.removeEventListener('resize', updateToolbarPosition);
+            window.removeEventListener('scroll', handleScroll, true);
+            window.removeEventListener('resize', handleResize);
         };
-    }, [showFormatToolbar]);
+    }, [isMounted, showFormatToolbar]);
 
     // Format command helpers
     const execCommand = (command: string, value?: string) => {
         try {
-            document.execCommand(command, false, value);
-            contentRef.current?.focus();
-            // Update content after formatting
-            if (contentRef.current) {
-                handleContentChange(contentRef.current.innerHTML);
+            if (typeof document !== 'undefined' && typeof document.execCommand === 'function') {
+                document.execCommand(command, false, value);
+                contentRef.current?.focus();
+                // Update content after formatting
+                if (contentRef.current) {
+                    handleContentChange(contentRef.current.innerHTML);
+                }
             }
         } catch (error) {
-            console.error('Error executing command:', error);
+            // Silently handle errors
         }
     };
 
@@ -602,19 +647,20 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
     };
 
     const renderContent = () => {
-        if (block.type === 'table') {
-            return (
-                <TableBlock
-                    data={block.metadata?.tableData || createDefaultTableData()}
-                    onUpdate={(tableData) => onUpdate({ metadata: { ...block.metadata, tableData } })}
-                />
-            );
-        }
+        try {
+            if (block.type === 'table') {
+                return (
+                    <TableBlock
+                        data={block.metadata?.tableData || createDefaultTableData()}
+                        onUpdate={(tableData) => onUpdate({ metadata: { ...block.metadata, tableData } })}
+                    />
+                );
+            }
 
-        return (
-            <div className="relative">
-                {/* Rich Text Formatting Toolbar - Word-style */}
-                {showFormatToolbar && (
+            return (
+                <div className="relative">
+                    {/* Rich Text Formatting Toolbar - Word-style */}
+                    {isMounted && showFormatToolbar && (
                     <motion.div
                         ref={toolbarRef}
                         initial={{ opacity: 0, y: -10 }}
@@ -839,6 +885,14 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                 />
             </div>
         );
+        } catch (error) {
+            console.error('Error rendering block content:', error);
+            return (
+                <div className="p-4 text-sm text-muted-foreground border border-destructive rounded">
+                    Error rendering block. Please try again.
+                </div>
+            );
+        }
     };
 
     return (
