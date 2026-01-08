@@ -183,7 +183,7 @@ export default function Dashboard() {
   const isGuest = !profile;
 
   // Load CEF data
-  const loadCEFData = async (showLoading: boolean = true) => {
+  const loadCEFData = useCallback(async (showLoading: boolean = true) => {
     console.log("[Dashboard] Starting to load CEF data...");
     if (showLoading && !isCEFDataCached()) {
       setIsLoadingCEFData(true);
@@ -223,7 +223,7 @@ export default function Dashboard() {
     } finally {
       setIsLoadingCEFData(false);
     }
-  };
+  }, []);
 
   // Load site settings function - can be called with different categories
   const loadSiteSettings = async (category: "cc" | "cef" = "cc") => {
@@ -306,7 +306,7 @@ export default function Dashboard() {
     if (selectedCategory === "cef" && cefData.length === 0) {
       loadCEFData();
     }
-  }, [selectedCategory]);
+  }, [selectedCategory, cefData.length, loadCEFData]);
 
   // Load CEF ranking weights from profile (CEF-specific)
   useEffect(() => {
@@ -340,7 +340,8 @@ export default function Dashboard() {
     } else if (selectedCategory === "cef" && cefData.length > 0) {
       cleanupFavorites(cefData.map(cef => cef.symbol));
     }
-  }, [etfData, cefData, selectedCategory, cleanupFavorites]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory]);
 
   // Handle ETF deletion events
   useEffect(() => {
