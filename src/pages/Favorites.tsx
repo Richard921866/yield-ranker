@@ -425,7 +425,8 @@ const Favorites = () => {
                       onToggleFavorite={toggleCEFFavorite}
                     />
                   </div>
-                </section>
+                  </div>
+                </Card>
               )}
             </>
           )}
