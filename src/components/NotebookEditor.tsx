@@ -460,6 +460,17 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
         setIsMounted(true);
     }, []);
 
+    // Normalize "empty" contentEditable HTML so we don't store `<br>` etc (also helps placeholder + caret behavior)
+    const normalizeEditableHtml = useCallback((html: string): string => {
+        const trimmed = (html || "").trim();
+        if (!trimmed) return "";
+        // Common "empty" markers emitted by browsers in contentEditable
+        if (trimmed === "<br>") return "";
+        if (trimmed === "<div><br></div>") return "";
+        if (trimmed === "<p><br></p>") return "";
+        return trimmed;
+    }, []);
+
     // Enforce LTR direction on contentEditable element - simple and non-intrusive
     useEffect(() => {
         if (!contentRef.current) return;
@@ -493,6 +504,20 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
             observer.disconnect();
         };
     }, [block.id]);
+
+    // IMPORTANT: Avoid writing innerHTML from React on every render.
+    // We only sync DOM <- state when NOT focused. This prevents caret jumping-to-start (which causes "typing backwards").
+    useEffect(() => {
+        if (!contentRef.current) return;
+        if (isFocused) return;
+
+        const desired = normalizeEditableHtml(block.content || "");
+        const current = normalizeEditableHtml(contentRef.current.innerHTML || "");
+
+        if (current !== desired) {
+            contentRef.current.innerHTML = desired;
+        }
+    }, [block.content, isFocused, normalizeEditableHtml]);
 
     // Show toolbar only when actively editing text blocks (not tables or formulas)
     useEffect(() => {
@@ -1110,10 +1135,19 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                                     return;
                                 }
                                 setIsFocused(false);
-                                handleContentChange(e.currentTarget.innerHTML);
+                                const normalized = normalizeEditableHtml(e.currentTarget.innerHTML);
+                                // Ensure truly empty DOM for placeholder CSS
+                                if (normalized === "" && e.currentTarget.innerHTML !== "") {
+                                    e.currentTarget.innerHTML = "";
+                                }
+                                handleContentChange(normalized);
                             } catch (error) {
                                 setIsFocused(false);
-                                handleContentChange(e.currentTarget.innerHTML);
+                                const normalized = normalizeEditableHtml(e.currentTarget.innerHTML);
+                                if (normalized === "" && e.currentTarget.innerHTML !== "") {
+                                    e.currentTarget.innerHTML = "";
+                                }
+                                handleContentChange(normalized);
                             }
                         }, 300);
                     }}
@@ -1121,6 +1155,13 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                         setIsFocused(true);
                         // Ensure LTR direction when focusing
                         e.currentTarget.style.direction = 'ltr';
+                        e.currentTarget.style.unicodeBidi = 'embed';
+                        e.currentTarget.setAttribute('dir', 'ltr');
+                        // If the editor is effectively empty, force empty DOM so typing starts normally
+                        const normalized = normalizeEditableHtml(e.currentTarget.innerHTML);
+                        if (normalized === "" && e.currentTarget.innerHTML !== "") {
+                            e.currentTarget.innerHTML = "";
+                        }
                         // Remove any RTL styling that might be inherited
                         const selection = window.getSelection();
                         if (selection && selection.rangeCount > 0) {
@@ -1134,7 +1175,7 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                         }
                     }}
                     onInput={(e) => {
-                        const html = e.currentTarget.innerHTML;
+                        const normalized = normalizeEditableHtml(e.currentTarget.innerHTML);
                         // Ensure LTR direction after input (simple, non-intrusive)
                         const element = e.currentTarget;
                         if (element.getAttribute('dir') !== 'ltr') {
@@ -1142,9 +1183,12 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                             element.style.direction = 'ltr';
                             element.style.unicodeBidi = 'embed';
                         }
-                        handleContentChange(html);
+                        // Ensure truly empty DOM for placeholder CSS + consistent caret
+                        if (normalized === "" && element.innerHTML !== "") {
+                            element.innerHTML = "";
+                        }
+                        handleContentChange(normalized);
                     }}
-                    dangerouslySetInnerHTML={{ __html: block.content || getPlaceholder(block.type) }}
                     data-placeholder={getPlaceholder(block.type)}
                     dir="ltr"
                     style={{ 
