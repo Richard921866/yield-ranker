@@ -244,25 +244,44 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
                 }
             }
 
-            // Check for frequency transition: if previous gap indicates one frequency
-            // and next gap indicates a different frequency, we're at a transition point
-            // At transitions, use the frequency from the PREVIOUS gap for normalization
-            // This ensures the last payment of the old frequency normalizes correctly
-            // Example: Last monthly payment (28 days from prev) before switching to weekly (7 days to next)
-            // Should normalize as monthly (12) to show 1.07, not weekly (52) which would show 4.65
-            if (daysSincePrev !== null && daysSincePrev > 4 && daysToNext > 4) {
+            // CRITICAL FIX: Always prioritize the gap TO the next dividend for frequency determination
+            // The "backward confirmation rule" means we confirm frequency by looking ahead
+            // If the gap to next is clearly in a frequency range (5-10 = weekly, 20-40 = monthly, etc.),
+            // use that frequency regardless of transition detection
+            // Transition detection should only apply for ambiguous gaps (11-19 days, etc.)
+            
+            // PRIORITY 1: If gap to next is clearly weekly (5-10 days), ALWAYS use Weekly
+            // This ensures 7 days = Weekly, not Monthly
+            if (daysToNext >= 5 && daysToNext <= 10) {
+                frequencyNum = 52; // Weekly - clear and unambiguous
+            }
+            // PRIORITY 2: If gap to next is clearly monthly (20-40 days), ALWAYS use Monthly
+            else if (daysToNext >= 20 && daysToNext <= 40) {
+                frequencyNum = 12; // Monthly - clear and unambiguous
+            }
+            // PRIORITY 3: Check for frequency transition only for ambiguous gaps (11-19 days, etc.)
+            else if (daysSincePrev !== null && daysSincePrev > 4 && daysToNext > 4) {
                 const freqFromPrev = getFrequencyFromDays(daysSincePrev);
                 const freqFromNext = daysToNextRegular !== null && daysToNextRegular > 4
                     ? getFrequencyFromDays(daysToNextRegular)
                     : getFrequencyFromDays(daysToNext);
 
-                // If frequencies differ, we're at a transition point
-                // Use the frequency from the PREVIOUS gap for normalization
-                // This ensures the normalized line shows the correct value (1.07 for monthly, not 4.65 for weekly)
-                if (freqFromPrev !== freqFromNext) {
-                    frequencyNum = freqFromPrev; // Use old frequency for normalization
+                // For ambiguous gaps, check if there's a clear transition
+                // Only use previous frequency if:
+                // 1. Previous gap is clearly in a frequency range (not ambiguous)
+                // 2. Next gap is ambiguous (11-19 days, 41-59 days, etc.)
+                // 3. Previous frequency is clearly established
+                const prevIsClear = (daysSincePrev >= 5 && daysSincePrev <= 10) || 
+                                   (daysSincePrev >= 20 && daysSincePrev <= 40) ||
+                                   (daysSincePrev >= 60 && daysSincePrev <= 110);
+                const nextIsAmbiguous = (daysToNext >= 11 && daysToNext < 20) ||
+                                       (daysToNext > 40 && daysToNext < 60);
+                
+                if (prevIsClear && nextIsAmbiguous && freqFromPrev !== freqFromNext) {
+                    // Use previous frequency for ambiguous transition periods
+                    frequencyNum = freqFromPrev;
                 } else {
-                    // No transition: use gap to next (backward confirmation rule)
+                    // Use gap to next (backward confirmation rule)
                     if (nextRegularDiv && daysToNextRegular !== null && daysToNextRegular > 4) {
                         frequencyNum = getFrequencyFromDays(daysToNextRegular);
                     } else {
