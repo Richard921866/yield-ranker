@@ -12,6 +12,8 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ classNa
         className,
       )}
       ref={ref}
+      dir="ltr"
+      style={{ direction: 'ltr', ...props.style }}
       {...props}
     />
   );

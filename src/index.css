@@ -142,6 +142,25 @@ All colors MUST be HSL.
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold tracking-tight;
   }
+
+  /* Ensure all text inputs, textareas, and contentEditable elements are left-to-right */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  textarea,
+  [contenteditable="true"],
+  [contenteditable] {
+    direction: ltr !important;
+    text-align: left !important;
+  }
+
+  /* Ensure all form elements default to LTR */
+  form {
+    direction: ltr;
+  }
 }
 
 @layer utilities {

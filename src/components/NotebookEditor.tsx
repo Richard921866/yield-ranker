@@ -460,6 +460,50 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
         setIsMounted(true);
     }, []);
 
+    // Enforce LTR direction on contentEditable element and all child elements
+    useEffect(() => {
+        if (!contentRef.current) return;
+        
+        // Set LTR direction on the main contentEditable element
+        contentRef.current.style.direction = 'ltr';
+        contentRef.current.setAttribute('dir', 'ltr');
+        
+        // Ensure all child elements are also LTR
+        const enforceLTR = (element: HTMLElement) => {
+            element.style.direction = 'ltr';
+            element.setAttribute('dir', 'ltr');
+            const children = element.querySelectorAll('*');
+            children.forEach((child) => {
+                if (child instanceof HTMLElement) {
+                    child.style.direction = 'ltr';
+                    child.setAttribute('dir', 'ltr');
+                }
+            });
+        };
+        
+        enforceLTR(contentRef.current);
+        
+        // Monitor for changes and enforce LTR
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node instanceof HTMLElement) {
+                        enforceLTR(node);
+                    }
+                });
+            });
+        });
+        
+        observer.observe(contentRef.current, {
+            childList: true,
+            subtree: true,
+        });
+        
+        return () => {
+            observer.disconnect();
+        };
+    }, [block.id, block.content]);
+
     // Show toolbar only when actively editing text blocks (not tables or formulas)
     useEffect(() => {
         const shouldShow = isMounted && isFocused && block.type !== 'table' && block.type !== 'formula';
@@ -1129,6 +1173,7 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                     }}
                     dangerouslySetInnerHTML={{ __html: block.content || getPlaceholder(block.type) }}
                     data-placeholder={getPlaceholder(block.type)}
+                    dir="ltr"
                     style={{ 
                         textAlign: formatState.alignment as any,
                         direction: 'ltr', // Always left-to-right
@@ -1311,6 +1356,8 @@ const TableBlock: React.FC<TableBlockProps> = ({ data, onUpdate }) => {
                                         value={header}
                                         onChange={(e) => updateHeader(i, e.target.value)}
                                         className="w-full bg-transparent font-semibold focus:outline-none focus:ring-1 focus:ring-primary rounded px-1 text-xs sm:text-sm"
+                                        dir="ltr"
+                                        style={{ direction: 'ltr' }}
                                     />
                                     {data.headers.length > 1 && (
                                         <button
@@ -1340,6 +1387,8 @@ const TableBlock: React.FC<TableBlockProps> = ({ data, onUpdate }) => {
                                             onChange={(e) => updateCell(rowIndex, colIndex, e.target.value)}
                                             className="w-full bg-transparent focus:outline-none focus:ring-1 focus:ring-primary rounded px-1 text-xs sm:text-sm"
                                             placeholder="..."
+                                            dir="ltr"
+                                            style={{ direction: 'ltr' }}
                                         />
                                     </td>
                                 ))}
