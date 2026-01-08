@@ -464,6 +464,24 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
     useEffect(() => {
         const shouldShow = isMounted && isFocused && block.type !== 'table' && block.type !== 'formula';
         setShowFormatToolbar(shouldShow);
+        
+        // Also check if content element has focus (handles clicks anywhere in block)
+        if (contentRef.current && block.type !== 'table' && block.type !== 'formula') {
+            const checkFocus = () => {
+                if (document.activeElement === contentRef.current || contentRef.current?.contains(document.activeElement)) {
+                    setIsFocused(true);
+                }
+            };
+            
+            // Check on click anywhere in the content area (including after images)
+            contentRef.current.addEventListener('click', checkFocus, true);
+            contentRef.current.addEventListener('focus', checkFocus, true);
+            
+            return () => {
+                contentRef.current?.removeEventListener('click', checkFocus, true);
+                contentRef.current?.removeEventListener('focus', checkFocus, true);
+            };
+        }
     }, [isMounted, isFocused, block.type]);
 
     // Update format state based on current selection - simplified
@@ -527,7 +545,7 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
         };
     }, [isMounted, isFocused]);
 
-    // Position toolbar when visible - simplified and safer
+    // Position toolbar at top of block - fixed position
     useEffect(() => {
         if (!isMounted || !showFormatToolbar || !contentRef.current || !toolbarRef.current) {
             return;
@@ -549,25 +567,9 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                 const scrollTop = window.pageYOffset || document.documentElement.scrollTop || 0;
                 const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft || 0;
                 
+                // Always position at top of block
                 let top = contentRect.top + scrollTop - 50;
                 let left = contentRect.left + scrollLeft;
-                
-                // Try to position above selection if available
-                try {
-                    const selection = window.getSelection();
-                    if (selection && selection.rangeCount > 0) {
-                        const range = selection.getRangeAt(0);
-                        if (range) {
-                            const rect = range.getBoundingClientRect();
-                            if (rect && rect.top > 60) {
-                                top = rect.top + scrollTop - 50;
-                                left = rect.left + scrollLeft;
-                            }
-                        }
-                    }
-                } catch (e) {
-                    // Use content position if selection fails
-                }
                 
                 // Ensure toolbar stays within viewport
                 const toolbarWidth = toolbar.offsetWidth || 300;
@@ -580,6 +582,7 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                     left = 10;
                 }
                 
+                // If too close to top, position below
                 if (top < scrollTop + 10) {
                     top = contentRect.bottom + scrollTop + 5;
                 }
@@ -592,7 +595,7 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
         };
         
         updateToolbarPosition();
-        const interval = setInterval(updateToolbarPosition, 200);
+        const interval = setInterval(updateToolbarPosition, 300);
         
         const handleScroll = () => updateToolbarPosition();
         const handleResize = () => updateToolbarPosition();
@@ -607,15 +610,62 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
         };
     }, [isMounted, showFormatToolbar]);
 
-    // Format command helpers
+    // Format command helpers - only applies to selection
     const execCommand = (command: string, value?: string) => {
         try {
-            if (typeof document !== 'undefined' && typeof document.execCommand === 'function') {
-                document.execCommand(command, false, value);
-                contentRef.current?.focus();
-                // Update content after formatting
-                if (contentRef.current) {
-                    handleContentChange(contentRef.current.innerHTML);
+            if (typeof document !== 'undefined' && typeof document.execCommand === 'function' && contentRef.current) {
+                const selection = window.getSelection();
+                if (selection && selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    const hasSelection = !range.collapsed && selection.toString().length > 0;
+                    
+                    // Always ensure LTR direction
+                    contentRef.current.style.direction = 'ltr';
+                    
+                    if (hasSelection) {
+                        // Apply formatting to selected text only
+                        document.execCommand(command, false, value);
+                        
+                        // Ensure all formatted elements have LTR direction
+                        const formattedElements = range.commonAncestorContainer.parentElement?.querySelectorAll('*') || [];
+                        formattedElements.forEach((el: Element) => {
+                            if (el instanceof HTMLElement) {
+                                el.style.direction = 'ltr';
+                            }
+                        });
+                        
+                        // Restore selection after command
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    } else {
+                        // No selection - apply formatting at cursor position (for future typing)
+                        document.execCommand(command, false, value);
+                        
+                        // Ensure any newly created elements are LTR
+                        const selectionAfter = window.getSelection();
+                        if (selectionAfter && selectionAfter.rangeCount > 0) {
+                            const rangeAfter = selectionAfter.getRangeAt(0);
+                            const element = rangeAfter.commonAncestorContainer.nodeType === Node.TEXT_NODE
+                                ? rangeAfter.commonAncestorContainer.parentElement
+                                : rangeAfter.commonAncestorContainer as HTMLElement;
+                            if (element && element !== contentRef.current) {
+                                element.style.direction = 'ltr';
+                            }
+                        }
+                    }
+                    
+                    contentRef.current.focus();
+                    if (contentRef.current) {
+                        handleContentChange(contentRef.current.innerHTML);
+                    }
+                } else {
+                    // No selection, execute normally but ensure LTR
+                    document.execCommand(command, false, value);
+                    if (contentRef.current) {
+                        contentRef.current.style.direction = 'ltr';
+                        contentRef.current.focus();
+                        handleContentChange(contentRef.current.innerHTML);
+                    }
                 }
             }
         } catch (error) {
@@ -671,8 +721,21 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                         onClick={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
+                            // Keep content focused when clicking toolbar
+                            if (contentRef.current) {
+                                contentRef.current.focus();
+                                setIsFocused(true);
+                            }
                         }}
-                        onMouseDown={(e) => e.preventDefault()}
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }}
+                        onFocus={(e) => {
+                            e.stopPropagation();
+                            // Keep toolbar visible when dropdown opens
+                            setIsFocused(true);
+                        }}
                     >
                         {/* Text Formatting */}
                         <div className="flex items-center gap-0.5 border-r border-slate-300 dark:border-slate-600 pr-0.5 sm:pr-1 mr-0.5 sm:mr-1">
@@ -712,31 +775,90 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                                 onValueChange={(value) => {
                                     try {
                                         if (contentRef.current) {
-                                            execCommand('fontSize', '7');
                                             const selection = window.getSelection();
                                             if (selection && selection.rangeCount > 0) {
                                                 const range = selection.getRangeAt(0);
-                                                const element = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
-                                                    ? range.commonAncestorContainer.parentElement
-                                                    : (range.commonAncestorContainer as HTMLElement);
                                                 
-                                                if (element && element !== contentRef.current) {
-                                                    element.style.fontSize = value;
-                                                    setFormatState(prev => ({ ...prev, fontSize: value }));
-                                                    handleContentChange(contentRef.current.innerHTML);
-                                                    contentRef.current.focus();
+                                                // If text is selected, apply to selection only
+                                                if (!range.collapsed && selection.toString().length > 0) {
+                                                    // Wrap selected text in span with font size
+                                                    const span = document.createElement('span');
+                                                    span.style.fontSize = value;
+                                                    span.style.direction = 'ltr';
+                                                    
+                                                    try {
+                                                        range.surroundContents(span);
+                                                    } catch (e) {
+                                                        // If surroundContents fails, extract and wrap
+                                                        const contents = range.extractContents();
+                                                        span.appendChild(contents);
+                                                        range.insertNode(span);
+                                                    }
+                                                    
+                                                    // Update selection
+                                                    const newRange = document.createRange();
+                                                    newRange.selectNodeContents(span);
+                                                    selection.removeAllRanges();
+                                                    selection.addRange(newRange);
+                                                } else {
+                                                    // No selection - apply to current position or parent
+                                                    const element = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+                                                        ? range.commonAncestorContainer.parentElement
+                                                        : (range.commonAncestorContainer as HTMLElement);
+                                                    
+                                                    if (element && element !== contentRef.current) {
+                                                        element.style.fontSize = value;
+                                                        element.style.direction = 'ltr';
+                                                    } else {
+                                                        // Create span at cursor
+                                                        const span = document.createElement('span');
+                                                        span.style.fontSize = value;
+                                                        span.style.direction = 'ltr';
+                                                        range.insertNode(span);
+                                                        range.setStartAfter(span);
+                                                        range.collapse(true);
+                                                        selection.removeAllRanges();
+                                                        selection.addRange(range);
+                                                    }
                                                 }
+                                                
+                                                setFormatState(prev => ({ ...prev, fontSize: value }));
+                                                handleContentChange(contentRef.current.innerHTML);
+                                                contentRef.current.focus();
                                             }
                                         }
                                     } catch (error) {
-                                        console.error('Error changing font size:', error);
+                                        // Silently handle errors
+                                    }
+                                }}
+                                onOpenChange={(open) => {
+                                    // Keep toolbar visible when dropdown opens
+                                    if (open) {
+                                        setIsFocused(true);
                                     }
                                 }}
                             >
                                 <SelectTrigger className="h-7 w-14 sm:h-8 sm:w-18 text-xs border-0 shadow-none px-1 sm:px-2">
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent
+                                    onCloseAutoFocus={(e) => {
+                                        e.preventDefault();
+                                        // Keep content focused when dropdown closes
+                                        if (contentRef.current) {
+                                            setTimeout(() => {
+                                                contentRef.current?.focus();
+                                                setIsFocused(true);
+                                            }, 100);
+                                        }
+                                    }}
+                                    onEscapeKeyDown={(e) => {
+                                        // Keep focused when closing with escape
+                                        if (contentRef.current) {
+                                            contentRef.current.focus();
+                                        }
+                                    }}
+                                >
                                     <SelectItem value="10px">10px</SelectItem>
                                     <SelectItem value="12px">12px</SelectItem>
                                     <SelectItem value="14px">14px</SelectItem>
@@ -759,10 +881,20 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                                 size="sm"
                                 className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                                 onClick={() => {
-                                    execCommand('justifyLeft');
-                                    if (contentRef.current) {
-                                        contentRef.current.style.textAlign = 'left';
-                                        handleContentChange(contentRef.current.innerHTML);
+                                    const selection = window.getSelection();
+                                    if (selection && selection.rangeCount > 0 && !selection.toString().length) {
+                                        // No selection - apply to entire block
+                                        if (contentRef.current) {
+                                            contentRef.current.style.textAlign = 'left';
+                                            contentRef.current.style.direction = 'ltr';
+                                            handleContentChange(contentRef.current.innerHTML);
+                                        }
+                                    } else {
+                                        // Selection exists - apply to selection only via execCommand
+                                        execCommand('justifyLeft');
+                                        if (contentRef.current) {
+                                            handleContentChange(contentRef.current.innerHTML);
+                                        }
                                     }
                                 }}
                                 title="Align Left"
@@ -774,10 +906,20 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                                 size="sm"
                                 className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                                 onClick={() => {
-                                    execCommand('justifyCenter');
-                                    if (contentRef.current) {
-                                        contentRef.current.style.textAlign = 'center';
-                                        handleContentChange(contentRef.current.innerHTML);
+                                    const selection = window.getSelection();
+                                    if (selection && selection.rangeCount > 0 && !selection.toString().length) {
+                                        // No selection - apply to entire block
+                                        if (contentRef.current) {
+                                            contentRef.current.style.textAlign = 'center';
+                                            contentRef.current.style.direction = 'ltr';
+                                            handleContentChange(contentRef.current.innerHTML);
+                                        }
+                                    } else {
+                                        // Selection exists - apply to selection only
+                                        execCommand('justifyCenter');
+                                        if (contentRef.current) {
+                                            handleContentChange(contentRef.current.innerHTML);
+                                        }
                                     }
                                 }}
                                 title="Align Center"
@@ -789,10 +931,20 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                                 size="sm"
                                 className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                                 onClick={() => {
-                                    execCommand('justifyRight');
-                                    if (contentRef.current) {
-                                        contentRef.current.style.textAlign = 'right';
-                                        handleContentChange(contentRef.current.innerHTML);
+                                    const selection = window.getSelection();
+                                    if (selection && selection.rangeCount > 0 && !selection.toString().length) {
+                                        // No selection - apply to entire block
+                                        if (contentRef.current) {
+                                            contentRef.current.style.textAlign = 'right';
+                                            contentRef.current.style.direction = 'ltr';
+                                            handleContentChange(contentRef.current.innerHTML);
+                                        }
+                                    } else {
+                                        // Selection exists - apply to selection only
+                                        execCommand('justifyRight');
+                                        if (contentRef.current) {
+                                            handleContentChange(contentRef.current.innerHTML);
+                                        }
                                     }
                                 }}
                                 title="Align Right"
@@ -804,10 +956,20 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                                 size="sm"
                                 className="h-7 w-7 sm:h-8 sm:w-8 p-0 hidden sm:flex"
                                 onClick={() => {
-                                    execCommand('justifyFull');
-                                    if (contentRef.current) {
-                                        contentRef.current.style.textAlign = 'justify';
-                                        handleContentChange(contentRef.current.innerHTML);
+                                    const selection = window.getSelection();
+                                    if (selection && selection.rangeCount > 0 && !selection.toString().length) {
+                                        // No selection - apply to entire block
+                                        if (contentRef.current) {
+                                            contentRef.current.style.textAlign = 'justify';
+                                            contentRef.current.style.direction = 'ltr';
+                                            handleContentChange(contentRef.current.innerHTML);
+                                        }
+                                    } else {
+                                        // Selection exists - apply to selection only
+                                        execCommand('justifyFull');
+                                        if (contentRef.current) {
+                                            handleContentChange(contentRef.current.innerHTML);
+                                        }
                                     }
                                 }}
                                 title="Justify"
@@ -859,28 +1021,75 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                     suppressContentEditableWarning
                     className={`min-h-[32px] sm:min-h-[40px] focus:outline-none focus:ring-2 focus:ring-primary/20 rounded px-2 py-1 ${getBlockStyles()}`}
                     onBlur={(e) => {
-                        // Delay to allow toolbar clicks
+                        // Delay to allow toolbar clicks and dropdown interactions
                         setTimeout(() => {
                             try {
-                                if (!toolbarRef.current?.contains(document.activeElement)) {
-                                    setIsFocused(false);
-                                    handleContentChange(e.currentTarget.innerHTML);
+                                const activeElement = document.activeElement;
+                                // Keep focused if clicking on toolbar or any dropdown
+                                if (toolbarRef.current?.contains(activeElement) ||
+                                    activeElement?.closest('[role="listbox"]') ||
+                                    activeElement?.closest('[role="menu"]') ||
+                                    activeElement?.closest('[data-radix-popper-content-wrapper]')) {
+                                    // Don't blur, keep focus
+                                    return;
                                 }
+                                setIsFocused(false);
+                                handleContentChange(e.currentTarget.innerHTML);
                             } catch (error) {
                                 setIsFocused(false);
                                 handleContentChange(e.currentTarget.innerHTML);
                             }
-                        }, 150);
+                        }, 300);
                     }}
-                    onFocus={() => setIsFocused(true)}
+                    onFocus={(e) => {
+                        setIsFocused(true);
+                        // Ensure LTR direction when focusing
+                        e.currentTarget.style.direction = 'ltr';
+                        // Remove any RTL styling that might be inherited
+                        const selection = window.getSelection();
+                        if (selection && selection.rangeCount > 0) {
+                            const range = selection.getRangeAt(0);
+                            if (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE) {
+                                const element = range.commonAncestorContainer as HTMLElement;
+                                if (element) {
+                                    element.style.direction = 'ltr';
+                                }
+                            }
+                        }
+                    }}
                     onInput={(e) => {
                         const html = e.currentTarget.innerHTML;
+                        // Ensure direction is always LTR after input
+                        e.currentTarget.style.direction = 'ltr';
                         handleContentChange(html);
+                    }}
+                    onKeyDown={(e) => {
+                        // Ensure LTR direction on every keystroke
+                        if (contentRef.current) {
+                            contentRef.current.style.direction = 'ltr';
+                        }
+                        // Remove RTL from any newly created elements
+                        const selection = window.getSelection();
+                        if (selection && selection.rangeCount > 0) {
+                            const range = selection.getRangeAt(0);
+                            if (range.commonAncestorContainer) {
+                                let element: HTMLElement | null = null;
+                                if (range.commonAncestorContainer.nodeType === Node.TEXT_NODE) {
+                                    element = range.commonAncestorContainer.parentElement;
+                                } else {
+                                    element = range.commonAncestorContainer as HTMLElement;
+                                }
+                                if (element && element !== contentRef.current) {
+                                    element.style.direction = 'ltr';
+                                }
+                            }
+                        }
                     }}
                     dangerouslySetInnerHTML={{ __html: block.content || getPlaceholder(block.type) }}
                     data-placeholder={getPlaceholder(block.type)}
                     style={{ 
                         textAlign: formatState.alignment as any,
+                        direction: 'ltr', // Always left-to-right
                     }}
                 />
             </div>
@@ -961,7 +1170,19 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                                     <Plus className="h-4 w-4" />
                                 </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent 
+                                align="end"
+                                onCloseAutoFocus={(e) => {
+                                    e.preventDefault();
+                                    // Keep content focused when dropdown closes
+                                    if (contentRef.current) {
+                                        setTimeout(() => {
+                                            contentRef.current?.focus();
+                                            setIsFocused(true);
+                                        }, 100);
+                                    }
+                                }}
+                            >
                                 <div className="px-2 py-1 text-xs text-muted-foreground">Add block after</div>
                                 {BLOCK_TYPES.map(({ type, label, icon: Icon }) => (
                                     <DropdownMenuItem key={type} onClick={() => onAddAfter(type)}>
