@@ -2960,8 +2960,8 @@ export default function Dashboard() {
             </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col">
+            <div className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
               {adminSection === "users" ? (
                 <div className="flex-1 overflow-auto">
                   <div className="p-2 sm:p-3 lg:p-4 space-y-4">
@@ -3302,15 +3302,13 @@ export default function Dashboard() {
                   </Card>
                 </div>
               ) : (
-                <div>
+                <>
                   {((isGuest && guestMessage) || (isPremium && premiumMessage)) && (
-                    <div className="w-full">
-                      <Card className="p-4 border-2 border-primary/20 bg-primary/5">
-                        <p className="text-base md:text-lg text-foreground leading-relaxed font-medium">
-                          {isGuest ? guestMessage : premiumMessage}
-                        </p>
-                      </Card>
-                    </div>
+                    <Card className="p-4 border-2 border-primary/20 bg-primary/5">
+                      <p className="text-base md:text-lg text-foreground leading-relaxed font-medium">
+                        {isGuest ? guestMessage : premiumMessage}
+                      </p>
+                    </Card>
                   )}
                   {/* Covered Call Option ETFs Section - Only show when CC category is selected */}
                   {selectedCategory === "cc" && (
@@ -3814,8 +3812,11 @@ export default function Dashboard() {
                   )}
 
                   {/* Only use UpgradeToPremiumModal for upgrade prompts */}
-                </div>
+                </>
               )}
+            </div>
+            <div className="px-4 sm:px-6 lg:px-8">
+              <Footer noHorizontalPadding />
             </div>
           </div>
         </main>
@@ -3880,7 +3881,6 @@ export default function Dashboard() {
             )}
           </DialogContent>
         </Dialog>
-        <Footer />
       </div>
     </div>
   );

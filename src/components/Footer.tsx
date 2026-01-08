@@ -2,13 +2,17 @@ import { Link } from "react-router-dom";
 import { NewsletterSubscribe } from "./NewsletterSubscribe";
 import { useAuth } from "@/contexts/AuthContext";
 
-export const Footer = () => {
+interface FooterProps {
+  noHorizontalPadding?: boolean;
+}
+
+export const Footer = ({ noHorizontalPadding = false }: FooterProps = {}) => {
   const { profile, user } = useAuth();
   const isPremium = profile?.is_premium || user?.user_metadata?.is_premium;
 
   return (
     <footer className="w-full bg-white border-t border-slate-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-14 lg:py-16 space-y-8 sm:space-y-10">
+      <div className={`max-w-7xl mx-auto ${noHorizontalPadding ? '' : 'px-4 sm:px-6 lg:px-8'} py-12 sm:py-14 lg:py-16 space-y-8 sm:space-y-10`}>
         {/* Newsletter Subscription Section */}
         <div className="rounded-2xl border-2 border-slate-200 bg-gradient-to-r from-primary/5 to-accent/5 px-5 sm:px-6 md:px-8 py-6 sm:py-8 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5 md:gap-6">
