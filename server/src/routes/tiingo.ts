@@ -290,7 +290,17 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
       }
     }
 
-    const lastDividend = dividends.length > 0 ? dividends[0].div_cash : null;
+    // Last dividend (for homepage/summary use):
+    // If the most recent record is a combined "Regular + Special" CEF payout, prefer the regular component
+    // so we don't inflate "last dividend" with a one-time year-end special spike.
+    let lastDividend: number | null = dividends.length > 0 ? dividends[0].div_cash : null;
+    if (dividends.length > 0) {
+      const latest: any = dividends[0] as any;
+      if (latest?.pmt_type === 'Special' && latest?.regular_component !== null && latest?.regular_component !== undefined) {
+        const rc = Number(latest.regular_component);
+        if (isFinite(rc) && rc > 0) lastDividend = rc;
+      }
+    }
     const annualizedDividend = lastDividend ? lastDividend * actualPaymentsPerYear : null;
 
     // Calculate YoY growth

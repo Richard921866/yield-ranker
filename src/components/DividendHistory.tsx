@@ -222,16 +222,26 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
     // Bars = unadjusted dividend (div.amount = div_cash)
     // Line = normalized column (div.normalizedDiv = normalized_div from database)
     const chartData = dividends.map((div) => {
-      // BAR: Use adjusted dividend (div.adjAmount = adj_amount from database)
-      // This ensures bars align with normalized line, especially for ETFs with splits
-      // Example ULTY 11/25: ADJ_AMT=$0.5940 → bar shows $0.5940 (matches line)
-      // Example ULTY 12/2+: ADJ_AMT=$0.5881 → bar shows $0.5881 (matches line)
-      // For ETFs without splits: adj_amount = div_cash, so no change
-      const amount = (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
-        ? div.adjAmount
-        : (typeof div.amount === 'number' && !isNaN(div.amount) && isFinite(div.amount) && div.amount > 0)
-          ? div.amount
-          : 0;
+      // BAR:
+      // - Default: use adjusted dividend (div.adjAmount = adj_amount from database)
+      // - CEF split specials: plot ONLY the special component (not the combined total)
+      //   so BST-like year-end spikes show the incremental special amount (e.g., 1.2015, not 1.4515).
+      const isSplitSpecial =
+        (div.pmtType === 'Special') &&
+        div.specialComponent !== null &&
+        div.specialComponent !== undefined &&
+        div.specialComponent > 0 &&
+        div.regularComponent !== null &&
+        div.regularComponent !== undefined &&
+        div.regularComponent > 0;
+
+      const amount = isSplitSpecial
+        ? Number(div.specialComponent)
+        : (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
+          ? div.adjAmount
+          : (typeof div.amount === 'number' && !isNaN(div.amount) && isFinite(div.amount) && div.amount > 0)
+            ? div.amount
+            : 0;
 
       // LINE: Use normalized column (div.normalizedDiv = normalized_div from database)
       // This is the NORMALZD column - weekly equivalent rate calculated from adj_amount
@@ -259,9 +269,11 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
             : null;
           const freqNum = div.frequencyNum || numPayments || 12;
           if (adjAmount !== null && adjAmount > 0) {
-            // Calculate normalized: (adj_amount × frequency) / 52
+            // Fallback normalized:
+            // - CEF pages (numPayments provided): per-payment amount (adjAmount)
+            // - ETF pages: weekly-equivalent (adjAmount × frequency / 52)
             const annualizedRaw = adjAmount * freqNum;
-            normalizedRate = annualizedRaw / 52;
+            normalizedRate = numPayments ? (annualizedRaw / freqNum) : (annualizedRaw / 52);
           }
         }
       }
