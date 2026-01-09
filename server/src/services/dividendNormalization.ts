@@ -68,6 +68,9 @@ export interface NormalizedDividendCEF {
     frequency_label: CEFDividendFrequencyLabel;
     annualized: number | null;
     normalized_div: number | null;
+    // CEF-only: optional split for “Regular + Special” combined payments (e.g., year-end cap gains)
+    regular_component: number | null;
+    special_component: number | null;
 }
 
 /**
@@ -257,12 +260,35 @@ export function calculateNormalizedDividendsForCEFs(
             }
         }
 
-        // If it’s Special, we don’t want to annualize/normalize it (per CEF requirement).
+        // Step 5: If Special, split into (regular_component + special_component) using stable median as baseline.
+        // NOTE: This does NOT create a second database row (unique constraint on ticker+ex_date).
+        // Instead we store the components for display/analysis.
+        let regularComponent: number | null = null;
+        let specialComponent: number | null = null;
+
+        if (pmtType === 'Special' && medianAmount !== null && medianAmount > 0 && amount > 0) {
+            // Use the established regular cadence amount as the baseline “regular component”
+            regularComponent = Number(medianAmount);
+            specialComponent = Number(Math.max(0, amount - medianAmount));
+        } else if (amount > 0) {
+            // Non-special: entire amount is regular component
+            regularComponent = Number(amount);
+            specialComponent = 0;
+        }
+
+        // Step 6: Annualized/Normalized for CEFs
+        // For Regular/Initial: annualize the full amount.
+        // For Special: annualize ONLY the regular component (run-rate), not the special spike.
         let annualized: number | null = null;
         let normalizedDiv: number | null = null;
 
-        if (pmtType !== 'Special' && amount > 0 && frequencyNum !== null && frequencyNum > 0) {
-            const annualizedRaw = amount * frequencyNum;
+        const annualizeBase =
+            pmtType === 'Special'
+                ? (regularComponent !== null && regularComponent > 0 ? regularComponent : null)
+                : (amount > 0 ? amount : null);
+
+        if (annualizeBase !== null && frequencyNum !== null && frequencyNum > 0) {
+            const annualizedRaw = annualizeBase * frequencyNum;
             annualized = Number(annualizedRaw.toFixed(6));
             normalizedDiv = Number((annualizedRaw / 52).toFixed(6));
         }
@@ -271,10 +297,13 @@ export function calculateNormalizedDividendsForCEFs(
             id: current.id,
             days_since_prev: daysSincePrev,
             pmt_type: pmtType,
-            frequency_num: pmtType === 'Special' ? null : frequencyNum,
-            frequency_label: pmtType === 'Special' ? 'Irregular' : frequencyLabel,
+            // Keep cadence frequency even for specials (e.g., BST cap-gains paid on monthly schedule)
+            frequency_num: frequencyNum,
+            frequency_label: frequencyLabel,
             annualized,
             normalized_div: normalizedDiv,
+            regular_component: regularComponent,
+            special_component: specialComponent,
         });
 
         // Update rolling history only for non-special dividends (so specials don't distort median/pattern)

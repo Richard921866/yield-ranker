@@ -792,40 +792,56 @@ async function refreshCEF(ticker: string): Promise<void> {
           // CEF rules:
           // - frequency is derived from gap-days + history override (see calculateNormalizedDividendsForCEFs)
           // - Special dividends are detected by AMOUNT deviation, not date
-          let frequencyStr: string | null = null;
-          if (result.pmt_type === 'Special') {
-            frequencyStr = 'Special';
-          } else if (result.frequency_label) {
-            frequencyStr = result.frequency_label === 'Irregular' ? 'Irregular' : result.frequency_label;
-          }
+          // - For Specials, keep the cadence frequency label (e.g., Monthly) and store components.
+          const frequencyStr = result.frequency_label ? (result.frequency_label === 'Irregular' ? 'Irregular' : result.frequency_label) : null;
           
           return {
             id: result.id,
             days_since_prev: result.days_since_prev,
             pmt_type: result.pmt_type,
-            frequency: frequencyStr, // Set frequency string: "Special" for special dividends
+            frequency: frequencyStr,
             frequency_num: result.frequency_num,
             annualized: result.annualized,
             normalized_div: result.normalized_div,
+            regular_component: (result as any).regular_component ?? null,
+            special_component: (result as any).special_component ?? null,
           };
         });
         
         const BATCH_SIZE = 100;
         for (let i = 0; i < updates.length; i += BATCH_SIZE) {
           const batch = updates.slice(i, i + BATCH_SIZE);
-          const updatePromises = batch.map(update => 
-            supabase
+          const updatePromises = batch.map(update => (async () => {
+            // Backwards-compatible DB write:
+            // If the new columns don't exist yet, fall back to updating the original columns.
+            const baseUpdate: any = {
+              days_since_prev: update.days_since_prev,
+              pmt_type: update.pmt_type,
+              frequency: update.frequency,
+              frequency_num: update.frequency_num,
+              annualized: update.annualized,
+              normalized_div: update.normalized_div,
+            };
+
+            // Try full update (including component split)
+            const { error: fullError } = await supabase
               .from('dividends_detail')
               .update({
-                days_since_prev: update.days_since_prev,
-                pmt_type: update.pmt_type,
-                frequency: update.frequency, // Update frequency string field
-                frequency_num: update.frequency_num,
-                annualized: update.annualized,
-                normalized_div: update.normalized_div,
+                ...baseUpdate,
+                regular_component: update.regular_component,
+                special_component: update.special_component,
               })
-              .eq('id', update.id)
-          );
+              .eq('id', update.id);
+
+            if (!fullError) return;
+
+            // Fallback if columns are missing
+            await supabase
+              .from('dividends_detail')
+              .update(baseUpdate)
+              .eq('id', update.id);
+          })());
+
           await Promise.all(updatePromises);
         }
       }

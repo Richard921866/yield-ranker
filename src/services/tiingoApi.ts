@@ -52,10 +52,13 @@ export interface DividendRecord {
   currency: string;
   // Normalized dividend fields for line chart
   pmtType?: 'Regular' | 'Special' | 'Initial';  // Payment type for normalization
-  frequencyNum?: number;                         // 52=weekly, 12=monthly, 4=quarterly, 1=annual
+  frequencyNum?: number | null;                  // 52=weekly, 12=monthly, 4=quarterly, 1=annual
   daysSincePrev?: number | null;                 // Days since previous dividend
   annualized?: number | null;                    // Annualized dividend value
   normalizedDiv?: number | null;                 // Normalized value for line chart
+  // CEF-only: split of combined regular+special payouts (optional)
+  regularComponent?: number | null;
+  specialComponent?: number | null;
 }
 
 

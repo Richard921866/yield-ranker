@@ -415,10 +415,14 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
         return {
           ...d,
           pmtType: ((dbDiv as any).pmt_type ?? 'Regular') as 'Regular' | 'Special' | 'Initial',
-          frequencyNum: (dbDiv as any).frequency_num ?? 12, // Use database frequency_num
+          // IMPORTANT: don't default to 12 when DB has null (e.g., irregular/special cases)
+          frequencyNum: (dbDiv as any).frequency_num ?? null,
           daysSincePrev: (dbDiv as any).days_since_prev ?? null,
           annualized: (dbDiv as any).annualized ?? null,
           normalizedDiv: (dbDiv as any).normalized_div ?? null, // Can be null for first dividend
+          // CEF-only: component split (optional)
+          regularComponent: (dbDiv as any).regular_component ?? null,
+          specialComponent: (dbDiv as any).special_component ?? null,
         };
       }
       

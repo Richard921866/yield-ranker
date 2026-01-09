@@ -674,6 +674,10 @@ model dividends_detail {
   frequency_num     Int?                           // 52=weekly, 12=monthly, 4=quarterly, 1=annual
   annualized        Decimal?  @db.Decimal(12, 6)   // Annualized dividend: adj_amount × frequency_num
   normalized_div    Decimal?  @db.Decimal(12, 6)   // Normalized for line chart display
+
+  // CEF-only: Special dividend component split (stored for UI + analytics)
+  regular_component Decimal? @db.Decimal(12, 6)    // Regular cadence component (e.g., 0.25)
+  special_component Decimal? @db.Decimal(12, 6)    // Special component (e.g., total - regular)
   
   etf_static   etf_static @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
 

@@ -858,6 +858,11 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                             </TableCell>
                             <TableCell className="font-mono text-green-600 text-xs sm:text-sm px-2 sm:px-4 py-2">
                               ${div.amount.toFixed(4)}
+                              {div.pmtType === 'Special' && div.regularComponent !== null && div.regularComponent !== undefined && div.specialComponent !== null && div.specialComponent !== undefined && div.specialComponent > 0 && (
+                                <div className="mt-0.5 text-[10px] sm:text-xs text-muted-foreground">
+                                  Reg: ${Number(div.regularComponent).toFixed(4)} • Spec: ${Number(div.specialComponent).toFixed(4)}
+                                </div>
+                              )}
                             </TableCell>
                             <TableCell className="font-mono text-muted-foreground text-xs sm:text-sm px-2 sm:px-4 py-2">
                               ${(div.adjAmount ?? div.amount).toFixed(4)}
