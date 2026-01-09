@@ -883,8 +883,11 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                       const typeLabel = div.pmtType || (div.type === 'Special' ? 'Special' : 'Regular');
 
                       // Convert frequencyNum to readable string, fallback to frequency field
+                      // For Special dividends, always show "Other" as frequency
                       let frequency = 'Monthly'; // Default
-                      if (div.frequencyNum) {
+                      if (typeLabel === 'Special') {
+                        frequency = 'Other';
+                      } else if (div.frequencyNum) {
                         if (div.frequencyNum === 52) frequency = 'Weekly';
                         else if (div.frequencyNum === 12) frequency = 'Monthly';
                         else if (div.frequencyNum === 4) frequency = 'Quarterly';
