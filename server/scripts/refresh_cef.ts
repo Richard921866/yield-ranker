@@ -792,8 +792,13 @@ async function refreshCEF(ticker: string): Promise<void> {
           // CEF rules:
           // - frequency is derived from gap-days + history override (see calculateNormalizedDividendsForCEFs)
           // - Special dividends are detected by AMOUNT deviation, not date
-          // - For Specials, keep the cadence frequency label (e.g., Monthly) and store components.
-          const frequencyStr = result.frequency_label ? (result.frequency_label === 'Irregular' ? 'Irregular' : result.frequency_label) : null;
+          // - For Specials, use "Other" as frequency (not a cadence frequency)
+          let frequencyStr: string | null = null;
+          if (result.pmt_type === 'Special') {
+            frequencyStr = 'Other';
+          } else if (result.frequency_label) {
+            frequencyStr = result.frequency_label === 'Irregular' ? 'Irregular' : result.frequency_label;
+          }
           
           return {
             id: result.id,
