@@ -52,6 +52,8 @@
     "compare:zscore": "tsx scripts/compare_zscore_ranking.ts",
     "verify:ranking": "tsx scripts/verify_ranking_vs_database.ts",
     "verify:navtrend": "tsx scripts/verify_nav_trend_calculation.ts"
+    ,
+    "recalc:cef:frequency": "tsx scripts/recalc_cef_frequency.ts"
   },
   "dependencies": {
     "@mailerlite/mailerlite-nodejs": "^1.5.0",

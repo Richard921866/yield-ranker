@@ -89,9 +89,12 @@ export function getCEFFrequencyFromDays(days: number): { label: CEFDividendFrequ
 
     if (days >= 5 && days <= 13) return { label: 'Weekly', frequencyNum: 52 };
     if (days >= 20 && days <= 45) return { label: 'Monthly', frequencyNum: 12 };
-    if (days >= 46 && days <= 100) return { label: 'Quarterly', frequencyNum: 4 };
-    if (days >= 101 && days <= 200) return { label: 'Semi-Annual', frequencyNum: 2 };
-    if (days >= 201 && days <= 400) return { label: 'Annual', frequencyNum: 1 };
+    // Quarterly CEFs can show larger gaps than “~90 days” (e.g. Jan→Apr→Jul→Nov is ~120 days),
+    // so we treat 46–149 as Quarterly to avoid misclassifying true quarterly payers as Semi-Annual.
+    // This mirrors the more forgiving ranges in `getFrequencyFromDays()` used elsewhere.
+    if (days >= 46 && days <= 149) return { label: 'Quarterly', frequencyNum: 4 };
+    if (days >= 150 && days <= 249) return { label: 'Semi-Annual', frequencyNum: 2 };
+    if (days >= 250 && days <= 400) return { label: 'Annual', frequencyNum: 1 };
     if (days > 400) return { label: 'Irregular', frequencyNum: null };
 
     // Gaps outside known ranges (e.g. 14–19, 1–4) start as "Irregular" and may be overridden by history rules
