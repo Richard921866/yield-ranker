@@ -277,8 +277,14 @@ export function calculateNormalizedDividendsForCEFs(
         }
 
         // Step 6: Annualized/Normalized for CEFs
-        // For Regular/Initial: annualize the full amount.
-        // For Special: annualize ONLY the regular component (run-rate), not the special spike.
+        // Annualized = (per-payment amount) × (payments per year)
+        // Normalized (for CEFs) = per-payment amount for the detected cadence (i.e., annualized / frequency_num)
+        //
+        // This matches product expectation:
+        // - Monthly: normalized = monthly payment amount (e.g., 0.25)
+        // - Weekly: normalized = weekly payment amount (e.g., 0.1098)
+        //
+        // For Special: normalize/annualize ONLY the regular component (run-rate), not the special spike.
         let annualized: number | null = null;
         let normalizedDiv: number | null = null;
 
@@ -290,7 +296,8 @@ export function calculateNormalizedDividendsForCEFs(
         if (annualizeBase !== null && frequencyNum !== null && frequencyNum > 0) {
             const annualizedRaw = annualizeBase * frequencyNum;
             annualized = Number(annualizedRaw.toFixed(6));
-            normalizedDiv = Number((annualizedRaw / 52).toFixed(6));
+            // Per-payment normalized value for CEFs
+            normalizedDiv = Number((annualizedRaw / frequencyNum).toFixed(6)); // == annualizeBase
         }
 
         results.push({

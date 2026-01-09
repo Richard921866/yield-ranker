@@ -777,14 +777,60 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
             </TableHeader>
             <TableBody>
               {recordsByYear.map(({ year, records }, yearIndex) => {
-                // Calculate separate totals for raw and adjusted amounts
-                const yearTotalRaw = records.reduce((sum, r) => {
+                // Expand combined CEF payments (Regular + Special) into two display rows
+                // so users see the regular cadence dividend AND the special component separately.
+                const displayRecords: DividendRecord[] = [];
+                records.forEach((r) => {
+                  const isSplit =
+                    r.pmtType === 'Special' &&
+                    r.regularComponent !== null &&
+                    r.regularComponent !== undefined &&
+                    r.specialComponent !== null &&
+                    r.specialComponent !== undefined &&
+                    r.specialComponent > 0;
+
+                  if (!isSplit) {
+                    displayRecords.push(r);
+                    return;
+                  }
+
+                  const freqNum = r.frequencyNum ?? null;
+
+                  // Regular component row
+                  displayRecords.push({
+                    ...r,
+                    amount: Number(r.regularComponent),
+                    adjAmount: Number(r.regularComponent),
+                    pmtType: 'Regular',
+                    type: 'Regular',
+                    annualized: freqNum ? Number((Number(r.regularComponent) * freqNum).toFixed(4)) : null,
+                    normalizedDiv: Number(Number(r.regularComponent).toFixed(4)),
+                  });
+
+                  // Special component row
+                  displayRecords.push({
+                    ...r,
+                    amount: Number(r.specialComponent),
+                    adjAmount: Number(r.specialComponent),
+                    pmtType: 'Special',
+                    type: 'Special',
+                    annualized: null,
+                    normalizedDiv: null,
+                  });
+                });
+
+                const sortedRecords = [...displayRecords].sort((a, b) =>
+                  new Date(b.exDate).getTime() - new Date(a.exDate).getTime()
+                );
+
+                // Calculate separate totals for raw and adjusted amounts based on what's displayed
+                const yearTotalRaw = sortedRecords.reduce((sum, r) => {
                   const rawAmt = typeof r.amount === 'number' && !isNaN(r.amount) && isFinite(r.amount) && r.amount > 0
                     ? r.amount
                     : 0;
                   return sum + rawAmt;
                 }, 0);
-                const yearTotalAdj = records.reduce((sum, r) => {
+                const yearTotalAdj = sortedRecords.reduce((sum, r) => {
                   const adjAmt = typeof r.adjAmount === 'number' && !isNaN(r.adjAmount) && isFinite(r.adjAmount) && r.adjAmount > 0
                     ? r.adjAmount
                     : (typeof r.amount === 'number' && !isNaN(r.amount) && isFinite(r.amount) && r.amount > 0
@@ -792,9 +838,6 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                       : 0);
                   return sum + adjAmt;
                 }, 0);
-                const sortedRecords = [...records].sort((a, b) =>
-                  new Date(b.exDate).getTime() - new Date(a.exDate).getTime()
-                );
                 const isLastYear = yearIndex === recordsByYear.length - 1;
 
                 return (
