@@ -881,7 +881,9 @@ async function refreshCEF(ticker: string): Promise<void> {
           updateData.dividend_cv = dviResult.dividendCV;
           updateData.dividend_cv_percent = dviResult.dividendCVPercent;
           updateData.dividend_volatility_index = dviResult.volatilityIndex;
-          updateData.annual_dividend = dviResult.annualDividend;
+          // Do NOT overwrite annual_dividend from DVI’s estimate.
+          // Yearly Div on the homepage should remain the run-rate annual dividend:
+          // last regular dividend (or regular_component) × payments_per_year (from calculateMetrics).
         }
       } else {
         updateData.dividend_sd = null;

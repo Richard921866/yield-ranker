@@ -156,24 +156,30 @@ export function calculateDividendVolatility(
     dataPoints: 0,
   };
 
-  // 1. Filter to regular dividends only (exclude special dividends) and filter out zero/null amounts.
-  //    Use ex-date dividends (ex_date field), not just announced ones.
-  //    Use adjusted amounts (adj_amount) for accurate comparison.
+  // 1. Filter to regular dividends only (exclude specials) and filter out zero/null amounts.
+  //    IMPORTANT for CEFs:
+  //    - Many rows have div_type null; we rely on pmt_type + regular_component to exclude specials
+  //    - Some “special” rows are combined (regular + special in one record); in that case use regular_component
   const regularDivs = dividends.filter(d => {
-    // Must have ex_date (actual ex-date dividend)
     if (!d.ex_date) return false;
+    const exDateObj = new Date(d.ex_date);
+    if (isNaN(exDateObj.getTime())) return false;
+    const anyD = d as any;
 
-    const amount = d.adj_amount ?? d.div_cash;
-    if (!amount || amount <= 0) return false; // Exclude zero/null amounts
+    const pmtType = String(anyD?.pmt_type ?? '').trim();
+    const regularComponent = Number(anyD?.regular_component);
 
-    if (!d.div_type) return true; // null type = regular
-    const dtype = d.div_type.toLowerCase();
-    return (
-      dtype.includes('regular') ||
-      dtype === 'cash' ||
-      dtype === '' ||
-      !dtype.includes('special')
-    );
+    // Exclude pure specials, but KEEP “combined” rows where a regular run-rate component exists.
+    if (pmtType.toLowerCase() === 'special' && !(isFinite(regularComponent) && regularComponent > 0)) {
+      return false;
+    }
+
+    const amount =
+      (pmtType.toLowerCase() === 'special' && isFinite(regularComponent) && regularComponent > 0)
+        ? regularComponent
+        : (d.adj_amount ?? (d as any).scaled_amount ?? d.div_cash);
+
+    return isFinite(amount) && Number(amount) > 0;
   });
 
   // Need at least 2 payments to calculate any volatility
@@ -193,32 +199,30 @@ export function calculateDividendVolatility(
 
   const recentSeries = sortedAsc
     .map(d => {
-      // For CC ETFs: Use normalized_div (weekly equivalent) if available, convert to annualized
-      // normalized_div = (adj_amount × frequency) / 52
-      // To get annualized: normalized_div × 52 = adj_amount × frequency
-      // For CEFs: Use adj_amount first, then scaled_amount, then div_cash
-      const normalizedDiv = (d as any).normalized_div;
-      let amount: number;
-      
-      if (normalizedDiv !== null && normalizedDiv !== undefined && normalizedDiv > 0) {
-        // Use normalized_div for CC ETFs: convert weekly equivalent to annualized
-        // normalized_div is weekly equivalent, so multiply by 52 to get annualized
-        amount = normalizedDiv * 52;
-      } else {
-        // Fallback for CEFs or when normalized_div not available
-        // CEO wants adj_amount first, then scaled_amount (normalized), then div_cash
-        amount = d.adj_amount ?? d.scaled_amount ?? d.div_cash ?? 0;
-      }
-      
+      const exDateObj = new Date(d.ex_date);
+      if (isNaN(exDateObj.getTime())) return null;
+      const anyD = d as any;
+      const pmtType = String(anyD?.pmt_type ?? '').trim().toLowerCase();
+      const regularComponent = Number(anyD?.regular_component);
+
+      // Use REGULAR run-rate amount. If this record is a combined “special” row, use regular_component.
+      // Otherwise prefer adj_amount, then scaled_amount, then div_cash.
+      const amountPerPayment =
+        (pmtType === 'special' && isFinite(regularComponent) && regularComponent > 0)
+          ? regularComponent
+          : (d.adj_amount ?? anyD.scaled_amount ?? d.div_cash ?? 0);
+
       return {
-        date: new Date(d.ex_date),
-        amount, // For CC ETFs: normalized_div × 52 (annualized from weekly equivalent)
-        frequency: d.frequency, // Include frequency field from database
-        originalDiv: d, // Keep reference to original dividend record
-        normalizedDiv: normalizedDiv, // Store normalized_div for reference
+        date: exDateObj,
+        amount: Number(amountPerPayment), // per-payment amount (NOT annualized)
+        frequency: d.frequency, // human label if present
+        originalDiv: d, // keep full record for frequency_num, etc.
       };
     })
-    .filter(d => d.amount > 0 && d.date >= periodStartDate && d.date <= periodEndDate);
+    .filter((d): d is { date: Date; amount: number; frequency: any; originalDiv: DividendRecord } => {
+      if (!d) return false;
+      return isFinite(d.amount) && d.amount > 0 && d.date >= periodStartDate && d.date <= periodEndDate;
+    });
 
   // If no dividends in the period, we can't calculate volatility
   if (recentSeries.length < 2) return nullResult;
@@ -229,9 +233,18 @@ export function calculateDividendVolatility(
   // Annualize each payment FIRST, then calculate SD on annualized amounts
   const normalizedAnnualAmounts: number[] = [];
   
-  // Helper function to get annualization factor from frequency field or interval
+  // Helper function to get annualization factor (payments/year).
+  // Priority:
+  // 1) frequency_num from normalization (most reliable for both ETFs and CEFs)
+  // 2) frequency string field
+  // 3) interval-based detection (fallback)
   function getAnnualizationFactor(current: typeof recentSeries[0], index: number): number {
-    // PRIORITY 1: Use frequency field from database/website (as CEO specified)
+    const freqNum = Number((current.originalDiv as any)?.frequency_num);
+    if (isFinite(freqNum) && freqNum > 0 && freqNum <= 52) {
+      return freqNum;
+    }
+
+    // PRIORITY 2: Use frequency string from database/website
     if (current.frequency) {
       const freq = String(current.frequency).trim();
       const freqLower = freq.toLowerCase();
@@ -256,7 +269,7 @@ export function calculateDividendVolatility(
       }
     }
     
-    // PRIORITY 2: Fallback to interval-based detection if no frequency field
+    // PRIORITY 3: Fallback to interval-based detection if no frequency info
     // Check BOTH next and previous intervals, prefer the one indicating higher frequency (more frequent payments)
     let daysToNext: number | null = null;
     let daysFromPrev: number | null = null;
@@ -299,20 +312,8 @@ export function calculateDividendVolatility(
   
   for (let i = 0; i < recentSeries.length; i++) {
     const current = recentSeries[i];
-    
-    // If we used normalized_div, the amount is already annualized (normalized_div × 52)
-    // Otherwise, we need to annualize using frequency
-    let normalizedAnnual: number;
-    if (current.normalizedDiv !== null && current.normalizedDiv !== undefined && current.normalizedDiv > 0) {
-      // Amount is already annualized from normalized_div × 52
-      normalizedAnnual = current.amount;
-    } else {
-      // Need to annualize: raw_amount × annualization_factor
-      const annualizationFactor = getAnnualizationFactor(current, i);
-      normalizedAnnual = current.amount * annualizationFactor;
-    }
-    
-    normalizedAnnualAmounts.push(normalizedAnnual);
+    const annualizationFactor = getAnnualizationFactor(current, i);
+    normalizedAnnualAmounts.push(current.amount * annualizationFactor);
   }
 
   // 5. Use all normalized annual amounts for DVI calculation
@@ -850,6 +851,12 @@ export async function calculateMetrics(ticker: string): Promise<ETFMetrics> {
 
   // Helper: get a usable cash amount for comparisons
   const getDivAmount = (d: any): number => {
+    // If this is a “combined” special row (regular + special in one record),
+    // use the regular run-rate component for “last dividend” and annualization.
+    const pmtType = String(d?.pmt_type ?? '').trim().toLowerCase();
+    const regComp = Number(d?.regular_component);
+    if (pmtType === 'special' && isFinite(regComp) && regComp > 0) return regComp;
+
     const a = Number(d?.adj_amount);
     if (isFinite(a) && a > 0) return a;
     const c = Number(d?.div_cash);
@@ -873,7 +880,14 @@ export async function calculateMetrics(ticker: string): Promise<ETFMetrics> {
     .filter(d => {
       const anyD = d as any;
       const pmtType = anyD?.pmt_type as string | undefined;
-      if (pmtType) return pmtType === 'Regular' || pmtType === 'Initial';
+      if (pmtType) {
+        if (pmtType === 'Regular' || pmtType === 'Initial') return true;
+        if (pmtType === 'Special') {
+          const regComp = Number(anyD?.regular_component);
+          return isFinite(regComp) && regComp > 0;
+        }
+        return false;
+      }
       if (d.div_type) return !d.div_type.toLowerCase().includes('special');
       return false;
     })
@@ -885,7 +899,14 @@ export async function calculateMetrics(ticker: string): Promise<ETFMetrics> {
   const regularDivs = dividends.filter(d => {
     const anyD = d as any;
     const pmtType = anyD?.pmt_type as string | undefined;
-    if (pmtType) return pmtType === 'Regular' || pmtType === 'Initial';
+    if (pmtType) {
+      if (pmtType === 'Regular' || pmtType === 'Initial') return true;
+      if (pmtType === 'Special') {
+        const regComp = Number(anyD?.regular_component);
+        return isFinite(regComp) && regComp > 0;
+      }
+      return false;
+    }
 
     // Fallback to legacy div_type logic if present
     if (d.div_type) return !d.div_type.toLowerCase().includes('special');

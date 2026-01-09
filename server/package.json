@@ -54,6 +54,8 @@
     "verify:navtrend": "tsx scripts/verify_nav_trend_calculation.ts"
     ,
     "recalc:cef:frequency": "tsx scripts/recalc_cef_frequency.ts"
+    ,
+    "recalc:cef:home": "tsx scripts/recalc_cef_homepage_fields.ts"
   },
   "dependencies": {
     "@mailerlite/mailerlite-nodejs": "^1.5.0",
