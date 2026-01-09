@@ -222,12 +222,14 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
     // Bars = unadjusted dividend (div.amount = div_cash)
     // Line = normalized column (div.normalizedDiv = normalized_div from database)
     const chartData = dividends.map((div) => {
-      // BAR:
-      // - Default: use adjusted dividend (div.adjAmount = adj_amount from database)
-      // - CEF split specials: plot ONLY the special component (not the combined total)
-      //   so BST-like year-end spikes show the incremental special amount (e.g., 1.2015, not 1.4515).
+      // BAR: ONLY use regular payments (exclude special dividends from bars)
+      // - For CEF split specials: use the regularComponent (not the specialComponent)
+      // - For regular dividends: use adjusted dividend (div.adjAmount)
+      // - For non-split specials: skip (set to 0 so bar doesn't show)
+      const pmtType = div.pmtType || (div.daysSincePrev !== undefined && div.daysSincePrev !== null && div.daysSincePrev <= 5 ? 'Special' : 'Regular');
+      
       const isSplitSpecial =
-        (div.pmtType === 'Special') &&
+        (pmtType === 'Special') &&
         div.specialComponent !== null &&
         div.specialComponent !== undefined &&
         div.specialComponent > 0 &&
@@ -235,13 +237,19 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
         div.regularComponent !== undefined &&
         div.regularComponent > 0;
 
-      const amount = isSplitSpecial
-        ? Number(div.specialComponent)
-        : (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
+      let amount = 0;
+      if (pmtType === 'Regular') {
+        // Regular dividend: use adjusted amount
+        amount = (typeof div.adjAmount === 'number' && !isNaN(div.adjAmount) && isFinite(div.adjAmount) && div.adjAmount > 0)
           ? div.adjAmount
           : (typeof div.amount === 'number' && !isNaN(div.amount) && isFinite(div.amount) && div.amount > 0)
             ? div.amount
             : 0;
+      } else if (isSplitSpecial) {
+        // Split special: use the regular component only (not the special spike)
+        amount = Number(div.regularComponent);
+      }
+      // For non-split specials: amount stays 0 (bar won't show)
 
       // LINE: Use normalized column (div.normalizedDiv = normalized_div from database)
       // This is the NORMALZD column - weekly equivalent rate calculated from adj_amount
@@ -252,7 +260,7 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
       let normalizedRate: number | null = null;
 
       // Filter out Special dividends from the line (they would spike artificially)
-      const pmtType = div.pmtType || (div.daysSincePrev !== undefined && div.daysSincePrev !== null && div.daysSincePrev <= 5 ? 'Special' : 'Regular');
+      // pmtType already defined above for bar chart logic
 
       if (pmtType === 'Regular') {
         // CRITICAL: Use normalizedDiv directly from database - this is the NORMALZD column
