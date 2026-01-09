@@ -781,13 +781,15 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                 // so users see the regular cadence dividend AND the special component separately.
                 const displayRecords: DividendRecord[] = [];
                 records.forEach((r) => {
+                  const regularComp = r.regularComponent ?? null;
+                  const specialComp = r.specialComponent ?? null;
                   const isSplit =
                     r.pmtType === 'Special' &&
-                    r.regularComponent !== null &&
-                    r.regularComponent !== undefined &&
-                    r.specialComponent !== null &&
-                    r.specialComponent !== undefined &&
-                    r.specialComponent > 0;
+                    regularComp !== null &&
+                    regularComp !== undefined &&
+                    specialComp !== null &&
+                    specialComp !== undefined &&
+                    specialComp > 0;
 
                   if (!isSplit) {
                     displayRecords.push(r);
@@ -799,19 +801,19 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
                   // Regular component row
                   displayRecords.push({
                     ...r,
-                    amount: Number(r.regularComponent),
-                    adjAmount: Number(r.regularComponent),
+                    amount: Number(regularComp),
+                    adjAmount: Number(regularComp),
                     pmtType: 'Regular',
                     type: 'Regular',
-                    annualized: freqNum ? Number((Number(r.regularComponent) * freqNum).toFixed(4)) : null,
-                    normalizedDiv: Number(Number(r.regularComponent).toFixed(4)),
+                    annualized: freqNum && regularComp !== null ? Number((Number(regularComp) * freqNum).toFixed(4)) : null,
+                    normalizedDiv: regularComp !== null ? Number(Number(regularComp).toFixed(4)) : null,
                   });
 
                   // Special component row
                   displayRecords.push({
                     ...r,
-                    amount: Number(r.specialComponent),
-                    adjAmount: Number(r.specialComponent),
+                    amount: Number(specialComp),
+                    adjAmount: Number(specialComp),
                     pmtType: 'Special',
                     type: 'Special',
                     annualized: null,
