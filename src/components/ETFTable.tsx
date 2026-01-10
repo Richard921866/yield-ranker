@@ -142,15 +142,18 @@ export const ETFTable = ({
     onSelectionChange?.(symbol);
   };
 
-  // Consume ?highlight=SYMBOL, pin it to top until refresh, scroll to top-left, and highlight.
+  // Consume ?highlight=SYMBOL, pin that symbol to the top (until refresh), scroll to top-left, and highlight it.
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const highlight = urlParams.get("highlight")?.toUpperCase() || null;
     if (!highlight) return;
 
     setPinnedSymbol(highlight);
+
+    // Remove the param immediately so refresh clears the behavior naturally.
     navigate(location.pathname, { replace: true });
 
+    // Defer until after render so the row exists.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const container = document.getElementById("etf-table-scroll");
@@ -159,6 +162,7 @@ export const ETFTable = ({
           container.scrollLeft = 0;
         }
 
+        // Clear previous highlight if any
         if (lastHighlightedElRef.current) {
           lastHighlightedElRef.current.style.backgroundColor = "";
           lastHighlightedElRef.current.style.outline = "";
@@ -173,6 +177,7 @@ export const ETFTable = ({
           lastHighlightedElRef.current = row;
         }
 
+        // Ensure the user sees the sticky left columns
         if (container) container.scrollLeft = 0;
       });
     });
@@ -197,7 +202,7 @@ export const ETFTable = ({
     // Create a stable sorted array - use symbol as secondary sort to ensure stability
     let sorted = [...etfs];
     
-    // If pinned symbol is set, bring it to top
+    // If pinned symbol is set, bring it to top (sticky until refresh)
     if (pinnedSymbol) {
       const highlightedIndex = sorted.findIndex(e => e.symbol.toUpperCase() === pinnedSymbol);
       if (highlightedIndex >= 0) {
@@ -243,8 +248,8 @@ export const ETFTable = ({
           if (bothNumeric && !forceString) {
             comparison = aNum - bNum;
           } else {
-            const aStr = normalizeText(aValue);
-            const bStr = normalizeText(bValue);
+            const aStr = String(aValue).toLowerCase();
+            const bStr = String(bValue).toLowerCase();
             comparison = aStr.localeCompare(bStr);
           }
 
@@ -310,6 +315,8 @@ export const ETFTable = ({
         comparison = aNum - bNum;
       } else {
         // Fallback to string comparison
+            const aStr = normalizeText(aValue);
+            const bStr = normalizeText(bValue);
         const aStr = normalizeText(aValue);
         const bStr = normalizeText(bValue);
         comparison = aStr.localeCompare(bStr);
@@ -482,7 +489,7 @@ export const ETFTable = ({
               const prev = index > 0 ? sortedETFs[index - 1] : null;
               const normalizeIssuer = (v: unknown) =>
                 String(v ?? "")
-                  .replace(/\u00A0/g, " ")
+                  .replace(/\u00A0/g, " ") // NBSP
                   .replace(/\s+/g, " ")
                   .trim()
                   .toLowerCase();

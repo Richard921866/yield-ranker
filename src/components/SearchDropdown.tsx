@@ -153,43 +153,10 @@ export const SearchDropdown = () => {
     }
     
     if (isCEFPage) {
-      // Bring selected CEF to TOP row, scroll to top, highlight, then clear highlight param
+      // The table component will consume this param, pin the row to the top, scroll to top-left, and highlight.
       navigate(`${pathname}?highlight=${symbol}`, { replace: true });
       setQuery("");
       setIsOpen(false);
-
-      const MAX_ATTEMPTS = 40; // ~2s
-      const RETRY_MS = 50;
-      const HIGHLIGHT_MS = 2000;
-      let attempts = 0;
-
-      const tryScrollAndHighlight = () => {
-        const container = document.getElementById("cef-table-scroll");
-        if (container) container.scrollTop = 0;
-
-        const row = document.getElementById(`cef-row-${symbol}`);
-        if (row) {
-          row.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
-          row.classList.add("animate-pulse");
-          (row as HTMLElement).style.backgroundColor = "rgba(59, 130, 246, 0.15)";
-
-          setTimeout(() => {
-            row.classList.remove("animate-pulse");
-            (row as HTMLElement).style.backgroundColor = "";
-            navigate(pathname, { replace: true });
-          }, HIGHLIGHT_MS);
-          return;
-        }
-
-        attempts++;
-        if (attempts >= MAX_ATTEMPTS) {
-          navigate(pathname, { replace: true });
-          return;
-        }
-        setTimeout(tryScrollAndHighlight, RETRY_MS);
-      };
-
-      setTimeout(tryScrollAndHighlight, RETRY_MS);
     } else {
       // Navigate to CEF page first, then scroll
       navigate(`/cef?highlight=${symbol}`);

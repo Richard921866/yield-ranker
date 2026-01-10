@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { CEF } from "@/types/cef";
 import { ArrowUpDown, Info, Star, Lock } from "lucide-react";
@@ -69,6 +69,8 @@ export const CEFTable = ({
 }: CEFTableProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [pinnedSymbol, setPinnedSymbol] = useState<string | null>(null);
+  const lastHighlightedElRef = useRef<HTMLElement | null>(null);
   const { user, profile } = useAuth();
   const isGuest = !profile;
   const [sortField, setSortField] = useState<SortField>("weightedRank");
@@ -99,17 +101,49 @@ export const CEFTable = ({
     { key: "return1Wk" as keyof CEF, label: "1 Wk" },
   ];
 
-  const sortedCEFs = useMemo(() => {
+  // Consume ?highlight=SYMBOL, pin to top until refresh, scroll to top-left, and highlight
+  useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
-    const highlightSymbol = urlParams.get("highlight")?.toUpperCase();
+    const highlight = urlParams.get("highlight")?.toUpperCase() || null;
+    if (!highlight) return;
 
-    if (!sortField && !highlightSymbol) return cefs;
+    setPinnedSymbol(highlight);
+    navigate(location.pathname, { replace: true });
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const container = document.getElementById("cef-table-scroll");
+        if (container) {
+          container.scrollTop = 0;
+          container.scrollLeft = 0;
+        }
+
+        if (lastHighlightedElRef.current) {
+          lastHighlightedElRef.current.style.backgroundColor = "";
+          lastHighlightedElRef.current.style.outline = "";
+          lastHighlightedElRef.current.style.outlineOffset = "";
+        }
+
+        const row = document.getElementById(`cef-row-${highlight}`) as HTMLElement | null;
+        if (row) {
+          row.style.backgroundColor = "rgba(59, 130, 246, 0.15)";
+          row.style.outline = "2px solid rgba(59, 130, 246, 0.35)";
+          row.style.outlineOffset = "-2px";
+          lastHighlightedElRef.current = row;
+        }
+
+        if (container) container.scrollLeft = 0;
+      });
+    });
+  }, [location.search, location.pathname, navigate]);
+
+  const sortedCEFs = useMemo(() => {
+    if (!sortField && !pinnedSymbol) return cefs;
 
     let sorted = [...cefs];
 
-    // Highlight: bring selected symbol to top
-    if (highlightSymbol) {
-      const idx = sorted.findIndex((c) => c.symbol.toUpperCase() === highlightSymbol);
+    if (pinnedSymbol) {
+      const idx = sorted.findIndex((c) => c.symbol.toUpperCase() === pinnedSymbol);
       if (idx >= 0) {
         const highlighted = sorted.splice(idx, 1)[0];
         sorted = [highlighted, ...sorted];
@@ -162,7 +196,7 @@ export const CEFTable = ({
     );
 
     return sorted;
-  }, [cefs, sortField, sortDirection, location.search]);
+  }, [cefs, sortField, sortDirection, pinnedSymbol]);
 
   const formatPercentage = (value: number | null | undefined): string => {
     if (value === null || value === undefined) return "N/A";
