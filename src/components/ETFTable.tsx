@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ETF } from "@/types/etf";
 import { ArrowUpDown, Info, Star, LineChart, X, Lock, Sliders } from "lucide-react";
@@ -73,6 +73,8 @@ export const ETFTable = ({
   const navigate = useNavigate();
   const location = useLocation();
   const { profile } = useAuth();
+  const [pinnedSymbol, setPinnedSymbol] = useState<string | null>(null);
+  const lastHighlightedElRef = useRef<HTMLElement | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<string>(
     etfs[0]?.symbol || ""
   );
@@ -140,12 +142,45 @@ export const ETFTable = ({
     onSelectionChange?.(symbol);
   };
 
+  // Consume ?highlight=SYMBOL, pin it to top until refresh, scroll to top-left, and highlight.
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const highlight = urlParams.get("highlight")?.toUpperCase() || null;
+    if (!highlight) return;
+
+    setPinnedSymbol(highlight);
+    navigate(location.pathname, { replace: true });
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const container = document.getElementById("etf-table-scroll");
+        if (container) {
+          container.scrollTop = 0;
+          container.scrollLeft = 0;
+        }
+
+        if (lastHighlightedElRef.current) {
+          lastHighlightedElRef.current.style.backgroundColor = "";
+          lastHighlightedElRef.current.style.outline = "";
+          lastHighlightedElRef.current.style.outlineOffset = "";
+        }
+
+        const row = document.getElementById(`etf-row-${highlight}`) as HTMLElement | null;
+        if (row) {
+          row.style.backgroundColor = "rgba(59, 130, 246, 0.15)";
+          row.style.outline = "2px solid rgba(59, 130, 246, 0.35)";
+          row.style.outlineOffset = "-2px";
+          lastHighlightedElRef.current = row;
+        }
+
+        if (container) container.scrollLeft = 0;
+      });
+    });
+  }, [location.search, location.pathname, navigate]);
+
   const sortedETFs = useMemo(() => {
     console.log('[ETFTable] Sorting by:', sortField, sortDirection, 'ETFs count:', etfs.length);
 
-    // Check for highlight query parameter to bring selected ETF to top
-    const urlParams = new URLSearchParams(location.search);
-    const highlightSymbol = urlParams.get('highlight')?.toUpperCase();
     const normalizeText = (v: unknown) =>
       String(v ?? "")
         .replace(/\u00A0/g, " ") // NBSP
@@ -154,7 +189,7 @@ export const ETFTable = ({
         .toLowerCase();
 
     // If no sort field is selected and no highlight, return the ranked order (default by weightedRank asc)
-    if (!sortField && !highlightSymbol) {
+    if (!sortField && !pinnedSymbol) {
       console.log('[ETFTable] No sort field, returning unsorted etfs');
       return etfs;
     }
@@ -162,9 +197,9 @@ export const ETFTable = ({
     // Create a stable sorted array - use symbol as secondary sort to ensure stability
     let sorted = [...etfs];
     
-    // If highlight symbol is set, bring it to top
-    if (highlightSymbol) {
-      const highlightedIndex = sorted.findIndex(e => e.symbol.toUpperCase() === highlightSymbol);
+    // If pinned symbol is set, bring it to top
+    if (pinnedSymbol) {
+      const highlightedIndex = sorted.findIndex(e => e.symbol.toUpperCase() === pinnedSymbol);
       if (highlightedIndex >= 0) {
         const highlighted = sorted.splice(highlightedIndex, 1)[0];
         sorted = [highlighted, ...sorted];
@@ -208,8 +243,8 @@ export const ETFTable = ({
           if (bothNumeric && !forceString) {
             comparison = aNum - bNum;
           } else {
-            const aStr = String(aValue).toLowerCase();
-            const bStr = String(bValue).toLowerCase();
+            const aStr = normalizeText(aValue);
+            const bStr = normalizeText(bValue);
             comparison = aStr.localeCompare(bStr);
           }
 
@@ -220,7 +255,7 @@ export const ETFTable = ({
         });
         sorted = [highlighted, ...rest];
       }
-      console.log('[ETFTable] Highlighted symbol:', highlightSymbol, '- brought to top');
+      console.log('[ETFTable] Pinned symbol:', pinnedSymbol, '- brought to top');
       return sorted;
     }
 
@@ -275,8 +310,6 @@ export const ETFTable = ({
         comparison = aNum - bNum;
       } else {
         // Fallback to string comparison
-            const aStr = normalizeText(aValue);
-            const bStr = normalizeText(bValue);
         const aStr = normalizeText(aValue);
         const bStr = normalizeText(bValue);
         comparison = aStr.localeCompare(bStr);
@@ -291,7 +324,7 @@ export const ETFTable = ({
 
     console.log('[ETFTable] Sorted ETFs - first 3:', sorted.slice(0, 3).map(e => ({ symbol: e.symbol, [sortField]: e[sortField] })));
     return sorted;
-  }, [etfs, sortField, sortDirection, location.search]);
+  }, [etfs, sortField, sortDirection, pinnedSymbol]);
 
 
 
@@ -449,7 +482,7 @@ export const ETFTable = ({
               const prev = index > 0 ? sortedETFs[index - 1] : null;
               const normalizeIssuer = (v: unknown) =>
                 String(v ?? "")
-                  .replace(/\u00A0/g, " ") // NBSP
+                  .replace(/\u00A0/g, " ")
                   .replace(/\s+/g, " ")
                   .trim()
                   .toLowerCase();
