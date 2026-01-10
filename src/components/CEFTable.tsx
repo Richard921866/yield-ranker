@@ -169,7 +169,7 @@ export const CEFTable = ({
           <thead className="sticky top-0 z-50 bg-slate-50 shadow-sm border-b-2 border-slate-200">
             <tr className="bg-slate-50">
               <th
-                colSpan={17}
+                colSpan={16}
                 className="h-7 px-1.5 text-center align-middle font-bold text-foreground bg-slate-100 text-sm border-r-2 border-slate-300"
               >
                 CEF DETAILS
@@ -258,20 +258,6 @@ export const CEFTable = ({
                   OPEN
                 </SortButton>
               </th> */}
-              <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                <SortButton
-                  field="ipoPrice"
-                  sortField={sortField}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                >
-                  <div className="whitespace-normal leading-tight">
-                    IPO
-                    <br />
-                    Price
-                  </div>
-                </SortButton>
-              </th>
               <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
                 <SortButton
                   field="marketPrice"
@@ -587,16 +573,6 @@ export const CEFTable = ({
                 {/* <td className="py-1 px-1.5 align-middle text-center text-xs text-muted-foreground">
                   {cef.openDate || "N/A"}
                 </td> */}
-                <td
-                  className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium ${cef.ipoPrice &&
-                      cef.marketPrice &&
-                      cef.marketPrice > cef.ipoPrice
-                      ? "bg-green-100 text-green-700"
-                      : ""
-                    }`}
-                >
-                  {cef.ipoPrice != null ? formatCurrency(cef.ipoPrice) : "N/A"}
-                </td>
                 <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold text-foreground">
                   {cef.marketPrice != null
                     ? formatCurrency(cef.marketPrice)
