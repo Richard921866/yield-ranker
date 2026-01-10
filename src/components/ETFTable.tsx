@@ -447,10 +447,16 @@ export const ETFTable = ({
           <tbody>
             {sortedETFs.map((etf, index) => {
               const prev = index > 0 ? sortedETFs[index - 1] : null;
+              const normalizeIssuer = (v: unknown) =>
+                String(v ?? "")
+                  .replace(/\u00A0/g, " ") // NBSP
+                  .replace(/\s+/g, " ")
+                  .trim()
+                  .toLowerCase();
               const issuerChanged =
                 sortField === "issuer" &&
                 prev &&
-                String(prev.issuer ?? "").trim() !== String(etf.issuer ?? "").trim();
+                normalizeIssuer(prev.issuer) !== normalizeIssuer(etf.issuer);
 
               return (
               <tr

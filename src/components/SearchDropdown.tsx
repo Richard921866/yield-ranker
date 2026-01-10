@@ -193,58 +193,48 @@ export const SearchDropdown = () => {
     }
     
     if (isCEFPage) {
-      // Try to find the CEF row in the table
-      const cefRow = document.querySelector(`[data-cef-symbol="${symbol}"]`) as HTMLElement;
-      
-      if (cefRow) {
-        setQuery("");
-        setIsOpen(false);
-        
-        setTimeout(() => {
-          cefRow.scrollIntoView({ 
-            behavior: "smooth", 
-            block: "center",
-            inline: "nearest" 
-          });
-          
-          cefRow.classList.add("animate-pulse");
-          cefRow.style.backgroundColor = "rgba(59, 130, 246, 0.15)";
-          
-          setTimeout(() => {
-            cefRow.classList.remove("animate-pulse");
-            cefRow.style.backgroundColor = "";
-          }, 2000);
-        }, 100);
-      } else {
-        navigate(`/cef/${symbol}`);
-        setQuery("");
-        setIsOpen(false);
-      }
-    } else {
-      // Navigate to CEF page first, then scroll
-      navigate(`/cef`);
+      // Bring selected CEF to TOP row, scroll to top, highlight, then clear highlight param
+      navigate(`${pathname}?highlight=${symbol}`, { replace: true });
       setQuery("");
       setIsOpen(false);
-      
-      // Wait for page to load, then scroll to row
-      setTimeout(() => {
-        const cefRow = document.querySelector(`[data-cef-symbol="${symbol}"]`) as HTMLElement;
-        if (cefRow) {
-          cefRow.scrollIntoView({ 
-            behavior: "smooth", 
-            block: "center",
-            inline: "nearest" 
-          });
-          
-          cefRow.classList.add("animate-pulse");
-          cefRow.style.backgroundColor = "rgba(59, 130, 246, 0.15)";
-          
+
+      const MAX_ATTEMPTS = 40; // ~2s
+      const RETRY_MS = 50;
+      const HIGHLIGHT_MS = 2000;
+      let attempts = 0;
+
+      const tryScrollAndHighlight = () => {
+        const container = document.getElementById("cef-table-scroll");
+        if (container) container.scrollTop = 0;
+
+        const row = document.getElementById(`cef-row-${symbol}`);
+        if (row) {
+          row.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+          row.classList.add("animate-pulse");
+          (row as HTMLElement).style.backgroundColor = "rgba(59, 130, 246, 0.15)";
+
           setTimeout(() => {
-            cefRow.classList.remove("animate-pulse");
-            cefRow.style.backgroundColor = "";
-          }, 2000);
+            row.classList.remove("animate-pulse");
+            (row as HTMLElement).style.backgroundColor = "";
+            navigate(pathname, { replace: true });
+          }, HIGHLIGHT_MS);
+          return;
         }
-      }, 500);
+
+        attempts++;
+        if (attempts >= MAX_ATTEMPTS) {
+          navigate(pathname, { replace: true });
+          return;
+        }
+        setTimeout(tryScrollAndHighlight, RETRY_MS);
+      };
+
+      setTimeout(tryScrollAndHighlight, RETRY_MS);
+    } else {
+      // Navigate to CEF page first, then scroll
+      navigate(`/cef?highlight=${symbol}`);
+      setQuery("");
+      setIsOpen(false);
     }
   };
 

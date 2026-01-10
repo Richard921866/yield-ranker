@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { CEF } from "@/types/cef";
 import { ArrowUpDown, Info, Star, Lock } from "lucide-react";
 import { Button } from "./ui/button";
@@ -68,6 +68,7 @@ export const CEFTable = ({
   onDividendClick,
 }: CEFTableProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, profile } = useAuth();
   const isGuest = !profile;
   const [sortField, setSortField] = useState<SortField>("weightedRank");
@@ -99,9 +100,24 @@ export const CEFTable = ({
   ];
 
   const sortedCEFs = useMemo(() => {
-    if (!sortField) return cefs;
+    const urlParams = new URLSearchParams(location.search);
+    const highlightSymbol = urlParams.get("highlight")?.toUpperCase();
 
-    const sorted = [...cefs].sort(
+    if (!sortField && !highlightSymbol) return cefs;
+
+    let sorted = [...cefs];
+
+    // Highlight: bring selected symbol to top
+    if (highlightSymbol) {
+      const idx = sorted.findIndex((c) => c.symbol.toUpperCase() === highlightSymbol);
+      if (idx >= 0) {
+        const highlighted = sorted.splice(idx, 1)[0];
+        sorted = [highlighted, ...sorted];
+      }
+      return sorted;
+    }
+
+    sorted = sorted.sort(
       (a, b) => {
         const aValue = a[sortField];
         const bValue = b[sortField];
@@ -146,7 +162,7 @@ export const CEFTable = ({
     );
 
     return sorted;
-  }, [cefs, sortField, sortDirection]);
+  }, [cefs, sortField, sortDirection, location.search]);
 
   const formatPercentage = (value: number | null | undefined): string => {
     if (value === null || value === undefined) return "N/A";
@@ -164,7 +180,7 @@ export const CEFTable = ({
 
   return (
     <div className="rounded-lg sm:rounded-xl border-2 border-border/50 shadow-card bg-card overflow-hidden">
-      <div className="max-h-[calc(100vh-150px)] sm:max-h-[calc(100vh-200px)] overflow-x-auto overflow-y-scroll touch-auto">
+      <div id="cef-table-scroll" className="max-h-[calc(100vh-150px)] sm:max-h-[calc(100vh-200px)] overflow-x-auto overflow-y-scroll touch-auto">
         <table className="w-full caption-bottom text-xs min-w-max">
           <thead className="sticky top-0 z-50 bg-slate-50 shadow-sm border-b-2 border-slate-200">
             <tr className="bg-slate-50">
@@ -525,9 +541,10 @@ export const CEFTable = ({
             </tr>
           </thead>
           <tbody>
-            {sortedCEFs.map((cef) => (
+            {sortedCEFs.map((cef, index) => (
               <tr
                 key={cef.symbol}
+                id={`cef-row-${cef.symbol}`}
                 data-cef-symbol={cef.symbol}
                 className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors"
               >
