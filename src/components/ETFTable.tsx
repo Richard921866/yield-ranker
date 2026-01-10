@@ -293,7 +293,7 @@ export const ETFTable = ({
         <table className="w-full caption-bottom text-xs min-w-max">
           <thead className="sticky top-0 z-50 bg-slate-50 shadow-sm border-b-2 border-slate-200">
             <tr className="bg-slate-50">
-              <th colSpan={14} className="h-7 px-1.5 text-center align-middle font-bold text-foreground bg-slate-100 text-sm border-r-2 border-slate-300">
+              <th colSpan={13} className="h-7 px-1.5 text-center align-middle font-bold text-foreground bg-slate-100 text-sm border-r-2 border-slate-300">
                 ETF DETAILS
               </th>
               <th colSpan={returnColumns.length} className="h-8 px-1.5 text-center align-middle font-bold bg-primary/10 text-primary text-sm">
@@ -348,11 +348,6 @@ export const ETFTable = ({
               <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
                 <SortButton field="payDay" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
                   <div className="whitespace-normal leading-tight">Pay<br />Day</div>
-                </SortButton>
-              </th>
-              <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
-                <SortButton field="ipoPrice" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
-                  <div className="whitespace-normal leading-tight">IPO<br />Price</div>
                 </SortButton>
               </th>
               <th className="h-7 px-1.5 text-center bg-slate-50 text-xs">
@@ -497,10 +492,6 @@ export const ETFTable = ({
                 </td>
                 <td className="py-1 px-1.5 align-middle text-center text-xs text-muted-foreground">
                   {etf.payDay || "N/A"}
-                </td>
-                <td className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold ${etf.ipoPrice && etf.price > etf.ipoPrice ? 'bg-green-100 text-green-700' : ''
-                  }`}>
-                  {etf.ipoPrice != null ? `$${etf.ipoPrice.toFixed(2)}` : 'N/A'}
                 </td>
                 <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold text-foreground">
                   ${etf.price.toFixed(2)}
