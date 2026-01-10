@@ -146,6 +146,12 @@ export const ETFTable = ({
     // Check for highlight query parameter to bring selected ETF to top
     const urlParams = new URLSearchParams(location.search);
     const highlightSymbol = urlParams.get('highlight')?.toUpperCase();
+    const normalizeText = (v: unknown) =>
+      String(v ?? "")
+        .replace(/\u00A0/g, " ") // NBSP
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
 
     // If no sort field is selected and no highlight, return the ranked order (default by weightedRank asc)
     if (!sortField && !highlightSymbol) {
@@ -269,8 +275,10 @@ export const ETFTable = ({
         comparison = aNum - bNum;
       } else {
         // Fallback to string comparison
-        const aStr = String(aValue).toLowerCase();
-        const bStr = String(bValue).toLowerCase();
+            const aStr = normalizeText(aValue);
+            const bStr = normalizeText(bValue);
+        const aStr = normalizeText(aValue);
+        const bStr = normalizeText(bValue);
         comparison = aStr.localeCompare(bStr);
       }
 

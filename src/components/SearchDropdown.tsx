@@ -90,6 +90,7 @@ export const SearchDropdown = () => {
     const pathname = location.pathname;
     const isHomePage = pathname === "/";
     const isDashboard = pathname === "/dashboard";
+    const isCoveredCallPage = pathname === "/covered-call-etfs";
     
     // Check if on ETF dividend history page (must check first to prioritize)
     const isETFDividendPage = /^\/etf\/[^/]+\/dividends$/.test(pathname);
@@ -113,7 +114,7 @@ export const SearchDropdown = () => {
       return;
     }
     
-    if (isHomePage || isDashboard) {
+    if (isHomePage || isDashboard || isCoveredCallPage) {
       // Set query parameter to trigger table sort to bring ETF to top
       navigate(`${pathname}?highlight=${symbol}`, { replace: true });
       setQuery("");
