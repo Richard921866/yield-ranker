@@ -442,12 +442,19 @@ export const ETFTable = ({
             </tr>
           </thead>
           <tbody>
-            {sortedETFs.map((etf, index) => (
+            {sortedETFs.map((etf, index) => {
+              const prev = index > 0 ? sortedETFs[index - 1] : null;
+              const issuerChanged =
+                sortField === "issuer" &&
+                prev &&
+                String(prev.issuer ?? "").trim() !== String(etf.issuer ?? "").trim();
+
+              return (
               <tr
                 key={etf.symbol}
                 id={`etf-row-${etf.symbol}`}
                 data-etf-symbol={etf.symbol}
-                className="border-b border-slate-200 transition-all hover:bg-slate-100 group"
+                className={`border-b border-slate-200 transition-all hover:bg-slate-100 group ${issuerChanged ? "border-t-4 border-slate-300" : ""}`}
                 style={{ animationDelay: `${index * 30}ms` }}
               >
                 <td
@@ -583,7 +590,8 @@ export const ETFTable = ({
                   );
                 })}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
