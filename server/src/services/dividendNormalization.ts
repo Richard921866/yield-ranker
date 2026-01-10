@@ -523,6 +523,21 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
                 (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
             );
 
+            // IMPORTANT (CCETF/ETF fix):
+            // Use the CURRENT dividend's own look-back gap when it's in a clear frequency range.
+            // This prevents rows like 10/16 (28 days since prev = Monthly) from being mislabeled as Weekly
+            // just because the NEXT dividend comes 7 days later (start of weekly regime).
+            const prevGapIsClear =
+                daysSincePrev !== null &&
+                ((daysSincePrev >= 5 && daysSincePrev <= 10) || // weekly
+                    (daysSincePrev >= 20 && daysSincePrev <= 40) || // monthly
+                    (daysSincePrev >= 60 && daysSincePrev <= 110) || // quarterly
+                    (daysSincePrev >= 150 && daysSincePrev <= 210) || // semi-annual
+                    (daysSincePrev >= 300 && daysSincePrev <= 380)); // annual
+            if (prevGapIsClear) {
+                frequencyNum = getFrequencyFromDays(daysSincePrev!);
+            } else {
+
             // Try to find the next Regular dividend (skip Special dividends)
             let nextRegularDiv: DividendInput | null = null;
             let daysToNextRegular: number | null = null;
@@ -603,6 +618,7 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
                     frequencyNum = getFrequencyFromDays(daysFromLastRegular);
                 }
             }
+            } // end prevGapIsClear else
         } else {
             // Last dividend: use gap from last Regular dividend if available, otherwise from previous
             if (lastRegular) {
@@ -626,6 +642,26 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
         if (i > 0 && previous !== null && daysSincePrev !== null && daysSincePrev > 4) {
             const prevFrequencyNum = getFrequencyFromDays(daysSincePrev);
             const prevResult = results[results.length - 1];
+
+            // Additional transition guard (CCETF/ETF fix):
+            // If the PREVIOUS row has its own look-back gap in a clear range (stored as days_since_prev),
+            // do not overwrite its frequency based on the NEW regime's shorter gap.
+            // Example: 10/16 has days_since_prev=28 (Monthly), but 10/23 arrives 7 days later (Weekly).
+            const prevOwnDays = prevResult?.days_since_prev ?? null;
+            const prevOwnIsClear =
+                prevOwnDays !== null &&
+                ((prevOwnDays >= 5 && prevOwnDays <= 10) ||
+                    (prevOwnDays >= 20 && prevOwnDays <= 40) ||
+                    (prevOwnDays >= 60 && prevOwnDays <= 110) ||
+                    (prevOwnDays >= 150 && prevOwnDays <= 210) ||
+                    (prevOwnDays >= 300 && prevOwnDays <= 380));
+            if (prevOwnIsClear) {
+                const prevOwnFreq = getFrequencyFromDays(prevOwnDays!);
+                if (prevOwnFreq !== prevFrequencyNum) {
+                    // Transition detected: keep the previous row's own frequency.
+                    continue;
+                }
+            }
 
             // Check if previous dividend was at a frequency transition point
             // The previous dividend's frequency was already set based on gap to next (current dividend)

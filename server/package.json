@@ -55,7 +55,8 @@
     ,
     "recalc:cef:frequency": "tsx scripts/recalc_cef_frequency.ts"
     ,
-    "recalc:cef:home": "tsx scripts/recalc_cef_homepage_fields.ts"
+    "recalc:cef:home": "tsx scripts/recalc_cef_homepage_fields.ts",
+    "recalc:etf:frequency": "tsx scripts/recalc_etf_frequency.ts"
   },
   "dependencies": {
     "@mailerlite/mailerlite-nodejs": "^1.5.0",
