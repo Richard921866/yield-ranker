@@ -689,93 +689,9 @@ async function refreshCEF(ticker: string): Promise<void> {
     // Import CEF-specific normalized dividend calculation
     const { calculateNormalizedDividendsForCEFs } = await import("../src/services/dividendNormalization.js");
 
-    const updateData: any = {};
-
-    // Calculate general ETF metrics (lastDividend, forwardYield, short-term returns)
-    // This is needed for CEFs to show yearly dividend and F Yield
+    // CRITICAL: Normalize dividends FIRST (populates regular_component/special_component)
+    // before calculateMetrics() reads from dividends_detail
     try {
-      const { calculateMetrics } = await import("../src/services/metrics.js");
-      const metrics = await calculateMetrics(ticker);
-      
-      // Update general metrics that CEFs also need
-      updateData.last_dividend = metrics.lastDividend;
-      updateData.forward_yield = metrics.forwardYield;
-      updateData.annual_dividend = metrics.annualizedDividend;
-      // Keep payments_per_year in sync with detected current cadence (important for homepage "period")
-      updateData.payments_per_year = metrics.paymentsPerYear;
-      
-      // Update short-term returns (1W, 1M, 3M, 6M, 12M) - these are price-based returns
-      updateData.tr_drip_1w = metrics.totalReturnDrip['1W'];
-      updateData.tr_drip_1m = metrics.totalReturnDrip['1M'];
-      updateData.tr_drip_3m = metrics.totalReturnDrip['3M'];
-      updateData.tr_drip_6m = metrics.totalReturnDrip['6M'];
-      updateData.tr_drip_12m = metrics.totalReturnDrip['1Y'];
-      
-      updateData.price_return_1w = metrics.priceReturn['1W'];
-      updateData.price_return_1m = metrics.priceReturn['1M'];
-      updateData.price_return_3m = metrics.priceReturn['3M'];
-      updateData.price_return_6m = metrics.priceReturn['6M'];
-      updateData.price_return_12m = metrics.priceReturn['1Y'];
-    } catch (error) {
-      // If calculateMetrics fails, set these to null
-      updateData.last_dividend = null;
-      updateData.forward_yield = null;
-      updateData.annual_dividend = null;
-      updateData.tr_drip_1w = null;
-      updateData.tr_drip_1m = null;
-      updateData.tr_drip_3m = null;
-      updateData.tr_drip_6m = null;
-      updateData.tr_drip_12m = null;
-      updateData.price_return_1w = null;
-      updateData.price_return_1m = null;
-      updateData.price_return_3m = null;
-      updateData.price_return_6m = null;
-      updateData.price_return_12m = null;
-    }
-
-    // Calculate all CEF metrics - PARALLELIZE independent calculations for speed
-    const [fiveYearZScore, navTrend6M, navTrend12M] = await Promise.all([
-      calculateCEFZScore(ticker, navSymbolForCalc).catch(() => null),
-      calculateNAVTrend6M(navSymbolForCalc).catch(() => null),
-      calculateNAVReturn12M(navSymbolForCalc).catch(() => null),
-    ]);
-
-    updateData.five_year_z_score = fiveYearZScore;
-    updateData.nav_trend_6m = navTrend6M;
-    updateData.nav_trend_12m = navTrend12M;
-
-    // Calculate Signal
-    let signal: number | null = null;
-    try {
-      signal = await calculateSignal(
-        ticker,
-        navSymbolForCalc,
-        fiveYearZScore,
-        navTrend6M,
-        navTrend12M
-      );
-      updateData.signal = signal;
-    } catch (error) {
-      updateData.signal = null;
-    }
-
-    // Calculate Dividend History (X+ Y- format)
-    let dividendHistory: string | null = null;
-    try {
-      const dividends = await getDividendHistory(ticker.toUpperCase(), "2009-01-01");
-      if (dividends && dividends.length > 0) {
-        dividendHistory = calculateDividendHistory(dividends);
-        updateData.dividend_history = dividendHistory;
-      } else {
-        updateData.dividend_history = null;
-      }
-    } catch (error) {
-      updateData.dividend_history = null;
-    }
-
-    // Calculate and update normalized dividends (silently)
-    try {
-      const { calculateNormalizedDividendsForCEFs } = await import("../src/services/dividendNormalization.js");
       const dividendsForNormalization = await getDividendHistory(ticker.toUpperCase(), "2009-01-01");
       
       if (dividendsForNormalization.length > 0) {
@@ -840,34 +756,111 @@ async function refreshCEF(ticker: string): Promise<void> {
               })
               .eq('id', update.id);
 
-            if (!fullError) return;
+            if (fullError) {
+              // Fallback: Update without component split columns (if they don't exist)
+              const { error: fallbackError } = await supabase
+                .from('dividends_detail')
+                .update(baseUpdate)
+                .eq('id', update.id);
 
-            // Fallback if columns are missing
-            await supabase
-              .from('dividends_detail')
-              .update(baseUpdate)
-              .eq('id', update.id);
+              if (fallbackError) {
+                console.error(`  ⚠ Failed to update dividend ${update.id}: ${fallbackError.message}`);
+              }
+            }
           })());
-
           await Promise.all(updatePromises);
         }
       }
     } catch (error) {
-      // Silent fail
+      console.error(`  ⚠ Error normalizing dividends for ${ticker}:`, error);
+      // Continue anyway - calculateMetrics will use whatever is in the DB
     }
 
-    // IMPORTANT: Recalculate general metrics AFTER normalized dividend fields are updated.
+    const updateData: any = {};
+
+    // Calculate all CEF metrics - PARALLELIZE independent calculations for speed
+    const [fiveYearZScore, navTrend6M, navTrend12M] = await Promise.all([
+      calculateCEFZScore(ticker, navSymbolForCalc).catch(() => null),
+      calculateNAVTrend6M(navSymbolForCalc).catch(() => null),
+      calculateNAVReturn12M(navSymbolForCalc).catch(() => null),
+    ]);
+
+    updateData.five_year_z_score = fiveYearZScore;
+    updateData.nav_trend_6m = navTrend6M;
+    updateData.nav_trend_12m = navTrend12M;
+
+    // Calculate Signal
+    let signal: number | null = null;
+    try {
+      signal = await calculateSignal(
+        ticker,
+        navSymbolForCalc,
+        fiveYearZScore,
+        navTrend6M,
+        navTrend12M
+      );
+      updateData.signal = signal;
+    } catch (error) {
+      updateData.signal = null;
+    }
+
+    // Calculate Dividend History (X+ Y- format)
+    let dividendHistory: string | null = null;
+    try {
+      const dividends = await getDividendHistory(ticker.toUpperCase(), "2009-01-01");
+      if (dividends && dividends.length > 0) {
+        dividendHistory = calculateDividendHistory(dividends);
+        updateData.dividend_history = dividendHistory;
+      } else {
+        updateData.dividend_history = null;
+      }
+    } catch (error) {
+      updateData.dividend_history = null;
+    }
+
+    // IMPORTANT: Calculate general metrics AFTER normalized dividend fields are updated.
+    // This ensures last_dividend uses regular_component for combined special rows.
     // Many CEF rows have `div_type` null; we rely on `pmt_type` + `frequency_num` written above
     // to correctly identify the latest REGULAR dividend and the current cadence (payments_per_year).
     try {
       const { calculateMetrics } = await import("../src/services/metrics.js");
       const metrics = await calculateMetrics(ticker);
+      
+      // Update general metrics that CEFs also need
       updateData.last_dividend = metrics.lastDividend;
       updateData.forward_yield = metrics.forwardYield;
       updateData.annual_dividend = metrics.annualizedDividend;
+      // Keep payments_per_year in sync with detected current cadence (important for homepage "period")
       updateData.payments_per_year = metrics.paymentsPerYear;
+      
+      // Update short-term returns (1W, 1M, 3M, 6M, 12M) - these are price-based returns
+      updateData.tr_drip_1w = metrics.totalReturnDrip['1W'];
+      updateData.tr_drip_1m = metrics.totalReturnDrip['1M'];
+      updateData.tr_drip_3m = metrics.totalReturnDrip['3M'];
+      updateData.tr_drip_6m = metrics.totalReturnDrip['6M'];
+      updateData.tr_drip_12m = metrics.totalReturnDrip['1Y'];
+      
+      updateData.price_return_1w = metrics.priceReturn['1W'];
+      updateData.price_return_1m = metrics.priceReturn['1M'];
+      updateData.price_return_3m = metrics.priceReturn['3M'];
+      updateData.price_return_6m = metrics.priceReturn['6M'];
+      updateData.price_return_12m = metrics.priceReturn['1Y'];
     } catch (error) {
-      // Keep the previously computed values if this fails
+      // If calculateMetrics fails, set these to null
+      updateData.last_dividend = null;
+      updateData.forward_yield = null;
+      updateData.annual_dividend = null;
+      updateData.payments_per_year = null;
+      updateData.tr_drip_1w = null;
+      updateData.tr_drip_1m = null;
+      updateData.tr_drip_3m = null;
+      updateData.tr_drip_6m = null;
+      updateData.tr_drip_12m = null;
+      updateData.price_return_1w = null;
+      updateData.price_return_1m = null;
+      updateData.price_return_3m = null;
+      updateData.price_return_6m = null;
+      updateData.price_return_12m = null;
     }
 
     // Calculate DVI (silently)
