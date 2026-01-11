@@ -475,8 +475,10 @@ export function calculateNormalizedDividendsForCEFs(
           dominantLabel === "Annual" ? 250 :
           null;
 
+        // Cadence break means "too soon" relative to the dominant regular cadence.
+        // For monthly, anything < 20 days is off-cadence (covers 13d, 18d year-end clusters).
         const cadenceBreakThreshold =
-          expectedMinDays !== null ? Math.max(5, Math.floor(expectedMinDays * 0.75)) : null;
+          expectedMinDays !== null ? Math.max(5, expectedMinDays) : null;
         const isCadenceBreak =
           cadenceBreakThreshold !== null &&
           gapDays > 0 &&
