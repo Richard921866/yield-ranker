@@ -346,36 +346,42 @@ export function calculateNormalizedDividendsForCEFs(
             }
         }
 
-        // Step 4: Special detection by AMOUNT deviation (not date)
+        // Step 4: Special detection by AMOUNT deviation AND date proximity
         let pmtType: 'Regular' | 'Special' | 'Initial' = 'Regular';
         if (daysSincePrev === null) {
             pmtType = 'Initial';
-        } else if (medianAmount !== null && medianAmount > 0 && amount > 0) {
-            const amountStable = isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol);
-
-            // Guardrail: If a “spike” repeats in the next payment(s), it’s usually a REGULAR step-change,
-            // not a special one-off (e.g., SRV’s persistent 0.45 monthly distributions).
-            // We use a looser tolerance here because fund distributions can vary a bit month to month.
-            const repeatsNext = nextAmount !== null && nextAmount > 0 && isApproximatelyEqual(amount, nextAmount, 0.06);
-            const deviationRel = Math.abs(amount - medianAmount) / Math.max(medianAmount, 1e-9);
-
-            // Rule 1 — Amount spike vs median (one-off)
-            if (!repeatsNext && amount > specialMultiplier * medianAmount) {
+        } else {
+            // Rule 0 — Date-based: Payments 1-4 days after previous are likely specials
+            // This catches year-end cap gains distributions and other specials that come close to regular payments
+            if (daysSincePrev >= 1 && daysSincePrev <= 4) {
                 pmtType = 'Special';
-            }
+            } else if (medianAmount !== null && medianAmount > 0 && amount > 0) {
+                const amountStable = isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol);
 
-            // Rule 2 (REMOVED): “Irregular gap + different amount” caused false positives for funds with
-            // calendar-driven gaps or cadence shifts. Specials are primarily amount-driven.
-            //
-            // Replacement: if the amount is a one-off outlier (higher OR lower) vs the recent median,
-            // and it does not repeat next period, classify as Special.
-            if (pmtType !== 'Special' && !repeatsNext && !amountStable && deviationRel >= 0.25) {
-                pmtType = 'Special';
-            }
+                // Guardrail: If a “spike” repeats in the next payment(s), it’s usually a REGULAR step-change,
+                // not a special one-off (e.g., SRV’s persistent 0.45 monthly distributions).
+                // We use a looser tolerance here because fund distributions can vary a bit month to month.
+                const repeatsNext = nextAmount !== null && nextAmount > 0 && isApproximatelyEqual(amount, nextAmount, 0.06);
+                const deviationRel = Math.abs(amount - medianAmount) / Math.max(medianAmount, 1e-9);
 
-            // Rule 3 — Round-number specials (one-off)
-            if (pmtType !== 'Special' && !repeatsNext && isRoundNumberSpecial(amount) && amount > roundNumberMultiplier * medianAmount) {
-                pmtType = 'Special';
+                // Rule 1 — Amount spike vs median (one-off)
+                if (!repeatsNext && amount > specialMultiplier * medianAmount) {
+                    pmtType = 'Special';
+                }
+
+                // Rule 2 (REMOVED): “Irregular gap + different amount” caused false positives for funds with
+                // calendar-driven gaps or cadence shifts. Specials are primarily amount-driven.
+                //
+                // Replacement: if the amount is a one-off outlier (higher OR lower) vs the recent median,
+                // and it does not repeat next period, classify as Special.
+                if (pmtType !== 'Special' && !repeatsNext && !amountStable && deviationRel >= 0.25) {
+                    pmtType = 'Special';
+                }
+
+                // Rule 3 — Round-number specials (one-off)
+                if (pmtType !== 'Special' && !repeatsNext && isRoundNumberSpecial(amount) && amount > roundNumberMultiplier * medianAmount) {
+                    pmtType = 'Special';
+                }
             }
         }
 
