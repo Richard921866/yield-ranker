@@ -466,14 +466,21 @@ export function calculateNormalizedDividendsForCEFs(
           nextAmount > 0 &&
           isApproximatelyEqual(amount, nextAmount, 0.05);
 
-        const dominantLabel = determinePatternFrequencyLabel(rollingRegularGapsToNext);
+        const dominantLabel = determinePatternFrequencyLabel(
+          rollingRegularGapsToNext
+        );
         const expectedMinDays =
-          dominantLabel === "Weekly" ? 5 :
-          dominantLabel === "Monthly" ? 20 :
-          dominantLabel === "Quarterly" ? 46 :
-          dominantLabel === "Semi-Annual" ? 150 :
-          dominantLabel === "Annual" ? 250 :
-          null;
+          dominantLabel === "Weekly"
+            ? 5
+            : dominantLabel === "Monthly"
+            ? 20
+            : dominantLabel === "Quarterly"
+            ? 46
+            : dominantLabel === "Semi-Annual"
+            ? 150
+            : dominantLabel === "Annual"
+            ? 250
+            : null;
 
         // Cadence break means "too soon" relative to the dominant regular cadence.
         // For monthly, anything < 20 days is off-cadence (covers 13d, 18d year-end clusters).
@@ -488,7 +495,10 @@ export function calculateNormalizedDividendsForCEFs(
         const isExtremeSpike = amount >= specialMultiplier * medianAmount; // default 3.0x
         const isMeaningfulSpike = amount >= 1.5 * medianAmount; // used only when off-cadence
 
-        if (!repeatsNext && (isExtremeSpike || (isCadenceBreak && isMeaningfulSpike))) {
+        if (
+          !repeatsNext &&
+          (isExtremeSpike || (isCadenceBreak && isMeaningfulSpike))
+        ) {
           pmtType = "Special";
         }
       }
@@ -892,6 +902,13 @@ export function calculateNormalizedDividends(
           frequencyNum = getFrequencyFromDays(daysSincePrev);
         }
       }
+    }
+
+    // SPECIAL OTHER RULE (ETF/general path):
+    // Once a dividend is marked Special, it must NOT be assigned Weekly/Monthly/etc.
+    // Force frequency_num=1 so downstream code cannot "hallucinate" yield by multiplying specials.
+    if (pmtType === "Special") {
+      frequencyNum = 1;
     }
 
     // Calculate annualized and normalized values
