@@ -116,6 +116,13 @@ function shouldTreatAsSpecialByCadence(
     // Weekly regimes naturally have short gaps; special detection is handled by tiny-amount rule.
     if (dominantFrequencyNum >= 52) return false;
 
+    // If the NEXT gap is clearly weekly, we're in (or entering) a weekly regime.
+    // Do NOT force "Special" off cadence heuristics in that case; it creates chain-break false positives
+    // during monthly→weekly transitions (e.g., ULTY/CC ETFs around Mar/Apr 2025).
+    // One-off specials are typically 1–4 days from the adjacent regular payment, not ~7 days.
+    const nextLooksWeekly = daysToNext !== null && daysToNext >= 5 && daysToNext <= 10;
+    if (nextLooksWeekly) return false;
+
     const expectedMin = expectedMinGapDays(dominantFrequencyNum);
     if (!expectedMin) return false;
 
@@ -125,6 +132,7 @@ function shouldTreatAsSpecialByCadence(
 
     // If it repeats next period (timing + amount), it's likely a real cadence change (monthly -> weekly),
     // not a one-off special distribution.
+    const repeatsNextTol = nextLooksWeekly ? 0.25 : 0.06; // weekly payouts vary more; allow more wiggle
     const repeatsNext =
         daysToNext !== null &&
         daysToNext > 0 &&
@@ -133,7 +141,7 @@ function shouldTreatAsSpecialByCadence(
         currentAmount > 0 &&
         nextAmount !== null &&
         nextAmount > 0 &&
-        isApproximatelyEqual(currentAmount, nextAmount, 0.06); // allow modest variation
+        isApproximatelyEqual(currentAmount, nextAmount, repeatsNextTol); // allow modest variation
     if (repeatsNext) return false;
 
     // If amount is an outlier vs recent regular median, classify special.
@@ -346,42 +354,34 @@ export function calculateNormalizedDividendsForCEFs(
             }
         }
 
-        // Step 4: Special detection by AMOUNT deviation AND date proximity
+        // Step 4: Special detection by AMOUNT deviation (not date)
+        // Date-only rules (e.g. "1–4 days after previous") create false positives for
+        // weekly payers, holiday shifts, and cadence transitions. Specials are primarily amount-driven.
         let pmtType: 'Regular' | 'Special' | 'Initial' = 'Regular';
         if (daysSincePrev === null) {
             pmtType = 'Initial';
-        } else {
-            // Rule 0 — Date-based: Payments 1-4 days after previous are likely specials
-            // This catches year-end cap gains distributions and other specials that come close to regular payments
-            if (daysSincePrev >= 1 && daysSincePrev <= 4) {
+        } else if (medianAmount !== null && medianAmount > 0 && amount > 0) {
+            const amountStable = isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol);
+
+            // Guardrail: If a “spike” repeats in the next payment(s), it’s usually a REGULAR step-change,
+            // not a special one-off (e.g., SRV’s persistent 0.45 monthly distributions).
+            // We use a looser tolerance here because fund distributions can vary a bit month to month.
+            const repeatsNext = nextAmount !== null && nextAmount > 0 && isApproximatelyEqual(amount, nextAmount, 0.06);
+            const deviationRel = Math.abs(amount - medianAmount) / Math.max(medianAmount, 1e-9);
+
+            // Rule 1 — Amount spike vs median (one-off)
+            if (!repeatsNext && amount > specialMultiplier * medianAmount) {
                 pmtType = 'Special';
-            } else if (medianAmount !== null && medianAmount > 0 && amount > 0) {
-                const amountStable = isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol);
+            }
 
-                // Guardrail: If a “spike” repeats in the next payment(s), it’s usually a REGULAR step-change,
-                // not a special one-off (e.g., SRV’s persistent 0.45 monthly distributions).
-                // We use a looser tolerance here because fund distributions can vary a bit month to month.
-                const repeatsNext = nextAmount !== null && nextAmount > 0 && isApproximatelyEqual(amount, nextAmount, 0.06);
-                const deviationRel = Math.abs(amount - medianAmount) / Math.max(medianAmount, 1e-9);
+            // Rule 2: one-off outlier (higher OR lower) vs recent median
+            if (pmtType !== 'Special' && !repeatsNext && !amountStable && deviationRel >= 0.25) {
+                pmtType = 'Special';
+            }
 
-                // Rule 1 — Amount spike vs median (one-off)
-                if (!repeatsNext && amount > specialMultiplier * medianAmount) {
-                    pmtType = 'Special';
-                }
-
-                // Rule 2 (REMOVED): “Irregular gap + different amount” caused false positives for funds with
-                // calendar-driven gaps or cadence shifts. Specials are primarily amount-driven.
-                //
-                // Replacement: if the amount is a one-off outlier (higher OR lower) vs the recent median,
-                // and it does not repeat next period, classify as Special.
-                if (pmtType !== 'Special' && !repeatsNext && !amountStable && deviationRel >= 0.25) {
-                    pmtType = 'Special';
-                }
-
-                // Rule 3 — Round-number specials (one-off)
-                if (pmtType !== 'Special' && !repeatsNext && isRoundNumberSpecial(amount) && amount > roundNumberMultiplier * medianAmount) {
-                    pmtType = 'Special';
-                }
+            // Rule 3 — Round-number specials (one-off)
+            if (pmtType !== 'Special' && !repeatsNext && isRoundNumberSpecial(amount) && amount > roundNumberMultiplier * medianAmount) {
+                pmtType = 'Special';
             }
         }
 
@@ -655,12 +655,9 @@ export function calculateNormalizedDividends(dividends: DividendInput[]): Normal
             continue;
         }
 
-        // Baseline rule (legacy): 1-4 days after last regular-like is special
-        // Only applies when we actually have a prior regular-like dividend identified.
-        if (lastRegDate !== null && daysSinceLastRegularLike !== null && daysSinceLastRegularLike >= 1 && daysSinceLastRegularLike <= 4) {
-            types.push('Special');
-            continue;
-        }
+        // NOTE: We intentionally do NOT tag "Special" purely because the gap is 1–4 days.
+        // That heuristic creates false positives for holiday shifts and cadence transitions.
+        // Specials are handled by (a) tiny-stub rule and (b) cadence+amount checks above.
 
         types.push('Regular');
         // Update rolling history only for non-special dividends
