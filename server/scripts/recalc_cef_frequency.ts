@@ -183,15 +183,20 @@ async function recalcOne(ticker: string) {
 }
 
 async function main() {
-  const { tickers } = parseArgs();
-  if (tickers.length === 0) {
-    console.error("Usage: npm run recalc:cef:frequency -- --ticker SYMBOL [--ticker SYMBOL...]");
+  const { tickers, all } = parseArgs();
+  const targets = all ? await getAllCEFTickers() : tickers;
+  if (targets.length === 0) {
+    console.error("Usage: npm run recalc:cef:frequency -- --ticker SYMBOL [--ticker SYMBOL...] | --all");
     process.exit(1);
   }
 
-  for (const t of tickers) {
+  console.log(`Recalculating CEF dividend normalization for ${targets.length} ticker(s)...\n`);
+
+  for (const t of targets) {
     await recalcOne(t);
   }
+
+  console.log(`\n✓ Completed: ${targets.length} CEF(s) recalculated`);
 }
 
 main().catch((e) => {
