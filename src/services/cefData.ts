@@ -63,27 +63,8 @@ export async function fetchCEFData(): Promise<CEF[]> {
 }
 
 export async function fetchCEFDataWithMetadata(): Promise<CEFDataResponse> {
-  // Check sessionStorage cache first for immediate display (like CC ETFs)
-  if (isCEFDataCached()) {
-    const cached = sessionStorage.getItem(CEF_SESSION_CACHE_KEY);
-    if (cached) {
-      try {
-        const data = JSON.parse(cached);
-        // Return cached data immediately for instant display
-        // Fresh data will be fetched in background and update the cache
-        return {
-          ...data,
-          lastUpdatedTimestamp: data.lastUpdatedTimestamp || data.last_updated_timestamp || undefined,
-          lastUpdated: data.lastUpdated || data.last_updated || undefined,
-        };
-      } catch (parseError) {
-        console.warn("Failed to parse cached CEF data:", parseError);
-        // Fall through to fetch fresh data
-      }
-    }
-  }
-
-  // Fetch fresh data from database
+  // Always fetch fresh data from database (no cache blocking)
+  // Cache is only used for instant display while fresh data loads
   try {
     // Add timeout to fetch request - increased to 90 seconds to allow for database queries
     const controller = new AbortController();
