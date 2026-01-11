@@ -304,11 +304,21 @@ export const ETFTable = ({
 
       let comparison: number = 0;
 
-      // Special case: issuer sorts by rank (weightedRank) instead of alphabetically
+      // Special case: issuer sorts alphabetically, then by rank within each issuer
       if (sortField === "issuer") {
-        const aRank = a.weightedRank ?? Infinity;
-        const bRank = b.weightedRank ?? Infinity;
-        comparison = aRank - bRank;
+        const aIssuer = normalizeText(aValue);
+        const bIssuer = normalizeText(bValue);
+        const issuerComparison = aIssuer.localeCompare(bIssuer);
+        
+        if (issuerComparison !== 0) {
+          // Different issuers - sort alphabetically
+          comparison = issuerComparison;
+        } else {
+          // Same issuer - sort by rank (low rank = better)
+          const aRank = a.weightedRank ?? Infinity;
+          const bRank = b.weightedRank ?? Infinity;
+          comparison = aRank - bRank;
+        }
       } else {
         // If the sort field is explicitly a text field, prefer string sort
         // unless parsing was requested. Ideally, we distinguish by column type.
