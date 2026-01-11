@@ -480,6 +480,8 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
 
         return {
           ...d,
+          // Ensure UI "Dividend Type" reflects normalized pmtType (DB div_type is often null for CEFs)
+          type: isSpecial ? 'Special' : 'Regular',
           pmtType,
           frequency: isSpecial ? 'Other' : (cefN?.frequency_label ?? (dbDiv as any)?.frequency ?? d.frequency),
           frequencyNum: isSpecial ? null : (cefN?.frequency_num ?? (dbDiv as any)?.frequency_num ?? 12),
