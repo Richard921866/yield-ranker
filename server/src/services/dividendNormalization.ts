@@ -363,28 +363,51 @@ export function calculateNormalizedDividendsForCEFs(
         } else if (medianAmount !== null && medianAmount > 0 && amount > 0) {
             const amountStable = isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol);
 
-            // Guardrail: If a "spike" repeats in the next payment(s), it's usually a REGULAR step-change,
-            // not a special one-off (e.g., SRV's persistent 0.45 monthly distributions).
-            // We use a looser tolerance here because fund distributions can vary a bit month to month.
-            const repeatsNext = nextAmount !== null && nextAmount > 0 && isApproximatelyEqual(amount, nextAmount, 0.06);
-            const deviationRel = Math.abs(amount - medianAmount) / Math.max(medianAmount, 1e-9);
+            // NEW RULE: Cadence break detection (off-cadence spacing)
+            // Cadence windows: Weekly 6-8 days, Monthly 28-32 days, Quarterly 85-95 days
+            // If spacing falls outside these windows, it's "off-cadence"
+            const isOffCadence = daysSincePrev !== null && !(
+                (daysSincePrev >= 6 && daysSincePrev <= 8) ||      // Weekly
+                (daysSincePrev >= 28 && daysSincePrev <= 32) ||    // Monthly
+                (daysSincePrev >= 85 && daysSincePrev <= 95)       // Quarterly
+            );
 
-            // Rule 1 — Amount spike vs median (one-off OR extreme spike)
-            // CRITICAL: Extreme spikes (>3x median) are ALWAYS special, even if they repeat a few times,
-            // because true cadence changes are gradual, not sudden 3x+ jumps (e.g., $0.7 vs $0.11 = 6.4x).
-            const extremeSpike = amount > 3.0 * medianAmount;
-            if ((extremeSpike || !repeatsNext) && amount > specialMultiplier * medianAmount) {
+            // NEW RULE 1: Special if cadence break AND amount >300% median
+            // This catches dividends that break the expected payment schedule AND are abnormally large
+            const is300PercentSpike = amount > 3.0 * medianAmount;
+            if (isOffCadence && is300PercentSpike) {
                 pmtType = 'Special';
             }
 
-            // Rule 2: one-off outlier (higher OR lower) vs recent median
-            if (pmtType !== 'Special' && !repeatsNext && !amountStable && deviationRel >= 0.25) {
+            // NEW RULE 2: Override - amount >300% median ALWAYS special (even if on-cadence)
+            // This is the override rule that ensures extreme spikes are always flagged
+            if (is300PercentSpike) {
                 pmtType = 'Special';
             }
 
-            // Rule 3 — Round-number specials (one-off)
-            if (pmtType !== 'Special' && !repeatsNext && isRoundNumberSpecial(amount) && amount > roundNumberMultiplier * medianAmount) {
-                pmtType = 'Special';
+            // Existing rules (only apply if not already marked as Special by new rules)
+            if (pmtType !== 'Special') {
+                // Guardrail: If a "spike" repeats in the next payment(s), it's usually a REGULAR step-change,
+                // not a special one-off (e.g., SRV's persistent 0.45 monthly distributions).
+                // We use a looser tolerance here because fund distributions can vary a bit month to month.
+                const repeatsNext = nextAmount !== null && nextAmount > 0 && isApproximatelyEqual(amount, nextAmount, 0.06);
+                const deviationRel = Math.abs(amount - medianAmount) / Math.max(medianAmount, 1e-9);
+
+                // Rule 3 — Amount spike vs median (one-off OR extreme spike)
+                // Only applies if not already caught by 300% rule
+                if ((!repeatsNext) && amount > specialMultiplier * medianAmount) {
+                    pmtType = 'Special';
+                }
+
+                // Rule 4: one-off outlier (higher OR lower) vs recent median
+                if (pmtType !== 'Special' && !repeatsNext && !amountStable && deviationRel >= 0.25) {
+                    pmtType = 'Special';
+                }
+
+                // Rule 5 — Round-number specials (one-off)
+                if (pmtType !== 'Special' && !repeatsNext && isRoundNumberSpecial(amount) && amount > roundNumberMultiplier * medianAmount) {
+                    pmtType = 'Special';
+                }
             }
         }
 
