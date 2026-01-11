@@ -361,6 +361,9 @@ export function calculateNormalizedDividendsForCEFs(
         if (daysSincePrev === null) {
             pmtType = 'Initial';
         } else if (medianAmount !== null && medianAmount > 0 && amount > 0) {
+            // CRITICAL: Check if previous dividend was Special - if so, only mark this as Special if it's extreme
+            const prevWasSpecial = results.length > 0 && results[results.length - 1].pmt_type === 'Special';
+            
             const amountStable = isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol);
 
             // NEW RULE: Cadence break detection (off-cadence spacing)
@@ -375,38 +378,46 @@ export function calculateNormalizedDividendsForCEFs(
             // NEW RULE 1: Special if cadence break AND amount >300% median
             // This catches dividends that break the expected payment schedule AND are abnormally large
             const is300PercentSpike = amount > 3.0 * medianAmount;
-            if (isOffCadence && is300PercentSpike) {
-                pmtType = 'Special';
-            }
-
-            // NEW RULE 2: Override - amount >300% median ALWAYS special (even if on-cadence)
-            // This is the override rule that ensures extreme spikes are always flagged
-            if (is300PercentSpike) {
-                pmtType = 'Special';
-            }
-
-            // Existing rules (only apply if not already marked as Special by new rules)
-            if (pmtType !== 'Special') {
-                // Guardrail: If a "spike" repeats in the next payment(s), it's usually a REGULAR step-change,
-                // not a special one-off (e.g., SRV's persistent 0.45 monthly distributions).
-                // We use a looser tolerance here because fund distributions can vary a bit month to month.
-                const repeatsNext = nextAmount !== null && nextAmount > 0 && isApproximatelyEqual(amount, nextAmount, 0.06);
-                const deviationRel = Math.abs(amount - medianAmount) / Math.max(medianAmount, 1e-9);
-
-                // Rule 3 — Amount spike vs median (one-off OR extreme spike)
-                // Only applies if not already caught by 300% rule
-                if ((!repeatsNext) && amount > specialMultiplier * medianAmount) {
+            
+            // PREVENT BACK-TO-BACK SPECIALS: If previous was Special, only mark this as Special if it's extreme (>300%)
+            if (prevWasSpecial && !is300PercentSpike) {
+                // Previous was Special and this isn't extreme - force Regular to prevent back-to-back specials
+                pmtType = 'Regular';
+            } else {
+                // Normal logic (or extreme spike after Special)
+                if (isOffCadence && is300PercentSpike) {
                     pmtType = 'Special';
                 }
 
-                // Rule 4: one-off outlier (higher OR lower) vs recent median
-                if (pmtType !== 'Special' && !repeatsNext && !amountStable && deviationRel >= 0.25) {
+                // NEW RULE 2: Override - amount >300% median ALWAYS special (even if on-cadence)
+                // This is the override rule that ensures extreme spikes are always flagged
+                if (is300PercentSpike) {
                     pmtType = 'Special';
                 }
 
-                // Rule 5 — Round-number specials (one-off)
-                if (pmtType !== 'Special' && !repeatsNext && isRoundNumberSpecial(amount) && amount > roundNumberMultiplier * medianAmount) {
-                    pmtType = 'Special';
+                // Existing rules (only apply if not already marked as Special by new rules)
+                if (pmtType !== 'Special') {
+                    // Guardrail: If a "spike" repeats in the next payment(s), it's usually a REGULAR step-change,
+                    // not a special one-off (e.g., SRV's persistent 0.45 monthly distributions).
+                    // We use a looser tolerance here because fund distributions can vary a bit month to month.
+                    const repeatsNext = nextAmount !== null && nextAmount > 0 && isApproximatelyEqual(amount, nextAmount, 0.06);
+                    const deviationRel = Math.abs(amount - medianAmount) / Math.max(medianAmount, 1e-9);
+
+                    // Rule 3 — Amount spike vs median (one-off OR extreme spike)
+                    // Only applies if not already caught by 300% rule
+                    if ((!repeatsNext) && amount > specialMultiplier * medianAmount) {
+                        pmtType = 'Special';
+                    }
+
+                    // Rule 4: one-off outlier (higher OR lower) vs recent median
+                    if (pmtType !== 'Special' && !repeatsNext && !amountStable && deviationRel >= 0.25) {
+                        pmtType = 'Special';
+                    }
+
+                    // Rule 5 — Round-number specials (one-off)
+                    if (pmtType !== 'Special' && !repeatsNext && isRoundNumberSpecial(amount) && amount > roundNumberMultiplier * medianAmount) {
+                        pmtType = 'Special';
+                    }
                 }
             }
         }
@@ -469,36 +480,6 @@ export function calculateNormalizedDividendsForCEFs(
             regular_component: regularComponent,
             special_component: specialComponent,
         });
-
-        // CRITICAL: Prevent back-to-back specials
-        // If the previous dividend was Special, only mark this as Special if it's an extreme spike (>300%)
-        // This prevents two consecutive Special flags which don't make sense (you can't have two "one-off" payments in a row)
-        if (pmtType === 'Special' && i > 0) {
-            const prevResult = results[results.length - 1];
-            if (prevResult && prevResult.pmt_type === 'Special') {
-                // Previous was Special - only keep this as Special if it's truly extreme (>300% of recent regular median)
-                const recentRegularMedian = median(rollingRegularAmounts.slice(-6));
-                if (recentRegularMedian !== null && recentRegularMedian > 0) {
-                    const isExtremeSpike = amount > 3.0 * recentRegularMedian;
-                    if (!isExtremeSpike) {
-                        // Not extreme enough - demote to Regular
-                        pmtType = 'Regular';
-                        // Also update the frequency_label if it was set to Irregular
-                        if (frequencyLabel === 'Irregular') {
-                            frequencyLabel = rollingRegularGapsToNext.length >= 3
-                                ? (determinePatternFrequencyLabel(rollingRegularGapsToNext) ?? 'Monthly')
-                                : 'Monthly';
-                            frequencyNum = frequencyLabel === 'Weekly' ? 52
-                                : frequencyLabel === 'Monthly' ? 12
-                                : frequencyLabel === 'Quarterly' ? 4
-                                : frequencyLabel === 'Semi-Annual' ? 2
-                                : frequencyLabel === 'Annual' ? 1
-                                : null;
-                        }
-                    }
-                }
-            }
-        }
 
         // Update rolling history only for non-special dividends (so specials don't distort median/pattern)
         if (pmtType !== 'Special' && amount > 0) {
