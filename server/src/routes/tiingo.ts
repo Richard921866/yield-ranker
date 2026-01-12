@@ -548,18 +548,18 @@ router.get("/dividends/:ticker", async (req: Request, res: Response) => {
         const pmtType = (dbDiv as any)?.pmt_type || "Regular";
         const isSpecial = pmtType === "Special";
 
-        // Map frequency_label to frequency string for display
+        // Map frequency column to frequency string for display
         // CRITICAL: If DB says Special, UI must show 'Other'
         let frequencyStr: string | null = null;
         if (isSpecial) {
           frequencyStr = "Other";
         } else {
-          const frequencyLabel = (dbDiv as any)?.frequency_label;
-          if (frequencyLabel) {
-            frequencyStr =
-              frequencyLabel === "Irregular" ? "Irregular" : frequencyLabel;
+          // The database column is 'frequency', not 'frequency_label'
+          const frequency = (dbDiv as any)?.frequency;
+          if (frequency) {
+            frequencyStr = frequency;
           } else {
-            // Fallback only if DB has no frequency_label (shouldn't happen after refresh)
+            // Fallback only if DB has no frequency (shouldn't happen after refresh)
             frequencyStr = d.frequency || null;
           }
         }
@@ -570,7 +570,7 @@ router.get("/dividends/:ticker", async (req: Request, res: Response) => {
           pmtType: pmtType as "Regular" | "Special" | "Initial",
           frequency: frequencyStr, // Include frequency string for UI display
           // If DB says Special, frequencyNum MUST be 1 (already set by refresh script)
-          frequencyNum: isSpecial ? 1 : ((dbDiv as any)?.frequency_num ?? null),
+          frequencyNum: isSpecial ? 1 : (dbDiv as any)?.frequency_num ?? null,
           daysSincePrev: (dbDiv as any)?.days_since_prev ?? null,
           // Use pre-calculated math from the refresh script - do not recalculate
           annualized: (dbDiv as any)?.annualized ?? null,
