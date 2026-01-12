@@ -695,6 +695,7 @@ async function refreshCEF(ticker: string): Promise<void> {
       const dividendsForNormalization = await getDividendHistory(ticker.toUpperCase(), "2009-01-01");
       
       if (dividendsForNormalization.length > 0) {
+        console.log(`  📊 Normalizing ${dividendsForNormalization.length} dividends...`);
         const dividendInputs = dividendsForNormalization
           .filter(d => d.id !== undefined && d.id !== null)
           .map(d => ({
@@ -706,6 +707,11 @@ async function refreshCEF(ticker: string): Promise<void> {
           }));
         
         const normalizedResults = calculateNormalizedDividendsForCEFs(dividendInputs);
+        const specialCount = normalizedResults.filter(r => r.pmt_type === 'Special').length;
+        if (specialCount > 0) {
+          console.log(`  ✨ Detected ${specialCount} Special dividend(s)`);
+        }
+        
         const updates = normalizedResults.map(result => {
           // CEF rules:
           // - frequency is derived from gap-days + history override (see calculateNormalizedDividendsForCEFs)
@@ -732,6 +738,7 @@ async function refreshCEF(ticker: string): Promise<void> {
         });
         
         const BATCH_SIZE = 100;
+        let updateCount = 0;
         for (let i = 0; i < updates.length; i += BATCH_SIZE) {
           const batch = updates.slice(i, i + BATCH_SIZE);
           const updatePromises = batch.map(update => (async () => {
@@ -765,11 +772,18 @@ async function refreshCEF(ticker: string): Promise<void> {
 
               if (fallbackError) {
                 console.error(`  ⚠ Failed to update dividend ${update.id}: ${fallbackError.message}`);
+              } else {
+                updateCount++;
               }
+            } else {
+              updateCount++;
             }
           })());
           await Promise.all(updatePromises);
         }
+        console.log(`  ✓ Updated ${updateCount} dividend records with normalized fields`);
+      } else {
+        console.log(`  ⚠ No dividends found for normalization`);
       }
     } catch (error) {
       console.error(`  ⚠ Error normalizing dividends for ${ticker}:`, error);
