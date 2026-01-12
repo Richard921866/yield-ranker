@@ -15,7 +15,7 @@ import {
 } from '../services/database.js';
 import { fetchPriceHistory as fetchTiingoPrices, fetchDividendHistory as fetchTiingoDividends } from '../services/tiingo.js';
 import { calculateMetrics, getChartData, calculateRankings, calculateRealtimeReturns, calculateRealtimeReturnsBatch } from '../services/metrics.js';
-import { calculateNormalizedForResponse } from '../services/dividendNormalization.js';
+import { calculateNormalizedForResponse, calculateNormalizedDividendsForCEFs } from '../services/dividendNormalization.js';
 import { periodToStartDate, getDateYearsAgo, logger, formatDate } from '../utils/index.js';
 import type { ChartPeriod, RankingWeights, DividendRecord } from '../types/index.js';
 
@@ -423,36 +423,72 @@ router.get('/dividends/:ticker', async (req: Request, res: Response) => {
       };
     });
 
-    // Compute normalized fields LIVE from the series (prevents stale DB pmt_type/frequency issues).
-    // `calculateNormalizedForResponse` returns results in DESC order by exDate.
-    const liveNormalizedDesc = calculateNormalizedForResponse(dividendRecords);
-    const dividendRecordsDesc = [...dividendRecords].sort(
-      (a, b) => new Date(b.exDate).getTime() - new Date(a.exDate).getTime()
-    );
-
-    // Attach any component splits from DB if present (mostly relevant to CEF routes, but harmless here).
+    // Check if this is a CEF (has nav_symbol)
+    const isCEF = staticData?.nav_symbol && staticData.nav_symbol !== '';
+    
+    // For CEFs: Use database values (already calculated correctly by refresh_cef.ts)
+    // For ETFs: Recalculate live (prevents stale DB pmt_type/frequency issues)
     const dividendsByDateMap = new Map<string, any>();
     dividends.forEach((d) => {
       const exDate = d.ex_date.split('T')[0];
       dividendsByDateMap.set(exDate, d);
     });
 
-    const dividendsWithNormalized = dividendRecordsDesc.map((d, i) => {
-      const normalizedExDate = d.exDate.split('T')[0];
-      const dbDiv = dividendsByDateMap.get(normalizedExDate);
-      const live = liveNormalizedDesc[i];
+    let dividendsWithNormalized;
+    if (isCEF) {
+      // For CEFs: Use database values directly (already normalized by refresh_cef.ts)
+      const dividendRecordsDesc = [...dividendRecords].sort(
+        (a, b) => new Date(b.exDate).getTime() - new Date(a.exDate).getTime()
+      );
+      
+      dividendsWithNormalized = dividendRecordsDesc.map((d) => {
+        const normalizedExDate = d.exDate.split('T')[0];
+        const dbDiv = dividendsByDateMap.get(normalizedExDate);
+        
+        // Map frequency_label to frequency string for display
+        const frequencyLabel = (dbDiv as any)?.frequency_label;
+        let frequencyStr: string | null = null;
+        if ((dbDiv as any)?.pmt_type === 'Special') {
+          frequencyStr = 'Other';
+        } else if (frequencyLabel) {
+          frequencyStr = frequencyLabel === 'Irregular' ? 'Irregular' : frequencyLabel;
+        }
+        
+        return {
+          ...d,
+          pmtType: ((dbDiv as any)?.pmt_type ?? 'Regular') as 'Regular' | 'Special' | 'Initial',
+          frequencyNum: (dbDiv as any)?.frequency_num ?? 12,
+          daysSincePrev: (dbDiv as any)?.days_since_prev ?? null,
+          annualized: (dbDiv as any)?.annualized ?? null,
+          normalizedDiv: (dbDiv as any)?.normalized_div ?? null,
+          regularComponent: (dbDiv as any)?.regular_component ?? null,
+          specialComponent: (dbDiv as any)?.special_component ?? null,
+        };
+      });
+    } else {
+      // For ETFs: Recalculate live using general normalization
+      const liveNormalizedDesc = calculateNormalizedForResponse(dividendRecords);
+      const dividendRecordsDesc = [...dividendRecords].sort(
+        (a, b) => new Date(b.exDate).getTime() - new Date(a.exDate).getTime()
+      );
 
-      return {
-        ...d,
-        pmtType: (live?.pmtType ?? 'Regular') as 'Regular' | 'Special' | 'Initial',
-        frequencyNum: live?.frequencyNum ?? 12,
-        daysSincePrev: live?.daysSincePrev ?? null,
-        annualized: live?.annualized ?? null,
-        normalizedDiv: live?.normalizedDiv ?? null,
-        regularComponent: (dbDiv as any)?.regular_component ?? null,
-        specialComponent: (dbDiv as any)?.special_component ?? null,
-      };
-    });
+      dividendsWithNormalized = dividendRecordsDesc.map((d, i) => {
+        const normalizedExDate = d.exDate.split('T')[0];
+        const dbDiv = dividendsByDateMap.get(normalizedExDate);
+        const live = liveNormalizedDesc[i];
+
+        return {
+          ...d,
+          pmtType: (live?.pmtType ?? 'Regular') as 'Regular' | 'Special' | 'Initial',
+          frequencyNum: live?.frequencyNum ?? 12,
+          daysSincePrev: live?.daysSincePrev ?? null,
+          annualized: live?.annualized ?? null,
+          normalizedDiv: live?.normalizedDiv ?? null,
+          regularComponent: (dbDiv as any)?.regular_component ?? null,
+          specialComponent: (dbDiv as any)?.special_component ?? null,
+        };
+      });
+    }
 
     // Recompute lastDividend using LIVE pmtType so special stubs don’t pollute the run-rate.
     lastDividend = null;
