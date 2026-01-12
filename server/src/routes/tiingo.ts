@@ -546,24 +546,32 @@ router.get("/dividends/:ticker", async (req: Request, res: Response) => {
         // THE SUPREME COURT FIX: Trust the DB, do not recalculate
         // For CEFs, use values calculated by refresh_cef.ts - they are correct!
         const frequencyFromDB = (dbDiv as any)?.frequency;
-        let pmtType = (dbDiv as any)?.pmt_type || "Regular";
-
-        // CRITICAL SAFEGUARD: If database has frequency="Other", it MUST be a Special (refresh script rule)
-        // This is the PRIMARY way to detect Specials - frequency="Other" is the source of truth
-        // Check frequency FIRST before falling back to pmt_type
+        const pmtTypeFromDB = (dbDiv as any)?.pmt_type;
+        
+        // CRITICAL: frequency="Other" is the PRIMARY source of truth for Specials
+        // If frequency is "Other", it MUST be Special (regardless of pmt_type value)
+        let pmtType: "Regular" | "Special" | "Initial";
         if (frequencyFromDB === "Other") {
-          pmtType = "Special"; // Force Special if frequency is "Other"
+          pmtType = "Special"; // Force Special - frequency="Other" is definitive
+        } else {
+          pmtType = (pmtTypeFromDB === "Special" || pmtTypeFromDB === "Initial") 
+            ? pmtTypeFromDB 
+            : "Regular";
         }
 
         const isSpecial = pmtType === "Special";
 
+        // TRIPLE CHECK: Ensure type field matches pmtType (frontend fallback)
+        const typeField = isSpecial ? "Special" : "Regular";
+
         return {
           ...d,
           // CRITICAL: Override the buggy 'type' field (from div_type) to match pmtType
-          // Frontend falls back to 'type' if pmtType is missing, so this must be correct
-          type: isSpecial ? "Special" : "Regular",
+          // Frontend uses: div.pmtType || (div.type === 'Special' ? 'Special' : 'Regular')
+          // So BOTH fields must be correct
+          type: typeField,
           // Use database values - no fallbacks that could override Special
-          pmtType: pmtType as "Regular" | "Special" | "Initial",
+          pmtType: pmtType,
           // CRITICAL: For Specials, ALWAYS use "Other". For Regulars, ONLY use DB value (no fallback to buggy detectFrequencyFromDates)
           frequency: isSpecial ? "Other" : frequencyFromDB || null, // NO fallback to d.frequency - it's from buggy detectFrequencyFromDates!
           // For Specials, set frequencyNum to null (not 1) so frontend doesn't show "Annual"
