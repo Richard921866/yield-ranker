@@ -545,13 +545,14 @@ router.get("/dividends/:ticker", async (req: Request, res: Response) => {
 
         // THE SUPREME COURT FIX: Trust the DB, do not recalculate
         // For CEFs, use values calculated by refresh_cef.ts - they are correct!
+        const frequencyFromDB = (dbDiv as any)?.frequency;
         let pmtType = (dbDiv as any)?.pmt_type || "Regular";
 
-        // SAFEGUARD: If database has frequency="Other", it MUST be a Special (refresh script rule)
-        // This handles edge cases where pmt_type might be null but frequency is "Other"
-        const frequencyFromDB = (dbDiv as any)?.frequency;
-        if (frequencyFromDB === "Other" && pmtType !== "Special") {
-          pmtType = "Special";
+        // CRITICAL SAFEGUARD: If database has frequency="Other", it MUST be a Special (refresh script rule)
+        // This is the PRIMARY way to detect Specials - frequency="Other" is the source of truth
+        // Check frequency FIRST before falling back to pmt_type
+        if (frequencyFromDB === "Other") {
+          pmtType = "Special"; // Force Special if frequency is "Other"
         }
 
         const isSpecial = pmtType === "Special";
