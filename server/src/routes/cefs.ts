@@ -519,7 +519,8 @@ export async function calculateAllNAVReturns(
       if (!startRecord) return null;
 
       const validEndNav = navData.filter((p) => p.date <= endDate);
-      const endRecord = validEndNav.length > 0 ? validEndNav[validEndNav.length - 1] : null;
+      const endRecord =
+        validEndNav.length > 0 ? validEndNav[validEndNav.length - 1] : null;
       if (!endRecord || startRecord.date > endRecord.date) return null;
 
       const startNav = startRecord.adj_close ?? startRecord.close;
@@ -530,9 +531,14 @@ export async function calculateAllNAVReturns(
       const totalReturn = (endNav / startNav - 1) * 100;
       if (totalReturn <= -100) return -100;
 
-      const annualizedReturn = (Math.pow(1 + totalReturn / 100, 1 / years) - 1) * 100;
+      const annualizedReturn =
+        (Math.pow(1 + totalReturn / 100, 1 / years) - 1) * 100;
 
-      if (!isFinite(annualizedReturn) || annualizedReturn < -100 || annualizedReturn > 1000) {
+      if (
+        !isFinite(annualizedReturn) ||
+        annualizedReturn < -100 ||
+        annualizedReturn > 1000
+      ) {
         return null;
       }
 
@@ -797,7 +803,7 @@ export async function calculateNAVReturns(
  * - Gate 1 (Value Gate): Z-Score < -1.0 → +1 point
  * - Gate 2 (Short-Term Health): 6 Mo NAV Trend > 0 → +1 point
  * - Gate 3 (Long-Term Health): 12 Mo NAV Trend > 0 → +1 point
- * 
+ *
  * Total Signal Score: Sum of points (0 to +3)
  * - +3: All three gates pass (Optimal)
  * - +2: Two gates pass
@@ -856,24 +862,28 @@ export async function calculateSignal(
 
     // 3-Point Binary Scoring System
     // Each gate awards +1 if condition is met, 0 otherwise
-    
+
     // Gate 1: Value Gate - Z-Score < -1.0
     const gate1Value = z < -1.0 ? 1 : 0;
-    
+
     // Gate 2: Short-Term Health - 6 Mo NAV Trend > 0
     const gate2ShortTerm = t6 > 0 ? 1 : 0;
-    
+
     // Gate 3: Long-Term Health - 12 Mo NAV Trend > 0
     const gate3LongTerm = t12 > 0 ? 1 : 0;
-    
+
     // Total Signal Score: Sum of all gates (0 to +3)
     const signalScore = gate1Value + gate2ShortTerm + gate3LongTerm;
-    
+
     logger.info(
       "CEF Metrics",
-      `Signal ${signalScore} for ${ticker}: Gate1(Value:${gate1Value}, z=${z.toFixed(2)}), Gate2(6M:${gate2ShortTerm}, t6=${t6.toFixed(2)}%), Gate3(12M:${gate3LongTerm}, t12=${t12.toFixed(2)}%)`
+      `Signal ${signalScore} for ${ticker}: Gate1(Value:${gate1Value}, z=${z.toFixed(
+        2
+      )}), Gate2(6M:${gate2ShortTerm}, t6=${t6.toFixed(
+        2
+      )}%), Gate3(12M:${gate3LongTerm}, t12=${t12.toFixed(2)}%)`
     );
-    
+
     return signalScore;
   } catch (error) {
     logger.warn(
@@ -892,7 +902,7 @@ export async function calculateSignal(
  * - TR 3MO: 5% (higher is better, rank 1 = highest)
  * - TR 6MO: 25% (higher is better, rank 1 = highest)
  * - TR 12MO: 1% (higher is better, rank 1 = highest)
- * 
+ *
  * Returns Map<ticker, weightedRank> where lower rank = better (1 = best)
  */
 export async function calculateCEFRankings(): Promise<Map<string, number>> {
@@ -902,7 +912,9 @@ export async function calculateCEFRankings(): Promise<Map<string, number>> {
     // Get all CEFs (those with nav_symbol)
     const { data: cefs, error } = await db
       .from("etf_static")
-      .select("ticker, forward_yield, five_year_z_score, tr_drip_3m, tr_drip_6m, tr_drip_12m")
+      .select(
+        "ticker, forward_yield, five_year_z_score, tr_drip_3m, tr_drip_6m, tr_drip_12m"
+      )
       .not("nav_symbol", "is", null)
       .not("nav_symbol", "eq", "");
 
@@ -932,11 +944,11 @@ export async function calculateCEFRankings(): Promise<Map<string, number>> {
 
     // Weights from spreadsheet
     const weights = {
-      yield: 25,      // 25%
-      zScore: 50,     // 50% (DVI equivalent)
-      return3Mo: 5,   // 5%
-      return6Mo: 25,  // 25%
-      return12Mo: 1,  // 1%
+      yield: 25, // 25%
+      zScore: 50, // 50% (DVI equivalent)
+      return3Mo: 5, // 5%
+      return6Mo: 25, // 25%
+      return12Mo: 1, // 1%
     };
 
     // Rank each metric from 1 (best) to N (worst)
@@ -973,9 +985,15 @@ export async function calculateCEFRankings(): Promise<Map<string, number>> {
     // Create maps for quick lookup
     const yieldRankMap = new Map(yieldRanked.map((r) => [r.ticker, r.rank]));
     const zScoreRankMap = new Map(zScoreRanked.map((r) => [r.ticker, r.rank]));
-    const return3MoRankMap = new Map(return3MoRanked.map((r) => [r.ticker, r.rank]));
-    const return6MoRankMap = new Map(return6MoRanked.map((r) => [r.ticker, r.rank]));
-    const return12MoRankMap = new Map(return12MoRanked.map((r) => [r.ticker, r.rank]));
+    const return3MoRankMap = new Map(
+      return3MoRanked.map((r) => [r.ticker, r.rank])
+    );
+    const return6MoRankMap = new Map(
+      return6MoRanked.map((r) => [r.ticker, r.rank])
+    );
+    const return12MoRankMap = new Map(
+      return12MoRanked.map((r) => [r.ticker, r.rank])
+    );
 
     // Calculate total scores for each CEF
     // Use worst rank (total number of CEFs) for missing data
@@ -1022,10 +1040,7 @@ export async function calculateCEFRankings(): Promise<Map<string, number>> {
 
     return finalRanks;
   } catch (error) {
-    logger.warn(
-      "CEF Rankings",
-      `Failed to calculate CEF rankings: ${error}`
-    );
+    logger.warn("CEF Rankings", `Failed to calculate CEF rankings: ${error}`);
     return new Map();
   }
 }
@@ -1110,13 +1125,13 @@ export function calculateDividendHistory(dividends: DividendRecord[]): string {
   const regularDivs = dividends
     .filter((d) => {
       const divAny = d as any;
-      
+
       // First priority: Trust pmt_type if available (from CEF normalization)
       if (divAny.pmt_type !== null && divAny.pmt_type !== undefined) {
         // Only include Regular or Initial payments (exclude Special)
         return divAny.pmt_type === "Regular" || divAny.pmt_type === "Initial";
       }
-      
+
       // Fallback: Check div_type (from external data source - often inaccurate)
       if (!d.div_type) return true;
       const dtype = d.div_type.toLowerCase();
@@ -1158,9 +1173,9 @@ export function calculateDividendHistory(dividends: DividendRecord[]): string {
   // IMPORTANT: Use UNADJUSTED dividends (div_cash) only - NOT adj_amount
   // Initialize base to 0.20 (matching Python script initial_base parameter)
   // This represents the base level from before 2009-01-01
-  let base = 0.20; // Initial base (from pre-2009 level)
+  let base = 0.2; // Initial base (from pre-2009 level)
   const threshold = 0.011; // Threshold to filter out 1-cent fluctuations/noise
-  
+
   let increases = 0;
   let decreases = 0;
 
@@ -1186,7 +1201,7 @@ export function calculateDividendHistory(dividends: DividendRecord[]): string {
       // Equal payments: both just need to be above base (no threshold check)
       increases++;
       base = p1; // Update base to the confirmed new level (p1)
-    } else if (p1 > (base + threshold) && p2 > base && p2 >= p1) {
+    } else if (p1 > base + threshold && p2 > base && p2 >= p1) {
       // Unequal payments: need threshold check AND p2 >= p1 (must be sustained, not a spike that goes back down)
       increases++;
       base = p1; // Update base to the confirmed new level (p1)
@@ -1560,7 +1575,11 @@ router.post(
         let categoryValue: string | null = null;
         if (hasCategoryColumn && categoryCol && row[categoryCol]) {
           categoryValue = String(row[categoryCol]).trim().toUpperCase();
-          if (categoryValue && categoryValue !== "CEF" && categoryValue !== "CCETF") {
+          if (
+            categoryValue &&
+            categoryValue !== "CEF" &&
+            categoryValue !== "CCETF"
+          ) {
             logger.warn(
               "CEF Upload",
               `Row with ticker ${ticker} has invalid CATEGORY "${categoryValue}" - must be "CEF" or "CCETF". Skipping.`
@@ -1783,7 +1802,7 @@ router.post(
             added++;
             logger.info("CEF Upload", `Successfully added ${ticker}`);
           }
-          
+
           // Track this ticker for metric calculation
           processedTickers.push(ticker);
         }
@@ -1825,14 +1844,22 @@ router.post(
         const BATCH_SIZE = 5;
         for (let i = 0; i < processedTickers.length; i += BATCH_SIZE) {
           const batch = processedTickers.slice(i, i + BATCH_SIZE);
-          
-          logger.info("CEF Upload", `Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(processedTickers.length / BATCH_SIZE)} (${batch.length} CEFs)...`);
-          
+
+          logger.info(
+            "CEF Upload",
+            `Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(
+              processedTickers.length / BATCH_SIZE
+            )} (${batch.length} CEFs)...`
+          );
+
           await Promise.allSettled(
             batch.map(async (ticker) => {
               try {
-                logger.info("CEF Upload", `Processing metrics for ${ticker}...`);
-                
+                logger.info(
+                  "CEF Upload",
+                  `Processing metrics for ${ticker}...`
+                );
+
                 // First, fetch price and dividend data if needed (same as refreshCEF does)
                 const priceStartDate = new Date();
                 priceStartDate.setDate(priceStartDate.getDate() - 730); // 2 years
@@ -1840,99 +1867,146 @@ router.post(
                 dividendStartDate.setDate(dividendStartDate.getDate() - 730); // 2 years
 
                 // Fetch data in parallel and WAIT for it to be saved before calculating metrics
-                logger.info("CEF Upload", `${ticker}: Fetching price and dividend data...`);
-                const [pricesResult, dividendsResult] = await Promise.allSettled([
-                  fetchPriceHistory(ticker, formatDate(priceStartDate))
-                    .then(async (tiingoPrices) => {
-                      // Convert TiingoPriceData[] to PriceRecord[] format
-                      if (tiingoPrices && tiingoPrices.length > 0) {
-                        const { upsertPrices } = await import("../services/database.js");
-                        const priceRecords = tiingoPrices.map((p) => ({
-                          ticker: ticker.toUpperCase(),
-                          date: p.date.split("T")[0],
-                          open: p.open,
-                          high: p.high,
-                          low: p.low,
-                          close: p.close,
-                          adj_close: p.adjClose,
-                          adj_open: p.adjOpen,
-                          adj_high: p.adjHigh,
-                          adj_low: p.adjLow,
-                          volume: p.volume,
-                          adj_volume: null, // Tiingo doesn't provide adjusted volume
-                          div_cash: p.divCash || 0,
-                          split_factor: p.splitFactor || 1,
-                        }));
-                        const count = await upsertPrices(priceRecords);
-                        logger.info("CEF Upload", `${ticker}: Saved ${count} price records`);
-                      } else {
-                        logger.warn("CEF Upload", `${ticker}: No price data fetched`);
+                logger.info(
+                  "CEF Upload",
+                  `${ticker}: Fetching price and dividend data...`
+                );
+                const [pricesResult, dividendsResult] =
+                  await Promise.allSettled([
+                    fetchPriceHistory(ticker, formatDate(priceStartDate)).then(
+                      async (tiingoPrices) => {
+                        // Convert TiingoPriceData[] to PriceRecord[] format
+                        if (tiingoPrices && tiingoPrices.length > 0) {
+                          const { upsertPrices } = await import(
+                            "../services/database.js"
+                          );
+                          const priceRecords = tiingoPrices.map((p) => ({
+                            ticker: ticker.toUpperCase(),
+                            date: p.date.split("T")[0],
+                            open: p.open,
+                            high: p.high,
+                            low: p.low,
+                            close: p.close,
+                            adj_close: p.adjClose,
+                            adj_open: p.adjOpen,
+                            adj_high: p.adjHigh,
+                            adj_low: p.adjLow,
+                            volume: p.volume,
+                            adj_volume: null, // Tiingo doesn't provide adjusted volume
+                            div_cash: p.divCash || 0,
+                            split_factor: p.splitFactor || 1,
+                          }));
+                          const count = await upsertPrices(priceRecords);
+                          logger.info(
+                            "CEF Upload",
+                            `${ticker}: Saved ${count} price records`
+                          );
+                        } else {
+                          logger.warn(
+                            "CEF Upload",
+                            `${ticker}: No price data fetched`
+                          );
+                        }
+                        return tiingoPrices;
                       }
-                      return tiingoPrices;
-                    }),
-                  fetchDividendHistory(ticker, formatDate(dividendStartDate))
-                    .then(async (tiingoDividends) => {
+                    ),
+                    fetchDividendHistory(
+                      ticker,
+                      formatDate(dividendStartDate)
+                    ).then(async (tiingoDividends) => {
                       // Convert Tiingo dividend format to DividendRecord[] format
                       if (tiingoDividends && tiingoDividends.length > 0) {
-                        const { upsertDividends } = await import("../services/database.js");
+                        const { upsertDividends } = await import(
+                          "../services/database.js"
+                        );
                         const dividendRecords = tiingoDividends.map((d) => ({
                           ticker: ticker.toUpperCase(),
                           ex_date: d.date.split("T")[0],
                           pay_date: d.paymentDate?.split("T")[0] || null,
                           record_date: d.recordDate?.split("T")[0] || null,
-                          declare_date: d.declarationDate?.split("T")[0] || null,
+                          declare_date:
+                            d.declarationDate?.split("T")[0] || null,
                           div_cash: d.dividend,
                           adj_amount: d.adjDividend > 0 ? d.adjDividend : null,
-                          scaled_amount: d.scaledDividend > 0 ? d.scaledDividend : null,
-                          split_factor: d.adjDividend > 0 && d.dividend > 0 ? d.dividend / d.adjDividend : 1,
+                          scaled_amount:
+                            d.scaledDividend > 0 ? d.scaledDividend : null,
+                          split_factor:
+                            d.adjDividend > 0 && d.dividend > 0
+                              ? d.dividend / d.adjDividend
+                              : 1,
                           div_type: null,
                           frequency: null,
-                          currency: 'USD',
+                          currency: "USD",
                           description: null,
                           is_manual: false,
                         }));
                         const count = await upsertDividends(dividendRecords);
-                        logger.info("CEF Upload", `${ticker}: Saved ${count} dividend records`);
+                        logger.info(
+                          "CEF Upload",
+                          `${ticker}: Saved ${count} dividend records`
+                        );
                       } else {
-                        logger.warn("CEF Upload", `${ticker}: No dividend data fetched`);
+                        logger.warn(
+                          "CEF Upload",
+                          `${ticker}: No dividend data fetched`
+                        );
                       }
                       return tiingoDividends;
                     }),
-                ]);
+                  ]);
 
                 // Log fetch results
-                if (pricesResult.status === 'rejected') {
-                  logger.error("CEF Upload", `${ticker}: Failed to fetch prices: ${pricesResult.reason}`);
+                if (pricesResult.status === "rejected") {
+                  logger.error(
+                    "CEF Upload",
+                    `${ticker}: Failed to fetch prices: ${pricesResult.reason}`
+                  );
                 }
-                if (dividendsResult.status === 'rejected') {
-                  logger.error("CEF Upload", `${ticker}: Failed to fetch dividends: ${dividendsResult.reason}`);
+                if (dividendsResult.status === "rejected") {
+                  logger.error(
+                    "CEF Upload",
+                    `${ticker}: Failed to fetch dividends: ${dividendsResult.reason}`
+                  );
                 }
 
                 // Calculate normalized dividends (same as refreshCEF)
                 try {
-                  const { calculateNormalizedDividends } = await import("../services/dividendNormalization.js");
-                  const dividendsForNormalization = await getDividendHistory(ticker, "2009-01-01");
-                  
+                  const { calculateNormalizedDividends } = await import(
+                    "../services/dividendNormalization.js"
+                  );
+                  const dividendsForNormalization = await getDividendHistory(
+                    ticker,
+                    "2009-01-01"
+                  );
+
                   if (dividendsForNormalization.length > 0) {
                     const dividendInputs = dividendsForNormalization
-                      .filter(d => d.id !== undefined && d.id !== null)
-                      .map(d => ({
+                      .filter((d) => d.id !== undefined && d.id !== null)
+                      .map((d) => ({
                         id: d.id!,
                         ticker: d.ticker,
                         ex_date: d.ex_date,
                         div_cash: Number(d.div_cash),
                         adj_amount: d.adj_amount ? Number(d.adj_amount) : null,
                       }));
-                    
-                    const normalizedResults = calculateNormalizedDividends(dividendInputs);
-                    
+
+                    const normalizedResults =
+                      calculateNormalizedDividends(dividendInputs);
+
                     // Batch update normalized values
                     const BATCH_SIZE_NORM = 100;
-                    for (let j = 0; j < normalizedResults.length; j += BATCH_SIZE_NORM) {
-                      const normBatch = normalizedResults.slice(j, j + BATCH_SIZE_NORM);
-                      const updatePromises = normBatch.map(result => 
+                    for (
+                      let j = 0;
+                      j < normalizedResults.length;
+                      j += BATCH_SIZE_NORM
+                    ) {
+                      const normBatch = normalizedResults.slice(
+                        j,
+                        j + BATCH_SIZE_NORM
+                      );
+                      const updatePromises = normBatch.map((result) =>
                         supabase
-                          .from('dividends_detail')
+                          .from("dividends_detail")
                           .update({
                             days_since_prev: result.days_since_prev,
                             pmt_type: result.pmt_type,
@@ -1940,13 +2014,18 @@ router.post(
                             annualized: result.annualized,
                             normalized_div: result.normalized_div,
                           })
-                          .eq('id', result.id)
+                          .eq("id", result.id)
                       );
                       await Promise.all(updatePromises);
                     }
                   }
                 } catch (normError) {
-                  logger.warn("CEF Upload", `Failed to calculate normalized dividends for ${ticker}: ${(normError as Error).message}`);
+                  logger.warn(
+                    "CEF Upload",
+                    `Failed to calculate normalized dividends for ${ticker}: ${
+                      (normError as Error).message
+                    }`
+                  );
                 }
 
                 // Get CEF data to determine NAV symbol
@@ -1957,14 +2036,20 @@ router.post(
                   .maybeSingle();
 
                 if (cefDataError) {
-                  logger.error("CEF Upload", `Failed to fetch CEF data for ${ticker}: ${cefDataError.message}`);
+                  logger.error(
+                    "CEF Upload",
+                    `Failed to fetch CEF data for ${ticker}: ${cefDataError.message}`
+                  );
                   throw cefDataError;
                 }
 
                 const navSymbol = cefData?.nav_symbol || null;
                 const navSymbolForCalc = navSymbol || ticker;
-                
-                logger.info("CEF Upload", `${ticker}: Using NAV symbol: ${navSymbolForCalc}`);
+
+                logger.info(
+                  "CEF Upload",
+                  `${ticker}: Using NAV symbol: ${navSymbolForCalc}`
+                );
 
                 // Calculate CEF-specific metrics (Z-Score, NAV Trends, Signal, etc.)
                 // Import CEF calculation functions
@@ -1978,29 +2063,43 @@ router.post(
 
                 // Calculate all metrics in parallel where possible
                 // Add detailed error logging for each calculation
-                const [
-                  metrics,
-                  fiveYearZScore,
-                  navTrend6M,
-                  navTrend12M,
-                ] = await Promise.all([
-                  calculateMetrics(ticker).catch((err) => {
-                    logger.error("CEF Upload", `${ticker}: calculateMetrics failed: ${err.message}`);
-                    throw err;
-                  }),
-                  calculateCEFZScore(ticker, navSymbolForCalc).catch((err) => {
-                    logger.warn("CEF Upload", `${ticker}: calculateCEFZScore failed: ${err.message}`);
-                    return null;
-                  }),
-                  navSymbolForCalc ? calculateNAVTrend6M(navSymbolForCalc).catch((err) => {
-                    logger.warn("CEF Upload", `${ticker}: calculateNAVTrend6M failed: ${err.message}`);
-                    return null;
-                  }) : Promise.resolve(null),
-                  navSymbolForCalc ? calculateNAVReturn12M(navSymbolForCalc).catch((err) => {
-                    logger.warn("CEF Upload", `${ticker}: calculateNAVReturn12M failed: ${err.message}`);
-                    return null;
-                  }) : Promise.resolve(null),
-                ]);
+                const [metrics, fiveYearZScore, navTrend6M, navTrend12M] =
+                  await Promise.all([
+                    calculateMetrics(ticker).catch((err) => {
+                      logger.error(
+                        "CEF Upload",
+                        `${ticker}: calculateMetrics failed: ${err.message}`
+                      );
+                      throw err;
+                    }),
+                    calculateCEFZScore(ticker, navSymbolForCalc).catch(
+                      (err) => {
+                        logger.warn(
+                          "CEF Upload",
+                          `${ticker}: calculateCEFZScore failed: ${err.message}`
+                        );
+                        return null;
+                      }
+                    ),
+                    navSymbolForCalc
+                      ? calculateNAVTrend6M(navSymbolForCalc).catch((err) => {
+                          logger.warn(
+                            "CEF Upload",
+                            `${ticker}: calculateNAVTrend6M failed: ${err.message}`
+                          );
+                          return null;
+                        })
+                      : Promise.resolve(null),
+                    navSymbolForCalc
+                      ? calculateNAVReturn12M(navSymbolForCalc).catch((err) => {
+                          logger.warn(
+                            "CEF Upload",
+                            `${ticker}: calculateNAVReturn12M failed: ${err.message}`
+                          );
+                          return null;
+                        })
+                      : Promise.resolve(null),
+                  ]);
 
                 // Calculate Signal (requires Z-Score and NAV trends)
                 let signal: number | null = null;
@@ -2013,18 +2112,31 @@ router.post(
                     navTrend12M
                   );
                 } catch (error) {
-                  logger.warn("CEF Upload", `Failed to calculate Signal for ${ticker}: ${(error as Error).message}`);
+                  logger.warn(
+                    "CEF Upload",
+                    `Failed to calculate Signal for ${ticker}: ${
+                      (error as Error).message
+                    }`
+                  );
                 }
 
                 // Calculate Dividend History
                 let dividendHistory: string | null = null;
                 try {
-                  const dividends = await getDividendHistory(ticker, "2009-01-01");
+                  const dividends = await getDividendHistory(
+                    ticker,
+                    "2009-01-01"
+                  );
                   if (dividends && dividends.length > 0) {
                     dividendHistory = calculateDividendHistory(dividends);
                   }
                 } catch (error) {
-                  logger.warn("CEF Upload", `Failed to calculate Dividend History for ${ticker}: ${(error as Error).message}`);
+                  logger.warn(
+                    "CEF Upload",
+                    `Failed to calculate Dividend History for ${ticker}: ${
+                      (error as Error).message
+                    }`
+                  );
                 }
 
                 // Update database with ALL calculated metrics (ETF + CEF-specific)
@@ -2043,21 +2155,22 @@ router.post(
                       dividend_sd: metrics.dividendSD,
                       dividend_cv: metrics.dividendCV,
                       dividend_cv_percent: metrics.dividendCVPercent,
-                      dividend_volatility_index: metrics.dividendVolatilityIndex,
+                      dividend_volatility_index:
+                        metrics.dividendVolatilityIndex,
                       week_52_high: metrics.week52High,
                       week_52_low: metrics.week52Low,
-                      tr_drip_3y: metrics.totalReturnDrip?.['3Y'],
-                      tr_drip_12m: metrics.totalReturnDrip?.['1Y'],
-                      tr_drip_6m: metrics.totalReturnDrip?.['6M'],
-                      tr_drip_3m: metrics.totalReturnDrip?.['3M'],
-                      tr_drip_1m: metrics.totalReturnDrip?.['1M'],
-                      tr_drip_1w: metrics.totalReturnDrip?.['1W'],
-                      price_return_3y: metrics.priceReturn?.['3Y'],
-                      price_return_12m: metrics.priceReturn?.['1Y'],
-                      price_return_6m: metrics.priceReturn?.['6M'],
-                      price_return_3m: metrics.priceReturn?.['3M'],
-                      price_return_1m: metrics.priceReturn?.['1M'],
-                      price_return_1w: metrics.priceReturn?.['1W'],
+                      tr_drip_3y: metrics.totalReturnDrip?.["3Y"],
+                      tr_drip_12m: metrics.totalReturnDrip?.["1Y"],
+                      tr_drip_6m: metrics.totalReturnDrip?.["6M"],
+                      tr_drip_3m: metrics.totalReturnDrip?.["3M"],
+                      tr_drip_1m: metrics.totalReturnDrip?.["1M"],
+                      tr_drip_1w: metrics.totalReturnDrip?.["1W"],
+                      price_return_3y: metrics.priceReturn?.["3Y"],
+                      price_return_12m: metrics.priceReturn?.["1Y"],
+                      price_return_6m: metrics.priceReturn?.["6M"],
+                      price_return_3m: metrics.priceReturn?.["3M"],
+                      price_return_1m: metrics.priceReturn?.["1M"],
+                      price_return_1w: metrics.priceReturn?.["1W"],
                       // CRITICAL: Always set last_updated and updated_at
                       last_updated: now,
                       updated_at: now,
@@ -2070,19 +2183,35 @@ router.post(
                     } as any,
                   },
                 ]);
-                
-                logger.info("CEF Upload", `${ticker}: Database update completed with last_updated=${now}`);
 
                 logger.info(
                   "CEF Upload",
-                  `✓ ${ticker} metrics calculated - Last Div: ${metrics.lastDividend?.toFixed(4) || 'N/A'}, Yield: ${metrics.forwardYield?.toFixed(2) || 'N/A'}%, TR 12M: ${metrics.totalReturnDrip?.['1Y']?.toFixed(2) || 'N/A'}%, Z-Score: ${fiveYearZScore?.toFixed(2) || 'N/A'}, Signal: ${signal !== null ? signal : 'N/A'}`
+                  `${ticker}: Database update completed with last_updated=${now}`
+                );
+
+                logger.info(
+                  "CEF Upload",
+                  `✓ ${ticker} metrics calculated - Last Div: ${
+                    metrics.lastDividend?.toFixed(4) || "N/A"
+                  }, Yield: ${
+                    metrics.forwardYield?.toFixed(2) || "N/A"
+                  }%, TR 12M: ${
+                    metrics.totalReturnDrip?.["1Y"]?.toFixed(2) || "N/A"
+                  }%, Z-Score: ${
+                    fiveYearZScore?.toFixed(2) || "N/A"
+                  }, Signal: ${signal !== null ? signal : "N/A"}`
                 );
               } catch (error) {
                 logger.error(
                   "CEF Upload",
-                  `Failed to calculate metrics for ${ticker}: ${(error as Error).message}`
+                  `Failed to calculate metrics for ${ticker}: ${
+                    (error as Error).message
+                  }`
                 );
-                logger.error("CEF Upload", `Stack trace: ${(error as Error).stack}`);
+                logger.error(
+                  "CEF Upload",
+                  `Stack trace: ${(error as Error).stack}`
+                );
               }
             })
           );
@@ -2097,7 +2226,7 @@ router.post(
         logger.info("CEF Upload", "Recalculating CEF rankings...");
         try {
           const rankings = await calculateCEFRankings();
-          
+
           // Update weighted_rank for all CEFs
           const updatePromises: Promise<void>[] = [];
           rankings.forEach((rank, ticker) => {
@@ -2108,16 +2237,25 @@ router.post(
                   .update({ weighted_rank: rank })
                   .eq("ticker", ticker);
                 if (error) {
-                  logger.warn("CEF Upload", `Failed to update rank for ${ticker}: ${error.message}`);
+                  logger.warn(
+                    "CEF Upload",
+                    `Failed to update rank for ${ticker}: ${error.message}`
+                  );
                 }
               })()
             );
           });
-          
+
           await Promise.all(updatePromises);
-          logger.info("CEF Upload", `Updated rankings for ${rankings.size} CEF(s)`);
+          logger.info(
+            "CEF Upload",
+            `Updated rankings for ${rankings.size} CEF(s)`
+          );
         } catch (error) {
-          logger.warn("CEF Upload", `Failed to recalculate rankings: ${(error as Error).message}`);
+          logger.warn(
+            "CEF Upload",
+            `Failed to recalculate rankings: ${(error as Error).message}`
+          );
         }
       }
 
@@ -2301,7 +2439,7 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
       "Routes",
       "Fetching CEFs from database with category/nav_symbol filter..."
     );
-    
+
     // Try category filter first, fall back to nav_symbol if category not available
     let staticResult;
     const categoryCheck = await supabase
@@ -2309,8 +2447,12 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
       .select("category")
       .limit(1)
       .single();
-    
-    if (categoryCheck.data && categoryCheck.data.category !== null && categoryCheck.data.category !== undefined) {
+
+    if (
+      categoryCheck.data &&
+      categoryCheck.data.category !== null &&
+      categoryCheck.data.category !== undefined
+    ) {
       // Category column exists - use it for filtering
       staticResult = await supabase
         .from("etf_static")

@@ -545,22 +545,28 @@ router.get("/dividends/:ticker", async (req: Request, res: Response) => {
 
         // THE SUPREME COURT FIX: Trust the DB, do not recalculate
         // For CEFs, use values calculated by refresh_cef.ts - they are correct!
-        const pmtType = (dbDiv as any)?.pmt_type || "Regular";
-        const isSpecial = pmtType === "Special";
+        let pmtType = (dbDiv as any)?.pmt_type || "Regular";
 
-        // Read frequency directly from database (refresh script sets it to "Other" for Specials)
-        // Database column is 'frequency' (not 'frequency_label' - that's only internal TypeScript)
+        // SAFEGUARD: If database has frequency="Other", it MUST be a Special (refresh script rule)
+        // This handles edge cases where pmt_type might be null but frequency is "Other"
         const frequencyFromDB = (dbDiv as any)?.frequency;
+        if (frequencyFromDB === "Other" && pmtType !== "Special") {
+          pmtType = "Special";
+        }
+
+        const isSpecial = pmtType === "Special";
 
         return {
           ...d,
           // Use database values - no fallbacks that could override Special
           pmtType: pmtType as "Regular" | "Special" | "Initial",
-          frequency: isSpecial
-            ? "Other"
-            : frequencyFromDB || d.frequency || null,
-          // If DB says Special, frequencyNum MUST be 1
-          frequencyNum: isSpecial ? 1 : (dbDiv as any)?.frequency_num ?? null,
+          // CRITICAL: For Specials, ALWAYS use "Other". For Regulars, ONLY use DB value (no fallback to buggy detectFrequencyFromDates)
+          frequency: isSpecial ? "Other" : frequencyFromDB || null, // NO fallback to d.frequency - it's from buggy detectFrequencyFromDates!
+          // For Specials, set frequencyNum to null (not 1) so frontend doesn't show "Annual"
+          // Frontend will check pmtType first and show "Other" for Specials
+          frequencyNum: isSpecial
+            ? null
+            : (dbDiv as any)?.frequency_num ?? null,
           daysSincePrev: (dbDiv as any)?.days_since_prev ?? null,
           // Use pre-calculated values from refresh script
           annualized: (dbDiv as any)?.annualized ?? null,
