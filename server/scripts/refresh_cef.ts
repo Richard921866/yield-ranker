@@ -707,9 +707,19 @@ async function refreshCEF(ticker: string): Promise<void> {
           }));
         
         const normalizedResults = calculateNormalizedDividendsForCEFs(dividendInputs);
-        const specialCount = normalizedResults.filter(r => r.pmt_type === 'Special').length;
+        const specialDividends = normalizedResults.filter(r => r.pmt_type === 'Special');
+        const specialCount = specialDividends.length;
         if (specialCount > 0) {
-          console.log(`  ✨ Detected ${specialCount} Special dividend(s)`);
+          console.log(`  ✨ Detected ${specialCount} Special dividend(s):`);
+          // Find the ex_date for each special by matching the result id back to the input
+          specialDividends.forEach(special => {
+            const input = dividendInputs.find(d => d.id === special.id);
+            if (input) {
+              const amount = input.adj_amount ?? input.div_cash;
+              const frequencyStr = special.frequency_label === 'Irregular' ? 'Other' : special.frequency_label;
+              console.log(`    - ${input.ex_date}: $${amount.toFixed(4)} (${frequencyStr}, freq=${special.frequency_num})`);
+            }
+          });
         }
         
         const updates = normalizedResults.map(result => {
