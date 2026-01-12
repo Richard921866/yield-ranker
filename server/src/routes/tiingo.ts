@@ -551,14 +551,16 @@ router.get("/dividends/:ticker", async (req: Request, res: Response) => {
         // Read frequency directly from database (refresh script sets it to "Other" for Specials)
         // Database column is 'frequency' (not 'frequency_label' - that's only internal TypeScript)
         const frequencyFromDB = (dbDiv as any)?.frequency;
-        
+
         return {
           ...d,
           // Use database values - no fallbacks that could override Special
           pmtType: pmtType as "Regular" | "Special" | "Initial",
-          frequency: isSpecial ? "Other" : (frequencyFromDB || d.frequency || null),
+          frequency: isSpecial
+            ? "Other"
+            : frequencyFromDB || d.frequency || null,
           // If DB says Special, frequencyNum MUST be 1
-          frequencyNum: isSpecial ? 1 : ((dbDiv as any)?.frequency_num ?? null),
+          frequencyNum: isSpecial ? 1 : (dbDiv as any)?.frequency_num ?? null,
           daysSincePrev: (dbDiv as any)?.days_since_prev ?? null,
           // Use pre-calculated values from refresh script
           annualized: (dbDiv as any)?.annualized ?? null,

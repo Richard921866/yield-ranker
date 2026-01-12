@@ -1105,8 +1105,19 @@ export function calculateDividendHistory(dividends: DividendRecord[]): string {
   }
 
   // Step 1: Filter to regular dividends only (exclude special dividends)
+  // SUPREME COURT RULE: Trust pmt_type field (from CEF normalization logic)
+  // Only fall back to div_type if pmt_type is not available
   const regularDivs = dividends
     .filter((d) => {
+      const divAny = d as any;
+      
+      // First priority: Trust pmt_type if available (from CEF normalization)
+      if (divAny.pmt_type !== null && divAny.pmt_type !== undefined) {
+        // Only include Regular or Initial payments (exclude Special)
+        return divAny.pmt_type === "Regular" || divAny.pmt_type === "Initial";
+      }
+      
+      // Fallback: Check div_type (from external data source - often inaccurate)
       if (!d.div_type) return true;
       const dtype = d.div_type.toLowerCase();
       return (
