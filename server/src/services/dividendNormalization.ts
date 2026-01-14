@@ -1038,6 +1038,9 @@ export function calculateNormalizedDividends(
   // PASS 2: compute frequency using "next non-special" for confirmation, with transition guard:
   // if the current dividend has a clear look-back gap, keep that frequency (prevents regime-change overwrites).
   const results: NormalizedDividend[] = [];
+  
+  // Track newest regular frequency (for normalized calculation)
+  let newestRegularFrequency: number | null = null;
 
   const nextNonSpecialIndex = (fromIndex: number): number | null => {
     for (let j = fromIndex + 1; j < sortedDividends.length; j++) {
@@ -1133,12 +1136,15 @@ export function calculateNormalizedDividends(
       // Round annualized to 2 decimals for storage/display
       annualized = Number(annualizedRaw.toFixed(2));
 
-      // Normalized value: convert to weekly equivalent rate for line chart
-      // EXACT FORMULA: NORMLZD = (ADJ_DIV × DAYS) / 52
-      // Where ADJ_DIV = adj_amount, DAYS = frequency_num (payments per year)
-      // IMPORTANT: Calculate from the UNROUNDED annualized value, then round result
-      // Example: $4.6530 × 12 = $55.836 → $55.836 / 52 = $1.073769231
-      normalizedDiv = annualizedRaw / 52;
+      // Normalized will be recalculated in second pass using newest regular frequency
+      // Store annualized for now, normalized will be calculated after we know newest regular frequency
+      normalizedDiv = null;
+      
+      // Track newest regular frequency (for normalized calculation)
+      // Since we process oldest to newest, the last regular dividend's frequency is the newest
+      if (frequencyNum > 0 && frequencyNum !== 1) { // Exclude specials (frequencyNum = 1)
+        newestRegularFrequency = frequencyNum;
+      }
     }
 
     results.push({
@@ -1147,9 +1153,29 @@ export function calculateNormalizedDividends(
       pmt_type: pmtType,
       frequency_num: frequencyNum,
       annualized: annualized !== null ? Number(annualized.toFixed(2)) : null,
-      normalized_div:
-        normalizedDiv !== null ? Number(normalizedDiv.toFixed(9)) : null, // Use 9 decimals to match spreadsheet precision
+      normalized_div: normalizedDiv, // Will be calculated in second pass
     });
+  }
+
+  // Second pass: Recalculate normalized for all dividends using newest regular frequency
+  // CRITICAL: All dividends should use the same newest regular frequency for normalized calculation
+  // - If newest is Monthly (12): normalized = annualized / 12 for ALL dividends
+  // - If newest is Quarterly (4): normalized = annualized / 4 for ALL dividends
+  // - If newest is Weekly (52): normalized = annualized / 52 for ALL dividends
+  // Default to 12 (Monthly) if no regular frequency found
+  const frequencyForNormalized =
+    newestRegularFrequency !== null && newestRegularFrequency > 0
+      ? newestRegularFrequency
+      : 12; // Default to Monthly (12) if no regular frequency found
+
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    // Only recalculate for Regular/Initial dividends (not Specials)
+    if (result.pmt_type !== "Special" && result.annualized !== null) {
+      result.normalized_div = Number(
+        (result.annualized / frequencyForNormalized).toFixed(9)
+      );
+    }
   }
 
   return results;
