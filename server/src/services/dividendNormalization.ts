@@ -456,6 +456,8 @@ export function calculateNormalizedDividendsForCEFs(
       const currentDate = new Date(current.ex_date);
       const isDecember =
         !isNaN(currentDate.getTime()) && currentDate.getMonth() === 11; // month 11 = December
+      const isJanuary =
+        !isNaN(currentDate.getTime()) && currentDate.getMonth() === 0; // month 0 = January
 
       // CRITICAL: Check for extreme spikes FIRST (300%+ rule) before other logic
       // This ensures big spikes like DIVO 12/30 are always caught
@@ -486,6 +488,33 @@ export function calculateNormalizedDividendsForCEFs(
         if (a === b) {
           pmtType = "Regular";
           amountMatchesPrevious = true; // Flag to skip other special detection rules
+        }
+      }
+
+      // January override: Early January payments that match next payments are Regular (for MDP funds)
+      // This MUST run before clustered payments rule to catch January payments close to December
+      // This handles MDP funds where January represents a new regular rate for the year
+      if (
+        !amountMatchesPrevious &&
+        isJanuary &&
+        daysSincePrev !== null &&
+        daysSincePrev >= 1 &&
+        daysSincePrev <= 35 // Allow up to 35 days (covers early January payments)
+      ) {
+        // Check if amount matches next 2 payments (lookahead for MDP funds)
+        const matchesNext2 =
+          (nextAmount !== null &&
+            nextAmount > 0 &&
+            isApproximatelyEqual(amount, nextAmount, amountStabilityRelTol)) ||
+          (next2Amount !== null &&
+            next2Amount > 0 &&
+            isApproximatelyEqual(amount, next2Amount, amountStabilityRelTol));
+
+        if (matchesNext2) {
+          // January amount matches next payments → Regular (new rate for the year)
+          // This handles cases like ASGI where $0.1600 is the new regular rate for early 2024
+          pmtType = "Regular";
+          amountMatchesPrevious = true; // Flag to prevent other rules from overriding
         }
       }
 
@@ -657,11 +686,23 @@ export function calculateNormalizedDividendsForCEFs(
             !isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol)
           ) {
             // Amount has been repeating, now it's different -> Special (even if spike is small)
-            // Check if it doesn't repeat next (to avoid false positives on frequency changes)
+            // Check if it doesn't repeat next (to avoid false positives on frequency changes or MDP rate increases)
+            // For MDP funds: check next 2 payments (lookahead) to catch new regular rates
             const repeatsNext =
-              nextAmount !== null &&
-              nextAmount > 0 &&
-              isApproximatelyEqual(amount, nextAmount, 0.05);
+              (nextAmount !== null &&
+                nextAmount > 0 &&
+                isApproximatelyEqual(
+                  amount,
+                  nextAmount,
+                  amountStabilityRelTol
+                )) ||
+              (next2Amount !== null &&
+                next2Amount > 0 &&
+                isApproximatelyEqual(
+                  amount,
+                  next2Amount,
+                  amountStabilityRelTol
+                ));
 
             if (!repeatsNext) {
               pmtType = "Special";
@@ -673,10 +714,18 @@ export function calculateNormalizedDividendsForCEFs(
         ) {
           // Fallback: If previous amount was stable and current is different, it's likely a spike
           // This catches cases like CSQ 12/27/07 even with limited history
+          // For MDP funds: check next 2 payments (lookahead) to catch new regular rates
           const repeatsNext =
-            nextAmount !== null &&
-            nextAmount > 0 &&
-            isApproximatelyEqual(amount, nextAmount, 0.05);
+            (nextAmount !== null &&
+              nextAmount > 0 &&
+              isApproximatelyEqual(
+                amount,
+                nextAmount,
+                amountStabilityRelTol
+              )) ||
+            (next2Amount !== null &&
+              next2Amount > 0 &&
+              isApproximatelyEqual(amount, next2Amount, amountStabilityRelTol));
 
           if (!repeatsNext) {
             pmtType = "Special";
