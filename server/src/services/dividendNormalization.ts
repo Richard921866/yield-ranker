@@ -468,15 +468,20 @@ export function calculateNormalizedDividendsForCEFs(
 
       // Priority 2: exact same amount as previous => Regular (even if gap is a bit off)
       // BUT: Don't override if we already detected an extreme spike
+      // CRITICAL: This must override December and other rules if amount matches previous
+      // This prevents back-to-back specials when amounts are the same (e.g., 12/29/09 and 12/3/09 both $0.0525)
+      let amountMatchesPrevious = false;
       if (pmtType !== "Special" && prevAmount !== null && prevAmount > 0) {
         const a = Number(amount.toFixed(6));
         const b = Number(prevAmount.toFixed(6));
         if (a === b) {
           pmtType = "Regular";
+          amountMatchesPrevious = true; // Flag to skip other special detection rules
         }
       }
 
       // Clustered payments (1–4 days) are always Special
+      // BUT: Skip if amount matches previous (already handled above)
       if (
         pmtType !== "Special" &&
         daysSincePrev !== null &&
@@ -488,8 +493,10 @@ export function calculateNormalizedDividendsForCEFs(
 
       // December override: If December dividend and amount is different from regular pattern -> Special
       // This catches cases like STK 12/14/18 where amount jumps from $0.4625 to $0.6521
+      // BUT: Skip if amount matches previous (already handled above to prevent back-to-back specials)
       if (
         pmtType !== "Special" &&
+        !amountMatchesPrevious &&
         isDecember &&
         medianAmount !== null &&
         medianAmount > 0
@@ -507,32 +514,52 @@ export function calculateNormalizedDividendsForCEFs(
 
       // Spike after repetition: If amount has been stable/repeating, then a different amount appears -> Special
       // This catches cases like STK where $0.4625 repeats, then $0.6521 appears (even if < 1.5x)
+      // Also catches CSQ 12/27/07 where $0.1423 appears after $0.0975 repeats
       // CRITICAL: If there's repetition and then a spike, it's Special regardless of spike size
       if (
         pmtType !== "Special" &&
+        !amountMatchesPrevious &&
         medianAmount !== null &&
-        medianAmount > 0 &&
-        rollingRegularAmounts.length >= 3
+        medianAmount > 0
       ) {
-        // Check if recent amounts have been stable (repeating pattern)
-        const recentAmounts = rollingRegularAmounts.slice(-4); // Last 4 regular amounts
-        const allMatchMedian = recentAmounts.every((amt) =>
-          isApproximatelyEqual(amt, medianAmount, amountStabilityRelTol)
-        );
+        // Check if we have enough history OR if previous amount was stable
+        const hasEnoughHistory = rollingRegularAmounts.length >= 3;
+        const prevWasStable = prevAmount !== null && 
+          prevAmount > 0 && 
+          isApproximatelyEqual(prevAmount, medianAmount, amountStabilityRelTol);
+        
+        // If we have enough history, check recent amounts for repetition pattern
+        if (hasEnoughHistory) {
+          const recentAmounts = rollingRegularAmounts.slice(-4); // Last 4 regular amounts
+          const allMatchMedian = recentAmounts.every((amt) =>
+            isApproximatelyEqual(amt, medianAmount, amountStabilityRelTol)
+          );
 
-        // If recent amounts were stable/repeating, and current amount is different -> Special
-        // This catches spikes after repetition even if they're below 1.5x threshold
-        if (
-          allMatchMedian &&
-          !isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol)
-        ) {
-          // Amount has been repeating, now it's different -> Special (even if spike is small)
-          // Check if it doesn't repeat next (to avoid false positives on frequency changes)
+          // If recent amounts were stable/repeating, and current amount is different -> Special
+          // This catches spikes after repetition even if they're below 1.5x threshold
+          if (
+            allMatchMedian &&
+            !isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol)
+          ) {
+            // Amount has been repeating, now it's different -> Special (even if spike is small)
+            // Check if it doesn't repeat next (to avoid false positives on frequency changes)
+            const repeatsNext =
+              nextAmount !== null &&
+              nextAmount > 0 &&
+              isApproximatelyEqual(amount, nextAmount, 0.05);
+
+            if (!repeatsNext) {
+              pmtType = "Special";
+            }
+          }
+        } else if (prevWasStable && !isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol)) {
+          // Fallback: If previous amount was stable and current is different, it's likely a spike
+          // This catches cases like CSQ 12/27/07 even with limited history
           const repeatsNext =
             nextAmount !== null &&
             nextAmount > 0 &&
             isApproximatelyEqual(amount, nextAmount, 0.05);
-          
+
           if (!repeatsNext) {
             pmtType = "Special";
           }
