@@ -439,10 +439,14 @@ export function calculateNormalizedDividendsForCEFs(
     // Priority 3: Special priority for year-end clustering:
     // - If it's OFF-CADENCE for the dominant pattern AND amount is a meaningful spike AND it doesn't repeat -> Special.
     // - If it's an extreme spike (>= specialMultiplier, default 3x) and doesn't repeat -> Special.
+    // - December dividends with amount different from regular pattern -> Special
     let pmtType: "Regular" | "Special" | "Initial" = "Regular";
     if (daysSincePrev === null) {
       pmtType = "Initial";
     } else if (amount > 0) {
+      const currentDate = new Date(current.ex_date);
+      const isDecember = !isNaN(currentDate.getTime()) && currentDate.getMonth() === 11; // month 11 = December
+
       // CRITICAL: Check for extreme spikes FIRST (300%+ rule) before other logic
       // This ensures big spikes like DIVO 12/30 are always caught
       if (medianAmount !== null && medianAmount > 0) {
@@ -479,6 +483,16 @@ export function calculateNormalizedDividendsForCEFs(
         daysSincePrev <= 4
       ) {
         pmtType = "Special";
+      }
+
+      // December override: If December dividend and amount is different from regular pattern -> Special
+      // This catches cases like STK 12/14/18 where amount jumps from $0.4625 to $0.6521
+      if (pmtType !== "Special" && isDecember && medianAmount !== null && medianAmount > 0) {
+        const isNormalAmount = isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol);
+        if (!isNormalAmount) {
+          // December dividend with amount different from regular pattern -> Special
+          pmtType = "Special";
+        }
       }
 
       // Priority 3: cadence-break + meaningful spike (for smaller spikes that are off-cadence)
@@ -650,10 +664,11 @@ export function calculateNormalizedDividendsForCEFs(
   // - If newest is Quarterly (4): normalized = annualized / 4 for ALL dividends
   // - If newest is Weekly (52): normalized = annualized / 52 for ALL dividends
   // Default to 12 (Monthly) if no regular frequency found
-  const frequencyForNormalized = newestRegularFrequency !== null && newestRegularFrequency > 0 
-    ? newestRegularFrequency 
-    : 12; // Default to Monthly (12) if no regular frequency found
-  
+  const frequencyForNormalized =
+    newestRegularFrequency !== null && newestRegularFrequency > 0
+      ? newestRegularFrequency
+      : 12; // Default to Monthly (12) if no regular frequency found
+
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
     // Only recalculate for Regular/Initial dividends (not Specials)
