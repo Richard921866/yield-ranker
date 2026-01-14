@@ -252,15 +252,7 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
         pmtType = 'Special'; // Fallback: very short gap might be special
       }
       
-      const isSplitSpecial =
-        (pmtType === 'Special') &&
-        div.specialComponent !== null &&
-        div.specialComponent !== undefined &&
-        div.specialComponent > 0 &&
-        div.regularComponent !== null &&
-        div.regularComponent !== undefined &&
-        div.regularComponent > 0;
-
+      // CRITICAL: Specials should NEVER show as bars - exclude ALL specials
       let amount = 0;
       if (pmtType === 'Regular') {
         // Regular dividend: use adjusted amount
@@ -269,11 +261,8 @@ export function DividendHistory({ ticker, annualDividend, dvi, forwardYield, num
           : (typeof div.amount === 'number' && !isNaN(div.amount) && isFinite(div.amount) && div.amount > 0)
             ? div.amount
             : 0;
-      } else if (isSplitSpecial) {
-        // Split special: use the regular component only (not the special spike)
-        amount = Number(div.regularComponent);
       }
-      // For non-split specials: amount stays 0 (bar won't show)
+      // For ALL specials (including split specials): amount stays 0 (bar won't show)
 
       // LINE: Use normalized column (div.normalizedDiv = normalized_div from database)
       // This is the NORMALZD column - weekly equivalent rate calculated from adj_amount

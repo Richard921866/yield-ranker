@@ -592,16 +592,10 @@ export function calculateNormalizedDividendsForCEFs(
     let normalizedDiv: number | null = null;
 
     if (pmtType === "Special") {
-      // For Specials: annualized = (regularComponent × dominantFrequency) + specialComponent
-      // normalizedDiv = regularComponent (the run-rate component)
-      if (regularComponent !== null && regularComponent > 0) {
-        normalizedDiv = Number(regularComponent.toFixed(6)); // Always set normalized_div
-        if (dominantFrequencyNum !== null && dominantFrequencyNum > 0) {
-          const regularAnnualized = regularComponent * dominantFrequencyNum;
-          const specialComp = specialComponent !== null ? specialComponent : 0;
-          annualized = Number((regularAnnualized + specialComp).toFixed(6));
-        }
-      }
+      // CRITICAL: For ALL specials, annualized and normalized should be blank/null
+      // Specials should not be included in forward yield calculations
+      annualized = null;
+      normalizedDiv = null;
     } else {
       // For Regular/Initial: standard calculation
       const annualizeBase = amount > 0 ? amount : null;
