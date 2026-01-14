@@ -213,11 +213,6 @@ export const ETFTable = ({
       console.log('[ETFTable] Pinned symbol:', pinnedSymbol, '- brought to top (no sorting)');
       return sorted;
     }
-
-    // Normal sorting when no highlight (but sortField is set)
-    if (!sortField) {
-      return sorted; // Should not reach here due to early return, but safety check
-    }
     
     sorted = sorted.sort((a, b) => {
       const aValue = a[sortField];
