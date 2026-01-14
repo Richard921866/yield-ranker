@@ -526,22 +526,42 @@ export function calculateNormalizedDividendsForCEFs(
           }
         }
 
-        // Rule 2: If not already Special, check if amount is EXTREMELY different from regular pattern
-        // For EOD: Only mark as special if amount is significantly different (>= 30% deviation)
-        // This prevents regular December payments from being marked special due to minor variations
+        // Rule 2: If not already Special, check if amount matches RECENT regular pattern
+        // For EOD: December should be Regular if it matches recent payments (not old median)
+        // Only mark as special if amount is EXTREMELY different from recent pattern
         if (
           pmtType !== "Special" &&
           medianAmount !== null &&
           medianAmount > 0
         ) {
-          // Only mark as special if amount is significantly different (>= 30% deviation)
-          // This ensures regular December payments aren't marked special
-          const deviationRel =
-            Math.abs(amount - medianAmount) / Math.max(medianAmount, 1e-9);
-          if (deviationRel >= 0.30) {
-            // December dividend with amount significantly different from regular pattern -> Special
-            // CRITICAL: Override any previous classification
-            pmtType = "Special";
+          // Check if December amount matches the RECENT regular pattern (last 2-3 payments)
+          // This handles cases where dividend amount changed mid-year (e.g., BMEZ: $0.1450 → $0.09)
+          const recentAmounts = rollingRegularAmounts.slice(-3); // Last 3 regular amounts
+          const recentMedian = median(recentAmounts);
+          
+          // If we have recent amounts, check against recent pattern first
+          if (recentMedian !== null && recentMedian > 0 && recentAmounts.length >= 2) {
+            const matchesRecent = isApproximatelyEqual(amount, recentMedian, amountStabilityRelTol);
+            if (matchesRecent) {
+              // December amount matches recent pattern → Regular (don't mark as special)
+              // This handles cases like BMEZ where amount changed from $0.1450 to $0.09
+              // and December continues the new regular amount
+            } else {
+              // December amount doesn't match recent pattern - check if it's extremely different
+              const deviationFromRecent = Math.abs(amount - recentMedian) / Math.max(recentMedian, 1e-9);
+              if (deviationFromRecent >= 0.3) {
+                // December dividend with amount significantly different from recent pattern -> Special
+                pmtType = "Special";
+              }
+            }
+          } else {
+            // Fallback: If no recent pattern, check against overall median (but be more conservative)
+            const deviationRel =
+              Math.abs(amount - medianAmount) / Math.max(medianAmount, 1e-9);
+            // Only mark as special if amount is VERY different (>= 50% deviation) when no recent pattern
+            if (deviationRel >= 0.5) {
+              pmtType = "Special";
+            }
           }
         }
       }
