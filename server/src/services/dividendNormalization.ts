@@ -695,14 +695,56 @@ export function calculateNormalizedDividendsForCEFs(
             isApproximatelyEqual(amt, medianAmount, amountStabilityRelTol)
           );
 
-          // If recent amounts were stable/repeating, and current amount is different -> Special
-          // This catches spikes after repetition even if they're below 1.5x threshold
+          // If recent amounts were stable/repeating, and current amount is SIGNIFICANTLY different -> Special
+          // CRITICAL: Only mark as Special if the change is significant (>= 1.5x or <= 0.5x)
+          // Small gradual changes (like EOD's quarterly decreases) should remain Regular
           if (
             allMatchMedian &&
             !isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol)
           ) {
-            // Amount has been repeating, now it's different -> Special (even if spike is small)
-            // Check if it doesn't repeat next (to avoid false positives on frequency changes or MDP rate increases)
+            // Check if the change is significant (spike or drop)
+            const isSignificantChange =
+              amount >= 1.5 * medianAmount || amount <= 0.5 * medianAmount;
+
+            if (isSignificantChange) {
+              // Significant change after repetition -> Special
+              // Check if it doesn't repeat next (to avoid false positives on frequency changes or MDP rate increases)
+              // For MDP funds: check next 2 payments (lookahead) to catch new regular rates
+              const repeatsNext =
+                (nextAmount !== null &&
+                  nextAmount > 0 &&
+                  isApproximatelyEqual(
+                    amount,
+                    nextAmount,
+                    amountStabilityRelTol
+                  )) ||
+                (next2Amount !== null &&
+                  next2Amount > 0 &&
+                  isApproximatelyEqual(
+                    amount,
+                    next2Amount,
+                    amountStabilityRelTol
+                  ));
+
+              if (!repeatsNext) {
+                pmtType = "Special";
+              }
+            }
+            // If change is NOT significant (small gradual change), leave as Regular
+            // This handles cases like EOD where quarterly amounts gradually decrease but are still regular
+          }
+        } else if (
+          prevWasStable &&
+          !isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol)
+        ) {
+          // Fallback: If previous amount was stable and current is SIGNIFICANTLY different, it's likely a spike
+          // CRITICAL: Only mark as Special if the change is significant (>= 1.5x or <= 0.5x)
+          // Small gradual changes should remain Regular
+          // This catches cases like CSQ 12/27/07 even with limited history
+          const isSignificantChange =
+            amount >= 1.5 * medianAmount || amount <= 0.5 * medianAmount;
+
+          if (isSignificantChange) {
             // For MDP funds: check next 2 payments (lookahead) to catch new regular rates
             const repeatsNext =
               (nextAmount !== null &&
@@ -714,38 +756,13 @@ export function calculateNormalizedDividendsForCEFs(
                 )) ||
               (next2Amount !== null &&
                 next2Amount > 0 &&
-                isApproximatelyEqual(
-                  amount,
-                  next2Amount,
-                  amountStabilityRelTol
-                ));
+                isApproximatelyEqual(amount, next2Amount, amountStabilityRelTol));
 
             if (!repeatsNext) {
               pmtType = "Special";
             }
           }
-        } else if (
-          prevWasStable &&
-          !isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol)
-        ) {
-          // Fallback: If previous amount was stable and current is different, it's likely a spike
-          // This catches cases like CSQ 12/27/07 even with limited history
-          // For MDP funds: check next 2 payments (lookahead) to catch new regular rates
-          const repeatsNext =
-            (nextAmount !== null &&
-              nextAmount > 0 &&
-              isApproximatelyEqual(
-                amount,
-                nextAmount,
-                amountStabilityRelTol
-              )) ||
-            (next2Amount !== null &&
-              next2Amount > 0 &&
-              isApproximatelyEqual(amount, next2Amount, amountStabilityRelTol));
-
-          if (!repeatsNext) {
-            pmtType = "Special";
-          }
+          // If change is NOT significant, leave as Regular (handles gradual changes)
         }
       }
 
