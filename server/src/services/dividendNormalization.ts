@@ -315,6 +315,9 @@ export function calculateNormalizedDividendsForCEFs(
   const rollingRegularAmounts: number[] = [];
   const rollingRegularGapsToNext: number[] = [];
 
+  // Track newest regular frequency as we process dividends (for normalized calculation)
+  let newestRegularFrequency: number | null = null;
+
   for (let i = 0; i < sorted.length; i++) {
     const current = sorted[i];
     const prev = i > 0 ? sorted[i - 1] : null;
@@ -451,7 +454,7 @@ export function calculateNormalizedDividendsForCEFs(
             nextAmount !== null &&
             nextAmount > 0 &&
             isApproximatelyEqual(amount, nextAmount, 0.05);
-          
+
           if (!repeatsNext) {
             pmtType = "Special";
           }
@@ -514,11 +517,7 @@ export function calculateNormalizedDividendsForCEFs(
 
         const isMeaningfulSpike = amount >= 1.5 * medianAmount; // used only when off-cadence
 
-        if (
-          !repeatsNext &&
-          isCadenceBreak &&
-          isMeaningfulSpike
-        ) {
+        if (!repeatsNext && isCadenceBreak && isMeaningfulSpike) {
           pmtType = "Special";
         }
       }
@@ -602,7 +601,9 @@ export function calculateNormalizedDividendsForCEFs(
       if (annualizeBase !== null && frequencyNum !== null && frequencyNum > 0) {
         const annualizedRaw = annualizeBase * frequencyNum;
         annualized = Number(annualizedRaw.toFixed(6));
-        normalizedDiv = Number((annualizedRaw / frequencyNum).toFixed(6)); // == annualizeBase
+        // Normalized will be recalculated in second pass using newest regular frequency
+        // For now, set to null (will be calculated after we know newest regular frequency)
+        normalizedDiv = null;
       }
     }
 
@@ -629,6 +630,24 @@ export function calculateNormalizedDividendsForCEFs(
         if (labelToNext !== "Irregular") {
           rollingRegularGapsToNext.push(daysToNext);
         }
+      }
+      
+      // Track newest regular frequency (for normalized calculation)
+      // Since we process oldest to newest, the last regular dividend's frequency is the newest
+      if (frequencyNum !== null && frequencyNum > 0 && frequencyLabel !== "Irregular") {
+        newestRegularFrequency = frequencyNum;
+      }
+    }
+  }
+
+  // Second pass: Recalculate normalized for all dividends using newest regular frequency
+  // CRITICAL: All dividends should use the same newest regular frequency for normalized calculation
+  if (newestRegularFrequency !== null && newestRegularFrequency > 0) {
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      // Only recalculate for Regular/Initial dividends (not Specials)
+      if (result.pmt_type !== "Special" && result.annualized !== null) {
+        result.normalized_div = Number((result.annualized / newestRegularFrequency).toFixed(6));
       }
     }
   }
