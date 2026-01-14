@@ -121,77 +121,24 @@ export const CEFTable = ({
     });
   }, [location.search, location.pathname, navigate]);
 
-  // Scroll to top when sorting changes while a symbol is pinned
+  // Clear pinned symbol when sorting is applied (user wants normal sorting behavior)
   useEffect(() => {
-    if (pinnedSymbol && sortField) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const container = document.getElementById("cef-table-scroll");
-          if (container) {
-            container.scrollTop = 0;
-            container.scrollLeft = 0;
-          }
-        });
-      });
+    if (sortField && pinnedSymbol) {
+      setPinnedSymbol(null);
     }
-  }, [pinnedSymbol, sortField, sortDirection]);
+  }, [sortField, sortDirection]);
 
   const sortedCEFs = useMemo(() => {
     if (!sortField && !pinnedSymbol) return cefs;
 
     let sorted = [...cefs];
 
-    // Pinned: bring selected symbol to top
-    if (pinnedSymbol) {
+    // Pinned: bring selected symbol to top (only when no sorting is active)
+    if (pinnedSymbol && !sortField) {
       const idx = sorted.findIndex((c) => c.symbol.toUpperCase() === pinnedSymbol);
       if (idx >= 0) {
         const highlighted = sorted.splice(idx, 1)[0];
         sorted = [highlighted, ...sorted];
-      }
-      // If we're highlighting and have a sort field, sort the rest normally but keep highlighted at top
-      if (sortField && sortField !== 'symbol') {
-        const [highlighted, ...rest] = sorted;
-        rest.sort((a, b) => {
-          const aValue = a[sortField];
-          const bValue = b[sortField];
-
-          const parseNumeric = (val: any): number | null => {
-            if (val === null || val === undefined || val === "") return null;
-            if (typeof val === "number") return val;
-            const parsed = parseFloat(String(val));
-            return isNaN(parsed) ? null : parsed;
-          };
-
-          const aNum = parseNumeric(aValue);
-          const bNum = parseNumeric(bValue);
-
-          const bothNumeric = aNum !== null && bNum !== null;
-
-          const textFields: (keyof CEF)[] = [
-            "symbol",
-            "issuer",
-            "description",
-            "navSymbol",
-            "openDate",
-          ];
-          const forceString = textFields.includes(sortField);
-
-          let comparison: number = 0;
-
-          if (bothNumeric && !forceString) {
-            comparison = aNum - bNum;
-          } else {
-            const aStr = String(aValue).toLowerCase();
-            const bStr = String(bValue).toLowerCase();
-            comparison = aStr.localeCompare(bStr);
-          }
-
-          if (comparison !== 0) {
-            return sortDirection === "asc" ? comparison : -comparison;
-          }
-          return a.symbol.localeCompare(b.symbol);
-        });
-        sorted = [highlighted, ...rest];
       }
       return sorted;
     }
