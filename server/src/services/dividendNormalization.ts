@@ -497,18 +497,16 @@ export function calculateNormalizedDividendsForCEFs(
       // This catches cases like:
       // - CSQ 12/27/07 (second December, should be Special)
       // - STK 12/14/18 (amount different from regular pattern)
+      // CRITICAL: This must run BEFORE other checks that might set it to Regular
       // BUT: Skip if amount matches previous (already handled above to prevent back-to-back specials)
-      if (
-        pmtType !== "Special" &&
-        !amountMatchesPrevious &&
-        isDecember
-      ) {
+      if (!amountMatchesPrevious && isDecember) {
         const currentYear = currentDate.getFullYear();
-        
+
         // Rule 1: Check if this is a second (or later) December dividend in the same year
+        // CRITICAL: Check ALL dividends up to current index (including current) for December dates
         const decemberDividendsThisYear = sorted
-          .filter((d, idx) => {
-            if (idx > i) return false; // Only check dividends up to current
+          .slice(0, i + 1) // Include current dividend (i+1 because slice is exclusive end)
+          .filter((d) => {
             const dDate = new Date(d.ex_date);
             return (
               !isNaN(dDate.getTime()) &&
@@ -521,13 +519,16 @@ export function calculateNormalizedDividendsForCEFs(
         if (decemberDividendsThisYear.length > 1) {
           // Check if current is NOT the first December dividend
           const firstDecember = decemberDividendsThisYear[0];
+          // Use date string comparison to ensure exact match
           if (current.ex_date !== firstDecember.ex_date) {
             // Second or later December dividend → Special (regardless of amount)
+            // CRITICAL: Override any previous classification
             pmtType = "Special";
           }
         }
-        
+
         // Rule 2: If not already Special, check if amount is different from regular pattern
+        // This catches first December dividends that have unusual amounts
         if (
           pmtType !== "Special" &&
           medianAmount !== null &&
@@ -540,6 +541,7 @@ export function calculateNormalizedDividendsForCEFs(
           );
           if (!isNormalAmount) {
             // December dividend with amount different from regular pattern -> Special
+            // CRITICAL: Override any previous classification
             pmtType = "Special";
           }
         }
