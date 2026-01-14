@@ -371,6 +371,16 @@ export function calculateNormalizedDividendsForCEFs(
         : 0
       : null;
 
+    // Get next 2 payments for lookahead check (for MDP funds)
+    const next2 = i < sorted.length - 2 ? sorted[i + 2] : null;
+    const next2Amount = next2
+      ? next2.adj_amount !== null && next2.adj_amount > 0
+        ? Number(next2.adj_amount)
+        : next2.div_cash > 0
+        ? Number(next2.div_cash)
+        : 0
+      : null;
+
     const medianAmount = median(rollingRegularAmounts.slice(-6));
 
     // Step 1: Strict frequency from gap table (initial classification)
@@ -479,32 +489,55 @@ export function calculateNormalizedDividendsForCEFs(
         }
       }
 
-      // Clustered payments (1–4 days) are Special UNLESS amount matches recent regular pattern
-      // For EOD: If amount matches recent pattern, it's Regular even if 1-4 days apart
-      // This handles cases like ASGI where January payment is close to December but matches regular pattern
+      // Clustered payments (1–4 days) are Special UNLESS amount matches recent regular pattern OR next payments (lookahead)
+      // For EOD: If amount matches recent pattern or next payments, it's Regular even if 1-4 days apart
+      // This handles cases like ASGI where January payment is close to December but matches regular pattern (MDP funds)
       if (
         pmtType !== "Special" &&
         daysSincePrev !== null &&
         daysSincePrev >= 1 &&
         daysSincePrev <= 4
       ) {
-        // Check if amount matches recent regular pattern before marking as Special
-        const recentAmounts = rollingRegularAmounts.slice(-3); // Last 3 regular amounts
-        const recentMedian = median(recentAmounts);
-        
-        if (recentMedian !== null && recentMedian > 0 && recentAmounts.length >= 2) {
-          const matchesRecent = isApproximatelyEqual(amount, recentMedian, amountStabilityRelTol);
-          if (matchesRecent) {
-            // Amount matches recent pattern → Regular (even if 1-4 days apart)
-            // This handles cases where payment timing is close but amount is regular
-            pmtType = "Regular";
+        // Check if amount matches next 2 payments first (lookahead for MDP funds)
+        const matchesNext2 =
+          (nextAmount !== null &&
+            nextAmount > 0 &&
+            isApproximatelyEqual(amount, nextAmount, amountStabilityRelTol)) ||
+          (next2Amount !== null &&
+            next2Amount > 0 &&
+            isApproximatelyEqual(amount, next2Amount, amountStabilityRelTol));
+
+        if (matchesNext2) {
+          // Amount matches next payments → Regular (even if 1-4 days apart)
+          // This handles MDP funds where amount increases (e.g., ASGI $0.1600 in early 2024)
+          pmtType = "Regular";
+        } else {
+          // Check if amount matches recent regular pattern before marking as Special
+          const recentAmounts = rollingRegularAmounts.slice(-3); // Last 3 regular amounts
+          const recentMedian = median(recentAmounts);
+
+          if (
+            recentMedian !== null &&
+            recentMedian > 0 &&
+            recentAmounts.length >= 2
+          ) {
+            const matchesRecent = isApproximatelyEqual(
+              amount,
+              recentMedian,
+              amountStabilityRelTol
+            );
+            if (matchesRecent) {
+              // Amount matches recent pattern → Regular (even if 1-4 days apart)
+              // This handles cases where payment timing is close but amount is regular
+              pmtType = "Regular";
+            } else {
+              // Amount doesn't match recent pattern → Special
+              pmtType = "Special";
+            }
           } else {
-            // Amount doesn't match recent pattern → Special
+            // No recent pattern to compare → mark as Special (conservative approach)
             pmtType = "Special";
           }
-        } else {
-          // No recent pattern to compare → mark as Special (conservative approach)
-          pmtType = "Special";
         }
       }
 
@@ -675,19 +708,48 @@ export function calculateNormalizedDividendsForCEFs(
             ? 250
             : null;
 
-        // Cadence break means "too soon" relative to the dominant regular cadence.
-        // For monthly, anything < 20 days is off-cadence (covers 13d, 18d year-end clusters).
-        const cadenceBreakThreshold =
-          expectedMinDays !== null ? Math.max(5, expectedMinDays) : null;
+        // Cadence break means "too soon" or "too late" relative to the dominant regular cadence.
+        // For monthly: broaden window to 20-35 days (allows holiday shifts and early-January ex-dates).
+        // For other frequencies: use standard thresholds.
+        let cadenceBreakThreshold: number | null = null;
+        let cadenceBreakMax: number | null = null;
+        if (expectedMinDays !== null) {
+          if (dominantLabel === "Monthly") {
+            // Monthly: 20-35 days is on-cadence (broader window for MDP funds)
+            cadenceBreakThreshold = 20;
+            cadenceBreakMax = 35;
+          } else {
+            // Other frequencies: use standard threshold (too soon = off-cadence)
+            cadenceBreakThreshold = Math.max(5, expectedMinDays);
+            cadenceBreakMax = null;
+          }
+        }
+
         const isCadenceBreak =
           cadenceBreakThreshold !== null &&
           gapDays > 0 &&
-          gapDays < cadenceBreakThreshold &&
+          (gapDays < cadenceBreakThreshold ||
+            (cadenceBreakMax !== null && gapDays > cadenceBreakMax)) &&
           dominantLabel !== "Weekly"; // weekly regimes naturally have short gaps
+
+        // For MDP funds: check if amount matches next 2 payments (lookahead)
+        // If amount matches subsequent payments, it's Regular even if off-cadence
+        const matchesNext2 =
+          (nextAmount !== null &&
+            nextAmount > 0 &&
+            isApproximatelyEqual(amount, nextAmount, amountStabilityRelTol)) ||
+          (next2Amount !== null &&
+            next2Amount > 0 &&
+            isApproximatelyEqual(amount, next2Amount, amountStabilityRelTol));
 
         const isMeaningfulSpike = amount >= 1.5 * medianAmount; // used only when off-cadence
 
-        if (!repeatsNext && isCadenceBreak && isMeaningfulSpike) {
+        // Rule 5.4.3: If off-cadence BUT amount matches subsequent payments → Regular (for MDP funds)
+        if (isCadenceBreak && matchesNext2) {
+          // Amount matches next payments → Regular (even if off-cadence)
+          pmtType = "Regular";
+        } else if (!repeatsNext && isCadenceBreak && isMeaningfulSpike) {
+          // Off-cadence + meaningful spike + doesn't repeat → Special
           pmtType = "Special";
         }
       }
