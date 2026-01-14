@@ -202,65 +202,14 @@ export const ETFTable = ({
     // Create a stable sorted array - use symbol as secondary sort to ensure stability
     let sorted = [...etfs];
     
-    // If pinned symbol is set, bring it to top (sticky until refresh)
-    if (pinnedSymbol) {
+    // Pinned: bring selected symbol to top (only when no sorting is active)
+    if (pinnedSymbol && !sortField) {
       const highlightedIndex = sorted.findIndex(e => e.symbol.toUpperCase() === pinnedSymbol);
       if (highlightedIndex >= 0) {
         const highlighted = sorted.splice(highlightedIndex, 1)[0];
         sorted = [highlighted, ...sorted];
       }
-      // If we're highlighting and have a sort field, sort the rest normally but keep highlighted at top
-      if (sortField && sortField !== 'symbol') {
-        const [highlighted, ...rest] = sorted;
-        rest.sort((a, b) => {
-          // Use existing sort logic for the rest
-          const aValue = a[sortField];
-          const bValue = b[sortField];
-
-          if (aValue === undefined || aValue === null) {
-            if (bValue === undefined || bValue === null) {
-              return a.symbol.localeCompare(b.symbol);
-            }
-            return 1;
-          }
-          if (bValue === undefined || bValue === null) return -1;
-
-          const parseNumeric = (val: any): number | null => {
-            if (typeof val === 'number') {
-              return isNaN(val) ? null : val;
-            }
-            if (typeof val === 'string') {
-              const clean = val.replace(/[$,%\s]/g, '');
-              if (clean === '') return null;
-              const num = Number(clean);
-              return isNaN(num) ? null : num;
-            }
-            return null;
-          };
-
-          const aNum = parseNumeric(aValue);
-          const bNum = parseNumeric(bValue);
-          const bothNumeric = aNum !== null && bNum !== null;
-          const textFields: (keyof ETF)[] = ['symbol', 'issuer', 'description', 'payDay', 'dataSource'];
-          const forceString = textFields.includes(sortField);
-
-          let comparison: number = 0;
-          if (bothNumeric && !forceString) {
-            comparison = aNum - bNum;
-          } else {
-            const aStr = String(aValue).toLowerCase();
-            const bStr = String(bValue).toLowerCase();
-            comparison = aStr.localeCompare(bStr);
-          }
-
-          if (comparison !== 0) {
-            return sortDirection === "asc" ? comparison : -comparison;
-          }
-          return a.symbol.localeCompare(b.symbol);
-        });
-        sorted = [highlighted, ...rest];
-      }
-      console.log('[ETFTable] Pinned symbol:', pinnedSymbol, '- brought to top');
+      console.log('[ETFTable] Pinned symbol:', pinnedSymbol, '- brought to top (no sorting)');
       return sorted;
     }
 
