@@ -163,7 +163,21 @@ const DisclaimerModal = lazy(() =>
   )
 );
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Data stays fresh for 5 minutes - reduces unnecessary refetches
+      staleTime: 5 * 60 * 1000,
+      // Keep unused data in cache for 30 minutes
+      gcTime: 30 * 60 * 1000,
+      // Don't refetch on window focus - prevents jarring UI updates
+      refetchOnWindowFocus: false,
+      // Retry failed requests twice with exponential backoff
+      retry: 2,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    },
+  },
+});
 
 // Loading fallback for lazy loaded pages - must have background to prevent white flash
 const PageLoading = () => (
