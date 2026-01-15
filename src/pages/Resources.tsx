@@ -13,6 +13,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { useCategory } from "@/utils/category";
+import { SEO } from "@/components/SEO";
 
 interface Resource {
   id: string;
@@ -134,7 +135,7 @@ const Resources = () => {
 
   // Filter resources based on selected category
   const allResources = currentCategory === "cef" ? cefResources : ccResources;
-  
+
   // Add category to existing CC resources
   const resources: Resource[] = allResources.map((r, idx) => ({
     ...r,
@@ -166,6 +167,15 @@ const Resources = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title={currentCategory === "cef" ? "CEF Resources" : "Covered Call ETF Resources"}
+        description={currentCategory === "cef"
+          ? "Educational resources for closed-end fund investors. Research tools, analysis platforms, and expert insights."
+          : "Educational resources for covered call ETF investors. Expert videos, tools, and strategies for income generation."}
+        keywords={currentCategory === "cef"
+          ? "CEF resources, closed-end fund education, CEF research, dividend fund investing"
+          : "covered call ETF resources, income investing education, option ETF strategies"}
+      />
       <Header />
 
       <main className="container max-w-6xl mx-auto px-4 sm:px-6 py-12 md:py-16">
@@ -180,7 +190,7 @@ const Resources = () => {
               <span className="text-foreground">Resources</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              {currentCategory === "cef" 
+              {currentCategory === "cef"
                 ? "Resources for Closed End Fund investors. Here is our current list."
                 : "Resources for Covered Call Option ETF investors. Here is our current list."}
             </p>

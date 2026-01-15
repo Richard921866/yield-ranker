@@ -8,6 +8,7 @@ import { Footer } from "@/components/Footer";
 import { DividendHistory } from "@/components/DividendHistory";
 import { fetchSingleETF, fetchETFDataWithMetadata } from "@/services/etfData";
 import { ETF } from "@/types/etf";
+import { SEO, getFinancialProductSchema } from "@/components/SEO";
 
 const DividendHistoryPage = () => {
   const { symbol } = useParams<{ symbol: string }>();
@@ -20,7 +21,7 @@ const DividendHistoryPage = () => {
   useEffect(() => {
     const loadETF = async () => {
       if (!symbol) return;
-      
+
       setIsLoading(true);
       setEtfNotFound(false);
       try {
@@ -28,13 +29,13 @@ const DividendHistoryPage = () => {
           fetchSingleETF(symbol),
           fetchETFDataWithMetadata()
         ]);
-        
+
         if (singleData) {
           setEtf(singleData);
         } else {
           setEtfNotFound(true);
         }
-        
+
         // Format the last updated timestamp
         if (metadata.lastUpdatedTimestamp) {
           const date = new Date(metadata.lastUpdatedTimestamp);
@@ -79,6 +80,12 @@ const DividendHistoryPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title={`${symbol.toUpperCase()} Dividend History`}
+        description={`View complete dividend payment history for ${symbol.toUpperCase()} ETF. Track dividend amounts, payment frequency, ex-dates, and yield trends.`}
+        keywords={`${symbol} dividend history, ${symbol} dividend payments, ETF dividends, ${symbol} yield`}
+        structuredData={etf ? getFinancialProductSchema(symbol.toUpperCase(), etf.name || etf.description || '', 'ETF') : undefined}
+      />
       <Header />
       <main className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="animate-in fade-in slide-in-from-left-4 duration-300">
@@ -142,49 +149,43 @@ const DividendHistoryPage = () => {
                     <span className="font-semibold text-foreground">Total Return:</span>
                     <div className="flex items-center gap-1">
                       <span className="text-muted-foreground">3 Yr:</span>
-                      <span className={`font-semibold ${
-                        (etf.trDrip3Yr ?? etf.totalReturn3Yr) != null && (etf.trDrip3Yr ?? etf.totalReturn3Yr)! >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <span className={`font-semibold ${(etf.trDrip3Yr ?? etf.totalReturn3Yr) != null && (etf.trDrip3Yr ?? etf.totalReturn3Yr)! >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
                         {(etf.trDrip3Yr ?? etf.totalReturn3Yr) != null ? `${(etf.trDrip3Yr ?? etf.totalReturn3Yr)! >= 0 ? '+' : ''}${(etf.trDrip3Yr ?? etf.totalReturn3Yr)!.toFixed(1)}%` : 'N/A'}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-muted-foreground">12 Mo:</span>
-                      <span className={`font-semibold ${
-                        (etf.trDrip12Mo ?? etf.totalReturn12Mo) != null && (etf.trDrip12Mo ?? etf.totalReturn12Mo)! >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <span className={`font-semibold ${(etf.trDrip12Mo ?? etf.totalReturn12Mo) != null && (etf.trDrip12Mo ?? etf.totalReturn12Mo)! >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
                         {(etf.trDrip12Mo ?? etf.totalReturn12Mo) != null ? `${(etf.trDrip12Mo ?? etf.totalReturn12Mo)! >= 0 ? '+' : ''}${(etf.trDrip12Mo ?? etf.totalReturn12Mo)!.toFixed(1)}%` : 'N/A'}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-muted-foreground">6 Mo:</span>
-                      <span className={`font-semibold ${
-                        (etf.trDrip6Mo ?? etf.totalReturn6Mo) != null && (etf.trDrip6Mo ?? etf.totalReturn6Mo)! >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <span className={`font-semibold ${(etf.trDrip6Mo ?? etf.totalReturn6Mo) != null && (etf.trDrip6Mo ?? etf.totalReturn6Mo)! >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
                         {(etf.trDrip6Mo ?? etf.totalReturn6Mo) != null ? `${(etf.trDrip6Mo ?? etf.totalReturn6Mo)! >= 0 ? '+' : ''}${(etf.trDrip6Mo ?? etf.totalReturn6Mo)!.toFixed(1)}%` : 'N/A'}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-muted-foreground">3 Mo:</span>
-                      <span className={`font-semibold ${
-                        (etf.trDrip3Mo ?? etf.totalReturn3Mo) != null && (etf.trDrip3Mo ?? etf.totalReturn3Mo)! >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <span className={`font-semibold ${(etf.trDrip3Mo ?? etf.totalReturn3Mo) != null && (etf.trDrip3Mo ?? etf.totalReturn3Mo)! >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
                         {(etf.trDrip3Mo ?? etf.totalReturn3Mo) != null ? `${(etf.trDrip3Mo ?? etf.totalReturn3Mo)! >= 0 ? '+' : ''}${(etf.trDrip3Mo ?? etf.totalReturn3Mo)!.toFixed(1)}%` : 'N/A'}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-muted-foreground">1 Mo:</span>
-                      <span className={`font-semibold ${
-                        (etf.trDrip1Mo ?? etf.totalReturn1Mo) != null && (etf.trDrip1Mo ?? etf.totalReturn1Mo)! >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <span className={`font-semibold ${(etf.trDrip1Mo ?? etf.totalReturn1Mo) != null && (etf.trDrip1Mo ?? etf.totalReturn1Mo)! >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
                         {(etf.trDrip1Mo ?? etf.totalReturn1Mo) != null ? `${(etf.trDrip1Mo ?? etf.totalReturn1Mo)! >= 0 ? '+' : ''}${(etf.trDrip1Mo ?? etf.totalReturn1Mo)!.toFixed(1)}%` : 'N/A'}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-muted-foreground">1 Wk:</span>
-                      <span className={`font-semibold ${
-                        (etf.trDrip1Wk ?? etf.totalReturn1Wk) != null && (etf.trDrip1Wk ?? etf.totalReturn1Wk)! >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <span className={`font-semibold ${(etf.trDrip1Wk ?? etf.totalReturn1Wk) != null && (etf.trDrip1Wk ?? etf.totalReturn1Wk)! >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
                         {(etf.trDrip1Wk ?? etf.totalReturn1Wk) != null ? `${(etf.trDrip1Wk ?? etf.totalReturn1Wk)! >= 0 ? '+' : ''}${(etf.trDrip1Wk ?? etf.totalReturn1Wk)!.toFixed(1)}%` : 'N/A'}
                       </span>
                     </div>
@@ -205,8 +206,8 @@ const DividendHistoryPage = () => {
                     <div>
                       <span className="text-muted-foreground font-bold">Div Volatility: </span>
                       <span className="font-semibold">
-                        {etf.dividendCVPercent != null && etf.dividendCVPercent > 0 
-                          ? `${etf.dividendCVPercent.toFixed(1)}%` 
+                        {etf.dividendCVPercent != null && etf.dividendCVPercent > 0
+                          ? `${etf.dividendCVPercent.toFixed(1)}%`
                           : (etf.dividendVolatilityIndex || 'N/A')}
                       </span>
                     </div>
@@ -225,8 +226,8 @@ const DividendHistoryPage = () => {
               </div>
             </Card>
           ) : (
-            <DividendHistory 
-              ticker={symbol} 
+            <DividendHistory
+              ticker={symbol}
               annualDividend={etf?.annualDividend ?? null}
               dvi={etf?.dividendCVPercent ?? null}
               forwardYield={etf?.forwardYield ?? null}

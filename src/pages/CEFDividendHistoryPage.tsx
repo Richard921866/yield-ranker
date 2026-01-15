@@ -8,6 +8,7 @@ import { Footer } from "@/components/Footer";
 import { DividendHistory } from "@/components/DividendHistory";
 import { fetchSingleCEF, fetchCEFDataWithMetadata } from "@/services/cefData";
 import { CEF } from "@/types/cef";
+import { SEO, getFinancialProductSchema } from "@/components/SEO";
 
 const CEFDividendHistoryPage = () => {
   const { symbol } = useParams<{ symbol: string }>();
@@ -20,7 +21,7 @@ const CEFDividendHistoryPage = () => {
   useEffect(() => {
     const loadCEF = async () => {
       if (!symbol) return;
-      
+
       setIsLoading(true);
       setCefNotFound(false);
       try {
@@ -28,13 +29,13 @@ const CEFDividendHistoryPage = () => {
           fetchSingleCEF(symbol),
           fetchCEFDataWithMetadata()
         ]);
-        
+
         if (singleData) {
           setCef(singleData);
         } else {
           setCefNotFound(true);
         }
-        
+
         if (metadata.lastUpdatedTimestamp) {
           const date = new Date(metadata.lastUpdatedTimestamp);
           const formatted = date.toLocaleString('en-US', {
@@ -78,6 +79,12 @@ const CEFDividendHistoryPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title={`${symbol.toUpperCase()} Dividend History`}
+        description={`View complete dividend payment history for ${symbol.toUpperCase()} closed-end fund. Track distributions, payment frequency, ex-dates, and yield trends.`}
+        keywords={`${symbol} dividend history, ${symbol} distributions, CEF dividends, ${symbol} yield, closed-end fund`}
+        structuredData={cef ? getFinancialProductSchema(symbol.toUpperCase(), cef.name || cef.description || '', 'CEF') : undefined}
+      />
       <Header />
       <main className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="animate-in fade-in slide-in-from-left-4 duration-300">
@@ -149,73 +156,64 @@ const CEFDividendHistoryPage = () => {
                         <span className="font-semibold text-foreground">Total Return:</span>
                         <div className="flex items-center gap-1">
                           <span className="text-muted-foreground">15 Yr:</span>
-                          <span className={`font-semibold ${
-                            cef.return15Yr != null && cef.return15Yr >= 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
+                          <span className={`font-semibold ${cef.return15Yr != null && cef.return15Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
                             {cef.return15Yr != null ? `${cef.return15Yr >= 0 ? '+' : ''}${cef.return15Yr.toFixed(1)}%` : 'N/A'}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-muted-foreground">10 Yr:</span>
-                          <span className={`font-semibold ${
-                            cef.return10Yr != null && cef.return10Yr >= 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
+                          <span className={`font-semibold ${cef.return10Yr != null && cef.return10Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
                             {cef.return10Yr != null ? `${cef.return10Yr >= 0 ? '+' : ''}${cef.return10Yr.toFixed(1)}%` : 'N/A'}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-muted-foreground">5 Yr:</span>
-                          <span className={`font-semibold ${
-                            cef.return5Yr != null && cef.return5Yr >= 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
+                          <span className={`font-semibold ${cef.return5Yr != null && cef.return5Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
                             {cef.return5Yr != null ? `${cef.return5Yr >= 0 ? '+' : ''}${cef.return5Yr.toFixed(1)}%` : 'N/A'}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-muted-foreground">3 Yr:</span>
-                          <span className={`font-semibold ${
-                            cef.return3Yr != null && cef.return3Yr >= 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
+                          <span className={`font-semibold ${cef.return3Yr != null && cef.return3Yr >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
                             {cef.return3Yr != null ? `${cef.return3Yr >= 0 ? '+' : ''}${cef.return3Yr.toFixed(1)}%` : 'N/A'}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-muted-foreground">12 Mo:</span>
-                          <span className={`font-semibold ${
-                            cef.return12Mo != null && cef.return12Mo >= 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
+                          <span className={`font-semibold ${cef.return12Mo != null && cef.return12Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
                             {cef.return12Mo != null ? `${cef.return12Mo >= 0 ? '+' : ''}${cef.return12Mo.toFixed(1)}%` : 'N/A'}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-muted-foreground">6 Mo:</span>
-                          <span className={`font-semibold ${
-                            cef.return6Mo != null && cef.return6Mo >= 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
+                          <span className={`font-semibold ${cef.return6Mo != null && cef.return6Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
                             {cef.return6Mo != null ? `${cef.return6Mo >= 0 ? '+' : ''}${cef.return6Mo.toFixed(1)}%` : 'N/A'}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-muted-foreground">3 Mo:</span>
-                          <span className={`font-semibold ${
-                            cef.return3Mo != null && cef.return3Mo >= 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
+                          <span className={`font-semibold ${cef.return3Mo != null && cef.return3Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
                             {cef.return3Mo != null ? `${cef.return3Mo >= 0 ? '+' : ''}${cef.return3Mo.toFixed(1)}%` : 'N/A'}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-muted-foreground">1 Mo:</span>
-                          <span className={`font-semibold ${
-                            cef.return1Mo != null && cef.return1Mo >= 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
+                          <span className={`font-semibold ${cef.return1Mo != null && cef.return1Mo >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
                             {cef.return1Mo != null ? `${cef.return1Mo >= 0 ? '+' : ''}${cef.return1Mo.toFixed(1)}%` : 'N/A'}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-muted-foreground">1 Wk:</span>
-                          <span className={`font-semibold ${
-                            cef.return1Wk != null && cef.return1Wk >= 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
+                          <span className={`font-semibold ${cef.return1Wk != null && cef.return1Wk >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
                             {cef.return1Wk != null ? `${cef.return1Wk >= 0 ? '+' : ''}${cef.return1Wk.toFixed(1)}%` : 'N/A'}
                           </span>
                         </div>

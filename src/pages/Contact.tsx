@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Mail, Send, CheckCircle2 } from "lucide-react";
+import { SEO } from "@/components/SEO";
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -56,6 +57,11 @@ const Contact = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO
+        title="Contact Us"
+        description="Get in touch with the Dividends & Total Returns team. Questions, feedback, or partnership inquiries - we'd love to hear from you."
+        keywords="contact, support, ETF analysis help, dividend investing questions"
+      />
       <Header />
 
       <main className="flex-1">

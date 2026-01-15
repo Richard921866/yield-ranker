@@ -184,8 +184,7 @@ export const CEFTable = ({
           return sortDirection === "asc" ? comparison : -comparison;
         }
         return a.symbol.localeCompare(b.symbol);
-      },
-      [cefs, sortField, sortDirection]
+      }
     );
 
     return sorted;
@@ -571,234 +570,233 @@ export const CEFTable = ({
             {sortedCEFs.map((cef, index) => {
               const isHighlighted = pinnedSymbol && cef.symbol.toUpperCase() === pinnedSymbol;
               return (
-              <tr
-                key={cef.symbol}
-                id={`cef-row-${cef.symbol}`}
-                data-cef-symbol={cef.symbol}
-                className={`border-b border-slate-100 transition-colors ${
-                  isHighlighted ? "" : "hover:bg-slate-50/50"
-                }`}
-                style={isHighlighted ? {
-                  backgroundColor: "rgba(59, 130, 246, 0.15)",
-                  outline: "2px solid rgba(59, 130, 246, 0.35)",
-                  outlineOffset: "-2px"
-                } : undefined}
-              >
-                <td className="py-1 px-1.5 align-middle text-center sticky left-0 z-10 bg-white border-r border-slate-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleFavorite?.(cef.symbol);
-                    }}
-                    className="flex items-center justify-center w-full"
-                    title="Click to add to Favorites"
-                  >
-                    <Star
-                      className={`h-4 w-4 mx-auto cursor-pointer transition-all ${favorites.has(cef.symbol)
-                          ? "fill-yellow-400 text-yellow-400"
-                          : "text-slate-500 hover:text-yellow-500 hover:scale-110"
-                        }`}
-                    />
-                  </button>
-                </td>
-                <td className="py-1 px-1.5 sm:px-2 align-middle sticky left-[28px] z-10 bg-white border-r border-slate-200 text-primary text-xs transition-all shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] min-w-[70px] sm:min-w-[80px]">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onSymbolClick) {
-                        onSymbolClick(cef.symbol);
-                      } else {
-                        navigate(`/cef/${cef.symbol}`);
-                      }
-                    }}
-                    className="hover:underline hover:text-primary/80 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1 whitespace-nowrap font-bold"
-                  >
-                    {cef.symbol}
-                  </button>
-                </td>
-                <td className="py-1 px-1.5 align-middle text-xs text-muted-foreground uppercase font-medium whitespace-nowrap">
-                  {cef.navSymbol || "N/A"}
-                </td>
-                <td className="py-1 px-1.5 align-middle max-w-[100px] sm:max-w-[120px] truncate text-xs text-muted-foreground">
-                  {cef.description || "N/A"}
-                </td>
-                {/* OPEN column hidden per CEO request */}
-                {/* <td className="py-1 px-1.5 align-middle text-center text-xs text-muted-foreground">
-                  {cef.openDate || "N/A"}
-                </td> */}
-                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold text-foreground">
-                  {cef.marketPrice != null
-                    ? formatCurrency(cef.marketPrice)
-                    : "N/A"}
-                </td>
-                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold text-foreground">
-                  {cef.nav != null ? formatCurrency(cef.nav) : "N/A"}
-                </td>
-                <td className="py-1 px-1.5 align-middle text-center">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onDividendClick) {
-                        onDividendClick(cef.symbol);
-                      } else {
-                        navigate(`/cef/${cef.symbol}/dividends`);
-                      }
-                    }}
-                    className="tabular-nums text-sm text-primary font-bold hover:underline cursor-pointer transition-colors"
-                    title="Click to view dividend history"
-                  >
-                    {cef.lastDividend != null
-                      ? cef.lastDividend.toFixed(4)
-                      : "N/A"}
-                  </button>
-                </td>
-                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold text-muted-foreground">
-                  {cef.numPayments || "N/A"}
-                </td>
-                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold text-muted-foreground">
-                  {cef.yearlyDividend != null
-                    ? formatCurrency(cef.yearlyDividend)
-                    : "N/A"}
-                </td>
-                <td className="py-1 px-1.5 align-middle text-center font-bold tabular-nums text-primary text-sm">
-                  {cef.forwardYield != null
-                    ? `${cef.forwardYield.toFixed(1)}%`
-                    : "N/A"}
-                </td>
-                <td
-                  className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium ${cef.premiumDiscount != null && cef.premiumDiscount >= 0
-                      ? "text-green-600"
-                      : "text-red-600"
+                <tr
+                  key={cef.symbol}
+                  id={`cef-row-${cef.symbol}`}
+                  data-cef-symbol={cef.symbol}
+                  className={`border-b border-slate-100 transition-colors ${isHighlighted ? "" : "hover:bg-slate-50/50"
                     }`}
+                  style={isHighlighted ? {
+                    backgroundColor: "rgba(59, 130, 246, 0.15)",
+                    outline: "2px solid rgba(59, 130, 246, 0.35)",
+                    outlineOffset: "-2px"
+                  } : undefined}
                 >
-                  {cef.premiumDiscount != null
-                    ? formatPercentage(cef.premiumDiscount)
-                    : "N/A"}
-                </td>
-                <td
-                  className={`py-1 px-1.5 align-middle text-center tabular-nums text-sm font-bold ${cef.fiveYearZScore != null && cef.fiveYearZScore >= 0
-                      ? "text-green-600"
-                      : "text-red-600"
-                    }`}
-                >
-                  {cef.fiveYearZScore != null
-                    ? cef.fiveYearZScore.toFixed(2)
-                    : "N/A"}
-                </td>
-                <td
-                  className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium ${cef.navTrend6M != null && cef.navTrend6M >= 0
-                      ? "text-green-600"
-                      : "text-red-600"
-                    }`}
-                >
-                  {cef.navTrend6M != null
-                    ? formatPercentage(cef.navTrend6M)
-                    : "N/A"}
-                </td>
-                <td
-                  className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium ${cef.navTrend12M != null && cef.navTrend12M >= 0
-                      ? "text-green-600"
-                      : "text-red-600"
-                    }`}
-                >
-                  {cef.navTrend12M != null
-                    ? formatPercentage(cef.navTrend12M)
-                    : "N/A"}
-                </td>
-                <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold">
-                  {cef.signal != null ? (
-                    <Tooltip delayDuration={200}>
-                      <TooltipTrigger asChild>
-                        <span
-                          className={
-                            cef.signal === 3
-                              ? "text-green-700 bg-green-50 px-2 py-0.5 rounded font-semibold cursor-help"
-                              : cef.signal === 2
-                                ? "text-green-600 bg-green-50/50 px-2 py-0.5 rounded font-semibold cursor-help"
-                                : cef.signal === 1
-                                  ? "text-blue-600 font-semibold cursor-help"
-                                  : "text-gray-500 font-semibold cursor-help"
-                          }
-                        >
-                          {cef.signal}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        side="top"
-                        sideOffset={8}
-                        className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg"
-                      >
-                        <p className="font-semibold mb-1">
-                          {cef.signal === 3
-                            ? "High (Optimal)"
-                            : cef.signal === 2
-                              ? "Good (Two Gates Pass)"
-                              : cef.signal === 1
-                                ? "Weak (One Gate Passes)"
-                                : "Low (Neutral)"}
-                        </p>
-                        <p className="text-slate-300 text-xs">
-                          {cef.signal === 3
-                            ? "All three gates pass: Value (Z < -1.0), 6M Health, 12M Health"
-                            : cef.signal === 2
-                              ? "Two gates pass: Value and/or Health metrics met"
-                              : cef.signal === 1
-                                ? "One gate passes: Value or Health metric met"
-                                : "No gates pass: Neutral signal"}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    <span className="text-muted-foreground">N/A</span>
-                  )}
-                </td>
-                <td className="py-1 px-1.5 align-middle text-center font-bold text-sm tabular-nums border-r-2 border-slate-300">
-                  {isGuest ? (
+                  <td className="py-1 px-1.5 align-middle text-center sticky left-0 z-10 bg-white border-r border-slate-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setShowUpgradeModal(true);
+                        onToggleFavorite?.(cef.symbol);
                       }}
-                      className="flex items-center justify-center w-full group"
-                      title="Upgrade to Premium to see rankings"
+                      className="flex items-center justify-center w-full"
+                      title="Click to add to Favorites"
                     >
-                      <div className="p-0.5 rounded bg-gradient-to-br from-primary/10 to-accent/10 group-hover:from-primary/20 group-hover:to-accent/20 border border-primary/20 group-hover:border-primary/40 transition-all duration-200">
-                        <Lock className="h-3 w-3 text-primary group-hover:text-accent transition-colors" />
-                      </div>
+                      <Star
+                        className={`h-4 w-4 mx-auto cursor-pointer transition-all ${favorites.has(cef.symbol)
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "text-slate-500 hover:text-yellow-500 hover:scale-110"
+                          }`}
+                      />
                     </button>
-                  ) : (
-                    <span className="text-primary">
-                      {cef.weightedRank !== null ? cef.weightedRank : "-"}
-                    </span>
-                  )}
-                </td>
-                {returnColumns.map((col, colIndex) => {
-                  const rawValue = cef[col.key];
-                  const numericValue =
-                    typeof rawValue === "number" ? rawValue : undefined;
-                  const valueClass =
-                    numericValue === undefined
-                      ? "text-muted-foreground"
-                      : numericValue >= 0
-                        ? "text-green-600"
-                        : "text-red-600";
-                  return (
-                    <td
-                      key={`${cef.symbol}-${String(col.key)}`}
-                      className={`py-1.5 px-1.5 sm:px-2 align-middle text-center font-bold tabular-nums text-xs sm:text-sm ${valueClass} whitespace-nowrap min-w-[65px] sm:min-w-[75px] ${colIndex === returnColumns.length - 1
+                  </td>
+                  <td className="py-1 px-1.5 sm:px-2 align-middle sticky left-[28px] z-10 bg-white border-r border-slate-200 text-primary text-xs transition-all shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] min-w-[70px] sm:min-w-[80px]">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onSymbolClick) {
+                          onSymbolClick(cef.symbol);
+                        } else {
+                          navigate(`/cef/${cef.symbol}`);
+                        }
+                      }}
+                      className="hover:underline hover:text-primary/80 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1 whitespace-nowrap font-bold"
+                    >
+                      {cef.symbol}
+                    </button>
+                  </td>
+                  <td className="py-1 px-1.5 align-middle text-xs text-muted-foreground uppercase font-medium whitespace-nowrap">
+                    {cef.navSymbol || "N/A"}
+                  </td>
+                  <td className="py-1 px-1.5 align-middle max-w-[100px] sm:max-w-[120px] truncate text-xs text-muted-foreground">
+                    {cef.description || "N/A"}
+                  </td>
+                  {/* OPEN column hidden per CEO request */}
+                  {/* <td className="py-1 px-1.5 align-middle text-center text-xs text-muted-foreground">
+                  {cef.openDate || "N/A"}
+                </td> */}
+                  <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold text-foreground">
+                    {cef.marketPrice != null
+                      ? formatCurrency(cef.marketPrice)
+                      : "N/A"}
+                  </td>
+                  <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold text-foreground">
+                    {cef.nav != null ? formatCurrency(cef.nav) : "N/A"}
+                  </td>
+                  <td className="py-1 px-1.5 align-middle text-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onDividendClick) {
+                          onDividendClick(cef.symbol);
+                        } else {
+                          navigate(`/cef/${cef.symbol}/dividends`);
+                        }
+                      }}
+                      className="tabular-nums text-sm text-primary font-bold hover:underline cursor-pointer transition-colors"
+                      title="Click to view dividend history"
+                    >
+                      {cef.lastDividend != null
+                        ? cef.lastDividend.toFixed(4)
+                        : "N/A"}
+                    </button>
+                  </td>
+                  <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold text-muted-foreground">
+                    {cef.numPayments || "N/A"}
+                  </td>
+                  <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold text-muted-foreground">
+                    {cef.yearlyDividend != null
+                      ? formatCurrency(cef.yearlyDividend)
+                      : "N/A"}
+                  </td>
+                  <td className="py-1 px-1.5 align-middle text-center font-bold tabular-nums text-primary text-sm">
+                    {cef.forwardYield != null
+                      ? `${cef.forwardYield.toFixed(1)}%`
+                      : "N/A"}
+                  </td>
+                  <td
+                    className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium ${cef.premiumDiscount != null && cef.premiumDiscount >= 0
+                      ? "text-green-600"
+                      : "text-red-600"
+                      }`}
+                  >
+                    {cef.premiumDiscount != null
+                      ? formatPercentage(cef.premiumDiscount)
+                      : "N/A"}
+                  </td>
+                  <td
+                    className={`py-1 px-1.5 align-middle text-center tabular-nums text-sm font-bold ${cef.fiveYearZScore != null && cef.fiveYearZScore >= 0
+                      ? "text-green-600"
+                      : "text-red-600"
+                      }`}
+                  >
+                    {cef.fiveYearZScore != null
+                      ? cef.fiveYearZScore.toFixed(2)
+                      : "N/A"}
+                  </td>
+                  <td
+                    className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium ${cef.navTrend6M != null && cef.navTrend6M >= 0
+                      ? "text-green-600"
+                      : "text-red-600"
+                      }`}
+                  >
+                    {cef.navTrend6M != null
+                      ? formatPercentage(cef.navTrend6M)
+                      : "N/A"}
+                  </td>
+                  <td
+                    className={`py-1 px-1.5 align-middle text-center tabular-nums text-xs font-medium ${cef.navTrend12M != null && cef.navTrend12M >= 0
+                      ? "text-green-600"
+                      : "text-red-600"
+                      }`}
+                  >
+                    {cef.navTrend12M != null
+                      ? formatPercentage(cef.navTrend12M)
+                      : "N/A"}
+                  </td>
+                  <td className="py-1 px-1.5 align-middle text-center tabular-nums text-xs font-bold">
+                    {cef.signal != null ? (
+                      <Tooltip delayDuration={200}>
+                        <TooltipTrigger asChild>
+                          <span
+                            className={
+                              cef.signal === 3
+                                ? "text-green-700 bg-green-50 px-2 py-0.5 rounded font-semibold cursor-help"
+                                : cef.signal === 2
+                                  ? "text-green-600 bg-green-50/50 px-2 py-0.5 rounded font-semibold cursor-help"
+                                  : cef.signal === 1
+                                    ? "text-blue-600 font-semibold cursor-help"
+                                    : "text-gray-500 font-semibold cursor-help"
+                            }
+                          >
+                            {cef.signal}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="top"
+                          sideOffset={8}
+                          className="bg-slate-900 text-white text-xs px-3 py-2 border-slate-700 shadow-lg"
+                        >
+                          <p className="font-semibold mb-1">
+                            {cef.signal === 3
+                              ? "High (Optimal)"
+                              : cef.signal === 2
+                                ? "Good (Two Gates Pass)"
+                                : cef.signal === 1
+                                  ? "Weak (One Gate Passes)"
+                                  : "Low (Neutral)"}
+                          </p>
+                          <p className="text-slate-300 text-xs">
+                            {cef.signal === 3
+                              ? "All three gates pass: Value (Z < -1.0), 6M Health, 12M Health"
+                              : cef.signal === 2
+                                ? "Two gates pass: Value and/or Health metrics met"
+                                : cef.signal === 1
+                                  ? "One gate passes: Value or Health metric met"
+                                  : "No gates pass: Neutral signal"}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <span className="text-muted-foreground">N/A</span>
+                    )}
+                  </td>
+                  <td className="py-1 px-1.5 align-middle text-center font-bold text-sm tabular-nums border-r-2 border-slate-300">
+                    {isGuest ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowUpgradeModal(true);
+                        }}
+                        className="flex items-center justify-center w-full group"
+                        title="Upgrade to Premium to see rankings"
+                      >
+                        <div className="p-0.5 rounded bg-gradient-to-br from-primary/10 to-accent/10 group-hover:from-primary/20 group-hover:to-accent/20 border border-primary/20 group-hover:border-primary/40 transition-all duration-200">
+                          <Lock className="h-3 w-3 text-primary group-hover:text-accent transition-colors" />
+                        </div>
+                      </button>
+                    ) : (
+                      <span className="text-primary">
+                        {cef.weightedRank !== null ? cef.weightedRank : "-"}
+                      </span>
+                    )}
+                  </td>
+                  {returnColumns.map((col, colIndex) => {
+                    const rawValue = cef[col.key];
+                    const numericValue =
+                      typeof rawValue === "number" ? rawValue : undefined;
+                    const valueClass =
+                      numericValue === undefined
+                        ? "text-muted-foreground"
+                        : numericValue >= 0
+                          ? "text-green-600"
+                          : "text-red-600";
+                    return (
+                      <td
+                        key={`${cef.symbol}-${String(col.key)}`}
+                        className={`py-1.5 px-1.5 sm:px-2 align-middle text-center font-bold tabular-nums text-xs sm:text-sm ${valueClass} whitespace-nowrap min-w-[65px] sm:min-w-[75px] ${colIndex === returnColumns.length - 1
                           ? "border-r-2 border-slate-300"
                           : ""
-                        }`}
-                    >
-                      {numericValue !== undefined
-                        ? `${numericValue > 0 ? "+" : ""}${numericValue.toFixed(
-                          1
-                        )}%`
-                        : "N/A"}
-                    </td>
-                  );
-                })}
-              </tr>
+                          }`}
+                      >
+                        {numericValue !== undefined
+                          ? `${numericValue > 0 ? "+" : ""}${numericValue.toFixed(
+                            1
+                          )}%`
+                          : "N/A"}
+                      </td>
+                    );
+                  })}
+                </tr>
               );
             })}
           </tbody>

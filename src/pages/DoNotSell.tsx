@@ -1,18 +1,25 @@
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Card } from "@/components/ui/card";
+import { SEO } from "@/components/SEO";
 
 const DoNotSell = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO
+        title="Do Not Sell My Personal Information"
+        description="Your privacy rights at Dividends & Total Returns. We do not sell your personal information."
+        keywords="CCPA, privacy rights, do not sell, data privacy"
+        noIndex={true}
+      />
       <Header />
-      
+
       <main className="flex-1">
         <section className="relative border-b overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5"></div>
           <div className="absolute top-20 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl"></div>
           <div className="absolute bottom-20 right-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl"></div>
-          
+
           <div className="container max-w-7xl mx-auto px-4 sm:px-6 py-16 md:py-24 relative">
             <div className="max-w-3xl mx-auto text-center space-y-4">
               <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">

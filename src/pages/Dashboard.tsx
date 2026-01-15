@@ -2673,7 +2673,7 @@ export default function Dashboard() {
                         3-Year Z-Score
                       </p>
                       <p className="text-xl font-bold text-foreground">
-                        {selectedCEF.zScore5Yr != null ? selectedCEF.zScore5Yr.toFixed(2) : 'N/A'}
+                        {selectedCEF.fiveYearZScore != null ? selectedCEF.fiveYearZScore.toFixed(2) : 'N/A'}
                       </p>
                     </div>
                     <div className="space-y-1">

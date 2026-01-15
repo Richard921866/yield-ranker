@@ -15,10 +15,8 @@
     "esModuleInterop": true,
     "isolatedModules": true,
     "moduleDetection": "force",
-    "noEmit": false,
-    "emitDeclarationOnly": true,
-    "composite": true,
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "downlevelIteration": true,
+    "noEmit": true,
     "jsx": "react-jsx",
     /* Linting */
     "strict": false,

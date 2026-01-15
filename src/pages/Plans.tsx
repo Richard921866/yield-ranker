@@ -6,6 +6,7 @@ import { Check, Lock, Star } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { SEO } from "@/components/SEO";
 
 export default function Plans() {
   const { user, profile } = useAuth();
@@ -35,8 +36,13 @@ export default function Plans() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
+      <SEO
+        title="Plans & Pricing"
+        description="Get free premium access to advanced ETF and CEF screening tools. Custom rankings, favorites, and dividend analysis - all included with registration."
+        keywords="ETF plans, premium access, dividend investing tools, investment platform pricing"
+      />
       <Header />
-      
+
       <main className="flex-1 py-16">
         <div className="container max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-16">
@@ -125,7 +131,7 @@ export default function Plans() {
               </div>
 
               {isPremium ? (
-                <Button 
+                <Button
                   className="w-full bg-white hover:bg-slate-50 text-primary font-bold text-base h-12 rounded-xl"
                   size="lg"
                   disabled
@@ -133,7 +139,7 @@ export default function Plans() {
                   Current Plan
                 </Button>
               ) : (
-                <Button 
+                <Button
                   className="w-full bg-white hover:bg-slate-50 text-primary font-bold text-base h-12 rounded-xl"
                   size="lg"
                   onClick={handleUpgradeToPremium}
