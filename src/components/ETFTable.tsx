@@ -142,6 +142,17 @@ export const ETFTable = ({
     });
   }, [pinnedSymbol]);
 
+  // Reset to ranked order when Customize Rankings is clicked
+  useEffect(() => {
+    if (showRankingPanel && sortField !== "weightedRank") {
+      setSortField("weightedRank");
+      setSortDirection("asc");
+      if (pinnedSymbol) {
+        setPinnedSymbol(null);
+      }
+    }
+  }, [showRankingPanel, sortField, pinnedSymbol]);
+
 
   const handleSelectionChange = (symbol: string) => {
     setSelectedSymbol(symbol);
@@ -233,6 +244,14 @@ export const ETFTable = ({
 
       if (aValue === undefined || aValue === null) {
         if (bValue === undefined || bValue === null) {
+          // Both null - when sorting by issuer, use rank as secondary sort
+          if (sortField === 'issuer') {
+            const aRank = a.weightedRank ?? Infinity;
+            const bRank = b.weightedRank ?? Infinity;
+            if (aRank !== bRank) {
+              return aRank - bRank; // Best to worst (ascending)
+            }
+          }
           // Both null - sort by symbol for stability
           return a.symbol.localeCompare(b.symbol);
         }
@@ -279,8 +298,30 @@ export const ETFTable = ({
       }
 
       if (comparison !== 0) {
-        return sortDirection === "asc" ? comparison : -comparison;
+        const primaryResult = sortDirection === "asc" ? comparison : -comparison;
+        
+        // When sorting by issuer, also sort by rank within each issuer group (best to worst)
+        if (sortField === 'issuer') {
+          const aRank = a.weightedRank ?? Infinity;
+          const bRank = b.weightedRank ?? Infinity;
+          if (aRank !== bRank) {
+            // Within same issuer, sort by rank ascending (best to worst)
+            return primaryResult || (aRank - bRank);
+          }
+        }
+        
+        return primaryResult;
       }
+      
+      // If values are equal, when sorting by issuer, sort by rank (best to worst)
+      if (sortField === 'issuer') {
+        const aRank = a.weightedRank ?? Infinity;
+        const bRank = b.weightedRank ?? Infinity;
+        if (aRank !== bRank) {
+          return aRank - bRank; // Best to worst (ascending)
+        }
+      }
+      
       // If values are equal, sort by symbol for stability
       return a.symbol.localeCompare(b.symbol);
     });
