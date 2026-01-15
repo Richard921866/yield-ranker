@@ -148,7 +148,9 @@ export function setupGlobalErrorHandlers() {
   // Track if we've already shown an error dialog to prevent spam
   let errorDialogShown = false;
   let lastErrorTime = 0;
+  let silentRetryCount = 0;
   const ERROR_COOLDOWN = 5000; // 5 seconds cooldown between error dialogs
+  const MAX_SILENT_RETRIES = 2; // Try silent retry before showing error
 
   // Handle unhandled promise rejections (like failed module imports)
   window.addEventListener("unhandledrejection", (event) => {
@@ -166,8 +168,36 @@ export function setupGlobalErrorHandlers() {
       // Save state before showing error
       saveAppState();
 
-      // Prevent showing multiple dialogs in quick succession
+      // Try silent automatic recovery first (up to MAX_SILENT_RETRIES times)
       const now = Date.now();
+      if (silentRetryCount < MAX_SILENT_RETRIES && (now - lastErrorTime) > 1000) {
+        silentRetryCount++;
+        console.log(`[Global Error Handler] Attempting silent recovery (attempt ${silentRetryCount}/${MAX_SILENT_RETRIES})`);
+        // Try automatic recovery: clear cache and reload silently
+        setTimeout(() => {
+          if ("caches" in window) {
+            caches.keys().then((names) => {
+              names.forEach((name) => {
+                caches.delete(name);
+              });
+              globalWindow.location.reload();
+            }).catch(() => {
+              globalWindow.location.reload();
+            });
+          } else {
+            globalWindow.location.reload();
+          }
+        }, 1000);
+        lastErrorTime = now;
+        return;
+      }
+
+      // Reset silent retry count after cooldown
+      if ((now - lastErrorTime) > ERROR_COOLDOWN) {
+        silentRetryCount = 0;
+      }
+
+      // If silent retries failed, check if we should show dialog
       if (errorDialogShown && (now - lastErrorTime) < ERROR_COOLDOWN) {
         console.log("[Global Error Handler] Error dialog recently shown, attempting automatic recovery");
         // Try automatic recovery: clear cache and reload after a short delay
@@ -190,6 +220,7 @@ export function setupGlobalErrorHandlers() {
 
       errorDialogShown = true;
       lastErrorTime = now;
+      silentRetryCount = 0; // Reset on showing dialog
 
       // Reset flag after cooldown
       setTimeout(() => {
@@ -320,21 +351,42 @@ export function setupGlobalErrorHandlers() {
       event.preventDefault();
       saveAppState();
 
-      // For critical errors, attempt automatic recovery
+      // For critical errors, attempt automatic recovery silently first
       if (error?.name === "ChunkLoadError" ||
         (typeof error?.message === "string" && error.message.includes("chunk"))) {
-        setTimeout(() => {
-          if ("caches" in window) {
-            caches.keys().then((names) => {
-              names.forEach((name) => {
-                caches.delete(name);
+        // Try silent recovery first
+        if (silentRetryCount < MAX_SILENT_RETRIES) {
+          silentRetryCount++;
+          console.log(`[Global Error Handler] Silent recovery for chunk error (attempt ${silentRetryCount}/${MAX_SILENT_RETRIES})`);
+          setTimeout(() => {
+            if ("caches" in window) {
+              caches.keys().then((names) => {
+                names.forEach((name) => {
+                  caches.delete(name);
+                });
+                globalWindow.location.reload();
+              }).catch(() => {
+                globalWindow.location.reload();
               });
+            } else {
               globalWindow.location.reload();
-            }).catch(() => {
-              globalWindow.location.reload();
-            });
-          }
-        }, 2000);
+            }
+          }, 1000);
+        } else {
+          // After max retries, wait longer before showing error
+          setTimeout(() => {
+            if ("caches" in window) {
+              caches.keys().then((names) => {
+                names.forEach((name) => {
+                  caches.delete(name);
+                });
+                globalWindow.location.reload();
+              }).catch(() => {
+                globalWindow.location.reload();
+              });
+            }
+          }, 2000);
+        }
       }
     }
   }, true); // Use capture phase to catch all errors
