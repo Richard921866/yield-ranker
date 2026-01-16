@@ -10,6 +10,7 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GlobalErrorDialog } from "@/components/GlobalErrorDialog";
 import { setupGlobalErrorHandlers, restoreAppState } from "@/utils/errorHandler";
+import { supabase } from "@/lib/supabase";
 
 // Setup global error handlers on app initialization
 setupGlobalErrorHandlers();
@@ -18,27 +19,50 @@ setupGlobalErrorHandlers();
 function AppStateRestorer() {
   useEffect(() => {
     // Handle OAuth callback - clean up hash fragment after session is established
-    const handleAuthCallback = () => {
+    const handleAuthCallback = async () => {
       // Check if we have an auth hash fragment (OAuth callback)
-      if (window.location.hash.includes('access_token') || window.location.hash.includes('error')) {
-        // Let Supabase handle the auth first (it reads from hash), then clean up URL
-        const timer = setTimeout(() => {
-          // Extract pathname from hash if it exists, otherwise use current pathname
-          const hashParams = new URLSearchParams(window.location.hash.substring(1));
-          const redirectTo = hashParams.get('redirect_to') || window.location.pathname;
-          
-          // Only clean up if we're not on a specific auth page
-          if (!redirectTo.includes('/login') && !redirectTo.includes('/auth')) {
-            // Remove hash fragment but keep pathname and search
-            const cleanUrl = redirectTo + window.location.search;
-            window.history.replaceState(null, '', cleanUrl);
-          } else {
-            // If redirecting to auth page, just clean the hash
-            const cleanUrl = window.location.pathname + window.location.search;
+      const hash = window.location.hash;
+      if (hash.includes('access_token') || hash.includes('error')) {
+        // Wait for Supabase to process the auth from the hash
+        // Supabase automatically processes hash fragments on initialization
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        const checkSession = async () => {
+          try {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            
+            // If we have a session or max attempts reached, clean up the hash
+            if (session || attempts >= maxAttempts || error) {
+              // Get the current pathname (should be root for OAuth callback)
+              const currentPath = window.location.pathname || '/';
+              
+              // Clean up the hash fragment
+              const cleanUrl = currentPath + window.location.search;
+              window.history.replaceState(null, '', cleanUrl);
+              
+              return;
+            }
+            
+            // No session yet, wait a bit more and retry
+            attempts++;
+            if (attempts < maxAttempts) {
+              setTimeout(checkSession, 300);
+            } else {
+              // Max attempts reached, clean up hash anyway
+              const cleanUrl = window.location.pathname || '/';
+              window.history.replaceState(null, '', cleanUrl);
+            }
+          } catch (error) {
+            console.error('Error checking session during OAuth callback:', error);
+            // Clean up hash on error
+            const cleanUrl = window.location.pathname || '/';
             window.history.replaceState(null, '', cleanUrl);
           }
-        }, 1500); // Wait a bit longer for auth to complete
-        return () => clearTimeout(timer);
+        };
+        
+        // Start checking after a short delay to let Supabase process
+        setTimeout(checkSession, 200);
       }
     };
 
