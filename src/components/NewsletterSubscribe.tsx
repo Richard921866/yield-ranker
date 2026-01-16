@@ -19,13 +19,26 @@ export const NewsletterSubscribe = () => {
     const userEmail = user?.email || "";
 
     // Check subscription status on mount and when user changes
+    // Skip during OAuth callback to avoid interfering with auth flow
     useEffect(() => {
         const checkSubscription = async () => {
+            // Skip subscription check if we're in the middle of an OAuth callback
+            const hash = window.location.hash;
+            if (hash.includes('access_token') || hash.includes('error')) {
+                // Wait until OAuth callback is processed
+                setCheckingSubscription(false);
+                setIsSubscribed(false);
+                return;
+            }
+
             if (!userEmail) {
                 setCheckingSubscription(false);
                 setIsSubscribed(false);
                 return;
             }
+
+            // Add a small delay to ensure auth is fully stable
+            await new Promise(resolve => setTimeout(resolve, 500));
 
             try {
                 const result = await listSubscribers(10000, 0);
