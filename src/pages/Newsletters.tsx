@@ -12,6 +12,7 @@ import { Footer } from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SEO } from '@/components/SEO';
+import { useToast } from '@/components/ui/use-toast';
 import {
     Loader2,
     Mail,
@@ -20,7 +21,7 @@ import {
     Calendar,
     Crown,
 } from 'lucide-react';
-import { listCampaigns, getCampaign, type Campaign } from '@/services/newsletterAdmin';
+import { listCampaigns, getCampaign, type Campaign, listSubscribers } from '@/services/newsletterAdmin';
 
 const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
@@ -38,20 +39,68 @@ const formatDate = (dateString?: string) => {
 export default function Newsletters() {
     const { user, profile } = useAuth();
     const navigate = useNavigate();
+    const { toast } = useToast();
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
     const [loadingCampaign, setLoadingCampaign] = useState(false);
+    const [isSubscribed, setIsSubscribed] = useState(false);
+    const [checkingSubscription, setCheckingSubscription] = useState(true);
 
     const isPremium = profile?.is_premium || user?.user_metadata?.is_premium;
+    const userEmail = user?.email || '';
+
+    // Check subscription status for premium users
+    useEffect(() => {
+        const checkSubscription = async () => {
+            if (!isPremium || !userEmail) {
+                setCheckingSubscription(false);
+                return;
+            }
+
+            try {
+                const result = await listSubscribers(10000, 0);
+                if (result.success && result.subscribers) {
+                    const subscribed = result.subscribers.some(
+                        (sub) => sub.email.toLowerCase() === userEmail.toLowerCase() && sub.status === 'active'
+                    );
+                    setIsSubscribed(subscribed);
+                }
+            } catch (error) {
+                console.error('Failed to check subscription:', error);
+            } finally {
+                setCheckingSubscription(false);
+            }
+        };
+
+        checkSubscription();
+    }, [isPremium, userEmail]);
+
+    // Listen for subscription changes from footer component
+    useEffect(() => {
+        const handleSubscriptionChange = (event: CustomEvent) => {
+            setIsSubscribed(event.detail.isSubscribed);
+            if (!event.detail.isSubscribed) {
+                // Clear campaigns if unsubscribed
+                setCampaigns([]);
+                setSelectedCampaign(null);
+            }
+        };
+
+        window.addEventListener('newsletter-subscription-changed', handleSubscriptionChange as EventListener);
+        return () => {
+            window.removeEventListener('newsletter-subscription-changed', handleSubscriptionChange as EventListener);
+        };
+    }, []);
 
     useEffect(() => {
-        if (!isPremium) {
+        // Only load campaigns if user is premium and subscribed
+        if (isPremium && isSubscribed && !checkingSubscription) {
+            loadCampaigns();
+        } else if (!checkingSubscription) {
             setLoading(false);
-            return;
         }
-        loadCampaigns();
-    }, [isPremium]);
+    }, [isPremium, isSubscribed, checkingSubscription]);
 
     const loadCampaigns = async () => {
         setLoading(true);
@@ -83,13 +132,21 @@ export default function Newsletters() {
             const result = await getCampaign(campaign.id);
             if (result.success && result.campaign) {
                 setSelectedCampaign(result.campaign);
+                // Scroll to top of campaign view
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         } catch (error) {
             console.error('Failed to load campaign:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Failed to load newsletter',
+                description: 'Please try again later.',
+            });
         } finally {
             setLoadingCampaign(false);
         }
     };
+
 
     return (
         <div className="min-h-screen bg-background flex flex-col">
@@ -128,7 +185,16 @@ export default function Newsletters() {
 
             {/* Main Content */}
             <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 py-8 md:py-12">
-                {!isPremium ? (
+                {checkingSubscription || loading ? (
+                    <Card className="p-8 md:p-12 border-2 border-slate-200">
+                        <div className="flex flex-col items-center justify-center">
+                            <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
+                            <p className="text-muted-foreground">
+                                {checkingSubscription ? 'Checking subscription...' : 'Loading newsletter archive...'}
+                            </p>
+                        </div>
+                    </Card>
+                ) : !isPremium ? (
                     // Non-premium user - show upgrade prompt
                     <Card className="p-8 md:p-12 border-2 border-amber-200/50 bg-gradient-to-br from-amber-50/50 to-yellow-50/50">
                         <div className="text-center max-w-lg mx-auto">
@@ -144,8 +210,42 @@ export default function Newsletters() {
                                     <Crown className="w-4 h-4 mr-2" />
                                     Upgrade to Premium
                                 </Button>
-                                <Button variant="outline" onClick={() => navigate('/newsletters')} className="border-2">
-                                    View Public Newsletters
+                            </div>
+                        </div>
+                    </Card>
+                ) : !isSubscribed ? (
+                    // Premium users who haven't subscribed
+                    <Card className="p-8 md:p-12 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
+                        <div className="text-center max-w-2xl mx-auto space-y-6">
+                            <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center">
+                                <Mail className="w-10 h-10 text-primary" />
+                            </div>
+                            <div>
+                                <h2 className="text-2xl md:text-3xl font-bold mb-3 text-foreground">
+                                    Subscribe to Access Newsletters
+                                </h2>
+                                <p className="text-muted-foreground text-base leading-relaxed mb-2">
+                                    You're a Premium member! Subscribe to our newsletter to receive future updates and access the complete archive of exclusive insights and analysis.
+                                </p>
+                                <p className="text-muted-foreground text-sm mb-6">
+                                    After subscribing, you'll be able to view all past newsletters and receive future updates delivered directly to your inbox.
+                                </p>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                                <Button 
+                                    onClick={() => {
+                                        // Scroll to footer newsletter subscription
+                                        const footer = document.querySelector('footer');
+                                        if (footer) {
+                                            footer.scrollIntoView({ behavior: 'smooth' });
+                                        } else {
+                                            navigate('/');
+                                        }
+                                    }} 
+                                    className="bg-primary hover:bg-primary/90 text-white h-11 px-6"
+                                >
+                                    <Mail className="w-4 h-4 mr-2" />
+                                    Subscribe Now
                                 </Button>
                             </div>
                         </div>
@@ -160,72 +260,95 @@ export default function Newsletters() {
                 ) : selectedCampaign ? (
                     // Viewing a specific campaign
                     <div className="space-y-4">
-                        <Button
-                            variant="outline"
-                            onClick={() => setSelectedCampaign(null)}
-                            className="border-2"
-                        >
-                            <ArrowLeft className="w-4 h-4 mr-2" />
-                            Back to Archive
-                        </Button>
-                        <Card className="p-6 sm:p-8 border-2 border-slate-200">
-                            <div className="mb-6">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
-                                        <Crown className="w-3 h-3" />
-                                        Premium
-                                    </span>
-                                </div>
-                                <h2 className="text-2xl sm:text-3xl font-bold mb-2 break-words">
-                                    {selectedCampaign.name}
-                                </h2>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Calendar className="w-4 h-4" />
-                                    {formatDate(selectedCampaign.sent_at)}
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                            <Button
+                                variant="outline"
+                                onClick={() => setSelectedCampaign(null)}
+                                className="border-2"
+                            >
+                                <ArrowLeft className="w-4 h-4 mr-2" />
+                                Back to Archive
+                            </Button>
+                        </div>
+                        <Card className="p-6 sm:p-8 md:p-10 border-2 border-slate-200 shadow-lg">
+                            {/* Header */}
+                            <div className="mb-8 pb-6 border-b border-slate-200">
+                                <div className="flex items-start justify-between gap-4 mb-4">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                                                <Crown className="w-3 h-3" />
+                                                Premium
+                                            </span>
+                                        </div>
+                                        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 break-words text-foreground leading-tight">
+                                            {selectedCampaign.name}
+                                        </h2>
+                                        {selectedCampaign.subject && (
+                                            <p className="text-base sm:text-lg text-muted-foreground mb-4 break-words">
+                                                {selectedCampaign.subject}
+                                            </p>
+                                        )}
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                            <Calendar className="w-4 h-4 flex-shrink-0" />
+                                            <span>{formatDate(selectedCampaign.sent_at)}</span>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* Campaign Statistics */}
                                 {selectedCampaign.stats && (
-                                    <div className="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                                        <h3 className="text-sm font-semibold text-foreground mb-3">Campaign Statistics</h3>
+                                    <div className="mt-6 p-4 sm:p-6 bg-slate-50 rounded-lg border border-slate-200">
+                                        <h3 className="text-sm font-semibold text-foreground mb-4">Campaign Statistics</h3>
                                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                            <div className="text-center">
+                                            <div className="text-center p-3 bg-white rounded-lg border border-slate-200">
                                                 <p className="text-2xl font-bold text-primary">{selectedCampaign.stats.sent || 0}</p>
-                                                <p className="text-xs text-muted-foreground">Sent</p>
+                                                <p className="text-xs text-muted-foreground mt-1">Sent</p>
                                             </div>
-                                            <div className="text-center">
+                                            <div className="text-center p-3 bg-white rounded-lg border border-slate-200">
                                                 <p className="text-2xl font-bold text-green-600">{selectedCampaign.stats.unique_opens_count || 0}</p>
-                                                <p className="text-xs text-muted-foreground">Opens ({selectedCampaign.stats.open_rate?.string || '0%'})</p>
+                                                <p className="text-xs text-muted-foreground mt-1">Opens ({selectedCampaign.stats.open_rate?.string || '0%'})</p>
                                             </div>
-                                            <div className="text-center">
+                                            <div className="text-center p-3 bg-white rounded-lg border border-slate-200">
                                                 <p className="text-2xl font-bold text-blue-600">{selectedCampaign.stats.unique_clicks_count || 0}</p>
-                                                <p className="text-xs text-muted-foreground">Clicks ({selectedCampaign.stats.click_rate?.string || '0%'})</p>
+                                                <p className="text-xs text-muted-foreground mt-1">Clicks ({selectedCampaign.stats.click_rate?.string || '0%'})</p>
                                             </div>
-                                            <div className="text-center">
+                                            <div className="text-center p-3 bg-white rounded-lg border border-slate-200">
                                                 <p className="text-2xl font-bold text-red-500">{(selectedCampaign.stats.unsubscribes_count || 0) + (selectedCampaign.stats.hard_bounces_count || 0)}</p>
-                                                <p className="text-xs text-muted-foreground">Unsubs/Bounces</p>
+                                                <p className="text-xs text-muted-foreground mt-1">Unsubs/Bounces</p>
                                             </div>
                                         </div>
                                     </div>
                                 )}
                             </div>
-                            {selectedCampaign.content?.html ? (
-                                <div
-                                    className="prose prose-sm sm:prose-base md:prose-lg max-w-none 
-                                        prose-headings:break-words prose-p:break-words 
-                                        prose-a:text-primary prose-a:break-all
-                                        prose-img:max-w-full prose-img:h-auto
-                                        prose-table:w-full prose-table:overflow-x-auto
-                                        [&_table]:block [&_table]:overflow-x-auto [&_table]:whitespace-nowrap"
-                                    dangerouslySetInnerHTML={{ __html: selectedCampaign.content.html }}
-                                />
-                            ) : selectedCampaign.content?.plain ? (
-                                <div className="whitespace-pre-wrap text-sm md:text-base break-words overflow-x-auto">
-                                    {selectedCampaign.content.plain}
-                                </div>
-                            ) : (
-                                <p className="text-muted-foreground">No content available</p>
-                            )}
+
+                            {/* Newsletter Content */}
+                            <div className="newsletter-content">
+                                {selectedCampaign.content?.html ? (
+                                    <div
+                                        className="prose prose-sm sm:prose-base md:prose-lg lg:prose-xl max-w-none 
+                                            prose-headings:font-bold prose-headings:text-foreground
+                                            prose-headings:break-words prose-p:break-words prose-p:leading-relaxed
+                                            prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-a:break-all
+                                            prose-img:max-w-full prose-img:h-auto prose-img:rounded-lg prose-img:shadow-md
+                                            prose-table:w-full prose-table:overflow-x-auto prose-table:border-collapse
+                                            prose-strong:font-bold prose-strong:text-foreground
+                                            prose-ul:list-disc prose-ol:list-decimal
+                                            [&_table]:block [&_table]:overflow-x-auto [&_table]:whitespace-nowrap
+                                            [&_p]:mb-4 [&_h1]:mb-4 [&_h2]:mb-3 [&_h3]:mb-3 [&_ul]:mb-4 [&_ol]:mb-4"
+                                        dangerouslySetInnerHTML={{ __html: selectedCampaign.content.html }}
+                                    />
+                                ) : selectedCampaign.content?.plain ? (
+                                    <div className="whitespace-pre-wrap text-sm md:text-base lg:text-lg break-words overflow-x-auto leading-relaxed text-foreground">
+                                        {selectedCampaign.content.plain}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12">
+                                        <p className="text-muted-foreground">No content available for this newsletter.</p>
+                                    </div>
+                                )}
+                            </div>
+
                         </Card>
                     </div>
                 ) : campaigns.length === 0 ? (

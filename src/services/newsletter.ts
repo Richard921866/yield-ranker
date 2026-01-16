@@ -37,3 +37,30 @@ export async function subscribeToNewsletter(email: string): Promise<SubscribeRes
         };
     }
 }
+
+/**
+ * Unsubscribe from the newsletter
+ */
+export async function unsubscribeFromNewsletter(email: string): Promise<SubscribeResponse> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/newsletter/unsubscribe`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email }),
+        });
+
+        const data = await response.json();
+        return {
+            success: data.success,
+            message: data.message,
+        };
+    } catch (error) {
+        console.error('Newsletter unsubscription error:', error);
+        return {
+            success: false,
+            message: 'Failed to unsubscribe. Please try again later.',
+        };
+    }
+}
