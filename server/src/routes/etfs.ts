@@ -316,14 +316,24 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false }) as unknown[][];
 
+    logger.info('Upload', `Total rows in file: ${allRows.length}`);
+    if (allRows.length > 0) {
+      logger.info('Upload', `First row: ${JSON.stringify(allRows[0])}`);
+    }
+    if (allRows.length > 1) {
+      logger.info('Upload', `Second row: ${JSON.stringify(allRows[1])}`);
+    }
+
     // Find header row
     let headerRowIndex = 0;
     for (let i = 0; i < Math.min(allRows.length, 20); i++) {
       const row = allRows[i];
       if (!Array.isArray(row)) continue;
       const rowStr = row.map(c => String(c).toLowerCase().trim());
+      logger.info('Upload', `Checking row ${i} for headers: ${JSON.stringify(rowStr)}`);
       if (rowStr.includes('symbol') || rowStr.includes('ticker')) {
         headerRowIndex = i;
+        logger.info('Upload', `Found header row at index: ${headerRowIndex}`);
         break;
       }
     }
@@ -338,13 +348,16 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
 
     // Build header map
     const headers = Object.keys(rawData[0] ?? {});
+    logger.info('Upload', `Detected headers: ${JSON.stringify(headers)}`);
     const headerMap: Record<string, string> = {};
     headers.forEach(h => {
       if (h) headerMap[String(h).trim().toLowerCase()] = h;
     });
+    logger.info('Upload', `Header map: ${JSON.stringify(headerMap)}`);
 
     // Find columns
     const symbolCol = findColumn(headerMap, 'symbol', 'symbols', 'ticker');
+    logger.info('Upload', `Symbol column: ${symbolCol}`);
     if (!symbolCol) {
       cleanupFile(filePath);
       res.status(400).json({
