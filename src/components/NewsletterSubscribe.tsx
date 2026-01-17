@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { subscribeToNewsletter, unsubscribeFromNewsletter } from "@/services/newsletter";
-import { listSubscribers } from "@/services/newsletterAdmin";
+import { checkSubscription } from "@/services/publicNewsletter";
 import { Loader2, Mail, CheckCircle, X, Archive } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -22,7 +22,7 @@ export const NewsletterSubscribe = () => {
     // Check subscription status on mount and when user/auth changes
     // Skip during OAuth callback to avoid interfering with auth flow
     useEffect(() => {
-        const checkSubscription = async () => {
+        const doCheckSubscription = async () => {
             // Wait for auth to finish loading before checking subscription
             if (authLoading) {
                 return;
@@ -44,14 +44,11 @@ export const NewsletterSubscribe = () => {
             }
 
             try {
-                const result = await listSubscribers(10000, 0);
-                if (result.success && result.subscribers) {
-                    const subscribed = result.subscribers.some(
-                        (sub) => sub.email.toLowerCase() === userEmail.toLowerCase() && sub.status === 'active'
-                    );
-                    setIsSubscribed(subscribed);
-                    // Pre-fill email if user is logged in
-                    if (subscribed) {
+                const result = await checkSubscription(userEmail);
+                if (result.success) {
+                    setIsSubscribed(result.isSubscribed);
+                    // Pre-fill email if user is logged in and subscribed
+                    if (result.isSubscribed) {
                         setEmail(userEmail);
                     }
                 }
@@ -62,14 +59,14 @@ export const NewsletterSubscribe = () => {
             }
         };
 
-        checkSubscription();
+        doCheckSubscription();
     }, [userEmail, authLoading]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         const emailToUse = userEmail || email.trim();
-        
+
         if (!emailToUse) {
             toast({
                 variant: "destructive",
@@ -88,8 +85,8 @@ export const NewsletterSubscribe = () => {
                 setIsSubscribed(true);
                 setEmail(userEmail); // Keep user email if logged in
                 // Dispatch custom event to notify newsletter pages
-                window.dispatchEvent(new CustomEvent('newsletter-subscription-changed', { 
-                    detail: { isSubscribed: true } 
+                window.dispatchEvent(new CustomEvent('newsletter-subscription-changed', {
+                    detail: { isSubscribed: true }
                 }));
                 toast({
                     title: "Success!",
@@ -131,8 +128,8 @@ export const NewsletterSubscribe = () => {
             if (result.success) {
                 setIsSubscribed(false);
                 // Dispatch custom event to notify newsletter pages
-                window.dispatchEvent(new CustomEvent('newsletter-subscription-changed', { 
-                    detail: { isSubscribed: false } 
+                window.dispatchEvent(new CustomEvent('newsletter-subscription-changed', {
+                    detail: { isSubscribed: false }
                 }));
                 toast({
                     title: "Unsubscribed",
