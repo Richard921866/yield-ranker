@@ -75,7 +75,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
                 return;
             }
 
-            // Return safe public fields including content
+            // Return safe public fields including content and attachments
             res.json({
                 success: true,
                 newsletter: {
@@ -84,6 +84,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
                     subject: result.campaign.subject,
                     sent_at: result.campaign.sent_at,
                     content: result.campaign.content,
+                    attachments: result.campaign.attachments || [],
                 },
             });
         } else {

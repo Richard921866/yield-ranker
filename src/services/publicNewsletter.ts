@@ -6,6 +6,13 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
+export interface NewsletterAttachment {
+    name: string;
+    url: string;
+    type: string;
+    size?: number;
+}
+
 export interface PublicNewsletter {
     id: string;
     name: string;
@@ -15,6 +22,7 @@ export interface PublicNewsletter {
         html?: string;
         plain?: string;
     };
+    attachments?: NewsletterAttachment[];
 }
 
 export interface NewsletterListResponse {

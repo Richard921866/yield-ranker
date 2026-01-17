@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { subscribeToNewsletter, unsubscribeFromNewsletter } from "@/services/newsletter";
 import { listSubscribers } from "@/services/newsletterAdmin";
-import { Loader2, Mail, CheckCircle, X } from "lucide-react";
+import { Loader2, Mail, CheckCircle, X, Archive } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export const NewsletterSubscribe = () => {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const [email, setEmail] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [isSubscribed, setIsSubscribed] = useState(false);
@@ -18,10 +19,15 @@ export const NewsletterSubscribe = () => {
 
     const userEmail = user?.email || "";
 
-    // Check subscription status on mount and when user changes
+    // Check subscription status on mount and when user/auth changes
     // Skip during OAuth callback to avoid interfering with auth flow
     useEffect(() => {
         const checkSubscription = async () => {
+            // Wait for auth to finish loading before checking subscription
+            if (authLoading) {
+                return;
+            }
+
             // Skip subscription check if we're in the middle of an OAuth callback
             const hash = window.location.hash;
             if (hash.includes('access_token') || hash.includes('error')) {
@@ -36,9 +42,6 @@ export const NewsletterSubscribe = () => {
                 setIsSubscribed(false);
                 return;
             }
-
-            // Add a small delay to ensure auth is fully stable
-            await new Promise(resolve => setTimeout(resolve, 500));
 
             try {
                 const result = await listSubscribers(10000, 0);
@@ -60,7 +63,7 @@ export const NewsletterSubscribe = () => {
         };
 
         checkSubscription();
-    }, [userEmail]);
+    }, [userEmail, authLoading]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -153,42 +156,51 @@ export const NewsletterSubscribe = () => {
         }
     };
 
-    // Show loading state while checking subscription
-    if (checkingSubscription) {
+    // Show loading state while checking subscription or auth is loading
+    if (authLoading || checkingSubscription) {
         return (
             <div className="flex items-center gap-2 w-full max-w-md">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Checking subscription...</span>
+                <span className="text-sm text-muted-foreground">
+                    {authLoading ? 'Loading...' : 'Checking subscription...'}
+                </span>
             </div>
         );
     }
 
-    // Show unsubscribe button if subscribed
+    // Show subscribed state with archive link and unsubscribe option
     if (isSubscribed) {
         return (
-            <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md">
-                <div className="flex items-center gap-2 text-green-600 flex-shrink-0">
-                    <CheckCircle className="h-5 w-5" />
-                    <span className="text-sm font-medium">Subscribed</span>
+            <div className="flex flex-col gap-3 w-full max-w-md">
+                {/* Subscribed badge and actions */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-full flex-shrink-0">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-700">Subscribed</span>
+                    </div>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <Link
+                            to="/public-newsletters"
+                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary hover:text-primary/80 bg-primary/5 hover:bg-primary/10 rounded-lg transition-colors flex-1 sm:flex-initial justify-center"
+                        >
+                            <Archive className="h-4 w-4" />
+                            View Archive
+                        </Link>
+                        <Button
+                            onClick={handleUnsubscribe}
+                            disabled={unsubscribing}
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 whitespace-nowrap"
+                        >
+                            {unsubscribing ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <X className="h-4 w-4" />
+                            )}
+                        </Button>
+                    </div>
                 </div>
-                <Button
-                    onClick={handleUnsubscribe}
-                    disabled={unsubscribing}
-                    variant="outline"
-                    className="border-2 text-destructive hover:bg-destructive/10 hover:text-destructive hover:border-destructive whitespace-nowrap w-full sm:w-auto"
-                >
-                    {unsubscribing ? (
-                        <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Unsubscribing...
-                        </>
-                    ) : (
-                        <>
-                            <X className="h-4 w-4 mr-2" />
-                            Unsubscribe
-                        </>
-                    )}
-                </Button>
             </div>
         );
     }

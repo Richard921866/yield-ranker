@@ -21,6 +21,13 @@ interface SubscribeResult {
     subscriberId?: string;
 }
 
+export interface CampaignAttachment {
+    name: string;
+    url: string;
+    type: string;
+    size?: number;
+}
+
 export interface Campaign {
     id?: string;
     name: string;
@@ -39,6 +46,8 @@ export interface Campaign {
     sent_at?: string;
     // Statistics from MailerLite
     stats?: CampaignStats;
+    // Attachments (if available from MailerLite or stored separately)
+    attachments?: CampaignAttachment[];
 }
 
 export interface CampaignStats {
