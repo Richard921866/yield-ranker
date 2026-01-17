@@ -355,7 +355,7 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
     }
 
     // Category is required - must be CCETF or CCEF
-    const categoryCol = findColumn(headerMap, 'category');
+    const categoryCol = findColumn(headerMap, 'category', 'cat');
     if (!categoryCol) {
       cleanupFile(filePath);
       res.status(400).json({
