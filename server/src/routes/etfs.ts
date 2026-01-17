@@ -392,16 +392,8 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Category is required - must be CCETF or CCEF
+    // Category is optional - defaults to CCETF for backward compatibility
     const categoryCol = findColumn(headerMap, 'category', 'cat');
-    if (!categoryCol) {
-      cleanupFile(filePath);
-      res.status(400).json({
-        error: 'CATEGORY column not found (required)',
-        details: `Available columns: ${headers.join(', ')}. Please add a CATEGORY column with values "CCETF" or "CCEF".`,
-      });
-      return;
-    }
 
 
     const issuerCol = findColumn(headerMap, 'issuer');
@@ -430,17 +422,14 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
         continue;
       }
 
-      // Validate category
-      const categoryValue = categoryCol && row[categoryCol] ? String(row[categoryCol]).trim().toUpperCase() : null;
-      if (!categoryValue) {
-        logger.warn('ETF Upload', `Row with ticker ${ticker} missing CATEGORY - skipping`);
-        skippedRows++;
-        continue;
+      // Category is optional - defaults to CCETF if not provided
+      let categoryValue: string | null = null;
+      if (categoryCol && row[categoryCol]) {
+        categoryValue = String(row[categoryCol]).trim().toUpperCase();
       }
-      if (categoryValue !== 'CCETF' && categoryValue !== 'CCEF') {
-        logger.warn('ETF Upload', `Row with ticker ${ticker} has invalid CATEGORY "${categoryValue}" - must be "CCETF" or "CCEF". Skipping.`);
-        skippedRows++;
-        continue;
+      // Default to CCETF if category column doesn't exist or is empty
+      if (!categoryValue) {
+        categoryValue = 'CCETF';
       }
 
       records.push({
