@@ -780,8 +780,7 @@ export async function calculateNAVReturns(
       "CEF Metrics",
       `✅ Calculated ${period} Annualized NAV return for ${navSymbol}: ${annualizedReturn.toFixed(
         2
-      )}% (total: ${totalReturn.toFixed(2)}% over ${years} years, ${
-        navData.length
+      )}% (total: ${totalReturn.toFixed(2)}% over ${years} years, ${navData.length
       } records)`
     );
     return annualizedReturn;
@@ -1069,7 +1068,7 @@ const upload = multer({
   fileFilter: (_req, file, cb) => {
     if (
       file.mimetype ===
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
       file.mimetype === "application/vnd.ms-excel"
     ) {
       cb(null, true);
@@ -1251,6 +1250,7 @@ router.post(
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const allRows = XLSX.utils.sheet_to_json(sheet, {
         header: 1,
+        blankrows: false,
       }) as unknown[][];
 
       let headerRowIndex = 0;
@@ -1267,6 +1267,7 @@ router.post(
       const rawData = XLSX.utils.sheet_to_json(sheet, {
         range: headerRowIndex,
         defval: null,
+        blankrows: false,
       }) as Record<string, unknown>[];
 
       if (!rawData || rawData.length === 0) {
@@ -1305,7 +1306,7 @@ router.post(
 
       // Category is optional - defaults to CEF for backward compatibility
       // If present, must be CEF or CCETF
-      const categoryCol = findColumn(headerMap, "category");
+      const categoryCol = findColumn(headerMap, "category", "cat");
       const hasCategoryColumn = categoryCol !== null;
 
       logger.info(
@@ -1390,6 +1391,7 @@ router.post(
       const numPayCol = findColumn(
         headerMap,
         "#",
+        "# pmts",
         "payments",
         "payments_per_year",
         "# payments",
@@ -2022,8 +2024,7 @@ router.post(
                 } catch (normError) {
                   logger.warn(
                     "CEF Upload",
-                    `Failed to calculate normalized dividends for ${ticker}: ${
-                      (normError as Error).message
+                    `Failed to calculate normalized dividends for ${ticker}: ${(normError as Error).message
                     }`
                   );
                 }
@@ -2083,21 +2084,21 @@ router.post(
                     ),
                     navSymbolForCalc
                       ? calculateNAVTrend6M(navSymbolForCalc).catch((err) => {
-                          logger.warn(
-                            "CEF Upload",
-                            `${ticker}: calculateNAVTrend6M failed: ${err.message}`
-                          );
-                          return null;
-                        })
+                        logger.warn(
+                          "CEF Upload",
+                          `${ticker}: calculateNAVTrend6M failed: ${err.message}`
+                        );
+                        return null;
+                      })
                       : Promise.resolve(null),
                     navSymbolForCalc
                       ? calculateNAVReturn12M(navSymbolForCalc).catch((err) => {
-                          logger.warn(
-                            "CEF Upload",
-                            `${ticker}: calculateNAVReturn12M failed: ${err.message}`
-                          );
-                          return null;
-                        })
+                        logger.warn(
+                          "CEF Upload",
+                          `${ticker}: calculateNAVReturn12M failed: ${err.message}`
+                        );
+                        return null;
+                      })
                       : Promise.resolve(null),
                   ]);
 
@@ -2114,8 +2115,7 @@ router.post(
                 } catch (error) {
                   logger.warn(
                     "CEF Upload",
-                    `Failed to calculate Signal for ${ticker}: ${
-                      (error as Error).message
+                    `Failed to calculate Signal for ${ticker}: ${(error as Error).message
                     }`
                   );
                 }
@@ -2133,8 +2133,7 @@ router.post(
                 } catch (error) {
                   logger.warn(
                     "CEF Upload",
-                    `Failed to calculate Dividend History for ${ticker}: ${
-                      (error as Error).message
+                    `Failed to calculate Dividend History for ${ticker}: ${(error as Error).message
                     }`
                   );
                 }
@@ -2191,21 +2190,16 @@ router.post(
 
                 logger.info(
                   "CEF Upload",
-                  `✓ ${ticker} metrics calculated - Last Div: ${
-                    metrics.lastDividend?.toFixed(4) || "N/A"
-                  }, Yield: ${
-                    metrics.forwardYield?.toFixed(2) || "N/A"
-                  }%, TR 12M: ${
-                    metrics.totalReturnDrip?.["1Y"]?.toFixed(2) || "N/A"
-                  }%, Z-Score: ${
-                    fiveYearZScore?.toFixed(2) || "N/A"
+                  `✓ ${ticker} metrics calculated - Last Div: ${metrics.lastDividend?.toFixed(4) || "N/A"
+                  }, Yield: ${metrics.forwardYield?.toFixed(2) || "N/A"
+                  }%, TR 12M: ${metrics.totalReturnDrip?.["1Y"]?.toFixed(2) || "N/A"
+                  }%, Z-Score: ${fiveYearZScore?.toFixed(2) || "N/A"
                   }, Signal: ${signal !== null ? signal : "N/A"}`
                 );
               } catch (error) {
                 logger.error(
                   "CEF Upload",
-                  `Failed to calculate metrics for ${ticker}: ${
-                    (error as Error).message
+                  `Failed to calculate metrics for ${ticker}: ${(error as Error).message
                   }`
                 );
                 logger.error(
@@ -2661,7 +2655,7 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
           // Read CEF metrics from database first
           let fiveYearZScore: number | null =
             cef.five_year_z_score !== undefined &&
-            cef.five_year_z_score !== null
+              cef.five_year_z_score !== null
               ? cef.five_year_z_score
               : null;
           let navTrend6M: number | null =
@@ -2856,8 +2850,7 @@ router.get(
       // Log the date range for debugging
       logger.info(
         "Routes",
-        `Price/NAV chart: period=${period}, startDate=${
-          startDate.toISOString().split("T")[0]
+        `Price/NAV chart: period=${period}, startDate=${startDate.toISOString().split("T")[0]
         }, endDate=${endDate.toISOString().split("T")[0]}`
       );
 
@@ -2990,8 +2983,7 @@ router.get(
               } catch (tiingoError) {
                 logger.warn(
                   "Routes",
-                  `Tiingo NAV fallback failed: ${
-                    (tiingoError as Error).message
+                  `Tiingo NAV fallback failed: ${(tiingoError as Error).message
                   }`
                 );
               }
@@ -3105,8 +3097,7 @@ router.get(
     } catch (error) {
       logger.error(
         "Routes",
-        `Error fetching price/NAV data for ${req.params.symbol}: ${
-          (error as Error).message
+        `Error fetching price/NAV data for ${req.params.symbol}: ${(error as Error).message
         }`
       );
       res.status(500).json({ error: "Internal server error" });

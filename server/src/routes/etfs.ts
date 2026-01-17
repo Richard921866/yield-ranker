@@ -314,7 +314,7 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
     }
 
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
+    const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false }) as unknown[][];
 
     // Find header row
     let headerRowIndex = 0;
@@ -328,7 +328,7 @@ async function handleStaticUpload(req: Request, res: Response): Promise<void> {
       }
     }
 
-    const rawData = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex, defval: null }) as Record<string, unknown>[];
+    const rawData = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex, defval: null, blankrows: false }) as Record<string, unknown>[];
 
     if (!rawData || rawData.length === 0) {
       cleanupFile(filePath);
@@ -956,7 +956,7 @@ router.post('/upload-dividends', upload.single('file'), async (req: Request, res
     }
 
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
+    const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false }) as unknown[][];
 
     let headerRowIndex = 0;
     for (let i = 0; i < Math.min(allRows.length, 20); i++) {
@@ -969,7 +969,7 @@ router.post('/upload-dividends', upload.single('file'), async (req: Request, res
       }
     }
 
-    const rawData = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex, defval: null, raw: false }) as Record<string, unknown>[];
+    const rawData = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex, defval: null, raw: false, blankrows: false }) as Record<string, unknown>[];
 
     if (!rawData || rawData.length === 0) {
       cleanupFile(filePath);
