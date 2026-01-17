@@ -66,8 +66,13 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
         const result = await getCampaign(id);
 
         if (result.success && result.campaign) {
-            // Only return if the campaign was sent
-            if (result.campaign.status !== 'sent') {
+            // Log the status for debugging
+            logger.info('Public Newsletters', `Campaign ${id} status: ${result.campaign.status}`);
+
+            // Only return if the campaign was sent - handle various status values from MailerLite
+            // MailerLite may return 'sent', 'finished', etc. for sent campaigns
+            const status = result.campaign.status?.toLowerCase() || '';
+            if (status === 'draft' || status === 'scheduled' || status === 'outbox') {
                 res.status(404).json({
                     success: false,
                     message: 'Newsletter not found',

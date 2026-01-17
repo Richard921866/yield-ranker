@@ -526,10 +526,39 @@ export async function getCampaign(campaignId: string): Promise<CampaignResult> {
     }
 
     try {
-        const response = await mailerlite.campaigns.get(campaignId);
+        // Use find() method for getting individual campaign by ID
+        const response = await mailerlite.campaigns.find(campaignId);
+        const campaignData = response.data?.data;
+
+        logger.info('MailerLite', `Raw campaign data for ${campaignId}: status=${campaignData?.status}, has_emails=${!!campaignData?.emails}`);
+
+        // Extract content from the emails array if available
+        let content: { html?: string; plain?: string } | undefined;
+        if (campaignData?.emails && campaignData.emails.length > 0) {
+            const email = campaignData.emails[0];
+            content = {
+                html: email.content || email.html,
+                plain: email.plain_text || email.plain,
+            };
+        }
+
+        // Build the campaign object with content
+        const campaign: Campaign = {
+            id: campaignData?.id,
+            name: campaignData?.name,
+            subject: campaignData?.emails?.[0]?.subject || campaignData?.subject,
+            type: campaignData?.type || 'regular',
+            status: campaignData?.status,
+            created_at: campaignData?.created_at,
+            updated_at: campaignData?.updated_at,
+            sent_at: campaignData?.finished_at || campaignData?.sent_at,
+            content,
+            stats: campaignData?.stats,
+        };
+
         return {
             success: true,
-            campaign: response.data?.data as Campaign,
+            campaign,
         };
     } catch (error: unknown) {
         const err = error as { response?: { data?: { message?: string } }; message?: string };
