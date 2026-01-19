@@ -1390,7 +1390,7 @@ const AdminPanel = () => {
                         <br /><br />
                         <strong>Required:</strong> CC ETF, Symbol
                         <br />
-                        <strong>Optional:</strong> Issuer, Description, Pay Day, # Payments, IPO Price, Div
+                        <strong>Optional:</strong> Issuer, Description, Pay Day, # Payments
                       </p>
                     </div>
 
@@ -1468,7 +1468,7 @@ const AdminPanel = () => {
                           <br /><br />
                           <strong>Required:</strong> CEF, Symbol
                           <br />
-                          <strong>Optional:</strong> NAV Symbol, Description, OPEN (Open Date), IPO PRICE, # (# Payments)
+                          <strong>Optional:</strong> NAV Symbol, Description, # (# Payments)
                         </p>
                       </div>
 
