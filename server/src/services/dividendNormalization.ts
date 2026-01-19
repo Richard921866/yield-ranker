@@ -447,40 +447,7 @@ export function calculateNormalizedDividendsForCEFs(
       }
     }
 
-    // Step 3: Pattern consistency check - if gaps are inconsistent, mark as Irregular
-    // This fixes DSL and similar cases where gaps vary wildly (some weekly, some monthly, some longer)
-    // If we have enough history, check if gaps map to different frequencies
-    if (rollingRegularGapsToNext.length >= 4) {
-      const allGapLabels = rollingRegularGapsToNext
-        .slice(-8) // Check last 8 gaps
-        .map((d) => getCEFFrequencyFromDays(d).label)
-        .filter((l) => l !== "Irregular"); // Exclude already-irregular gaps
-      
-      if (allGapLabels.length >= 4) {
-        const uniqueLabels = new Set(allGapLabels);
-        // If we have 3+ different frequency labels, pattern is inconsistent -> Irregular
-        if (uniqueLabels.size >= 3) {
-          frequencyLabel = "Irregular";
-          frequencyNum = null;
-        } else if (uniqueLabels.size === 2) {
-          // If we have 2 different labels, check if one is clearly dominant
-          // If not clearly dominant (e.g., 50/50 split), mark as Irregular
-          const counts = new Map<CEFDividendFrequencyLabel, number>();
-          for (const l of allGapLabels) {
-            counts.set(l, (counts.get(l) || 0) + 1);
-          }
-          const maxCount = Math.max(...Array.from(counts.values()));
-          const dominanceRatio = maxCount / allGapLabels.length;
-          // If no single frequency has >70% dominance, mark as Irregular
-          if (dominanceRatio < 0.7) {
-            frequencyLabel = "Irregular";
-            frequencyNum = null;
-          }
-        }
-      }
-    }
-
-    // Step 4: History-based holiday adjustment for ambiguous short gaps (14–19)
+    // Step 3: History-based holiday adjustment for ambiguous short gaps (14–19)
     // If amount is unchanged and the prior 3–6 dividends were monthly/weekly, treat as holiday-adjusted.
     if (
       frequencyLabel === "Irregular" &&
@@ -504,7 +471,7 @@ export function calculateNormalizedDividendsForCEFs(
       }
     }
 
-    // Step 5: Special detection (Golden logic)
+    // Step 4: Special detection (Golden logic)
     // Priority 1: Cadence is the look-back gap (gapDays).
     // Priority 2: If amount is exactly the same as previous payment, it MUST be Regular.
     // Priority 3: Special priority for year-end clustering:
