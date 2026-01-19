@@ -711,13 +711,14 @@ export function calculateNormalizedDividendsForCEFs(
           const firstDecember = decemberDividendsThisYear[0];
           if (current.ex_date !== firstDecember.ex_date) {
             // Second December dividend is inherently off-cadence
-            // Check if also > 2.5× median to match user requirement
-            const isExtremeSpikeForDec =
+            // For second December payment, mark as Special if amount is different from regular pattern
+            // (even if not > 2.3× median, because it's inherently a special distribution)
+            const amountDifferent = 
               medianAmount !== null &&
               medianAmount > 0 &&
-              amount > specialMultiplier * medianAmount;
+              !isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol);
 
-            if (isExtremeSpikeForDec) {
+            if (amountDifferent) {
               const repeatsNext =
                 nextAmount !== null &&
                 nextAmount > 0 &&
