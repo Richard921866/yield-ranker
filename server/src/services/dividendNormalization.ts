@@ -324,8 +324,8 @@ export function calculateNormalizedDividendsForCEFs(
     amountStabilityRelTol?: number; // "unchanged" threshold
   }
 ): NormalizedDividendCEF[] {
-  // "Golden logic": only call something Special on a very strong amount signal by default (>= 300% of median).
-  const specialMultiplier = options?.specialMultiplier ?? 3.0;
+  // "Golden logic": only call something Special on a very strong amount signal by default (>= 250% of median).
+  const specialMultiplier = options?.specialMultiplier ?? 2.5;
   const roundNumberMultiplier = options?.roundNumberMultiplier ?? 1.5;
   const amountStabilityRelTol = options?.amountStabilityRelTol ?? 0.02; // 2% default
 
@@ -447,7 +447,40 @@ export function calculateNormalizedDividendsForCEFs(
       }
     }
 
-    // Step 3: History-based holiday adjustment for ambiguous short gaps (14–19)
+    // Step 3: Pattern consistency check - if gaps are inconsistent, mark as Irregular
+    // This fixes DSL and similar cases where gaps vary wildly (some weekly, some monthly, some longer)
+    // If we have enough history, check if gaps map to different frequencies
+    if (rollingRegularGapsToNext.length >= 4) {
+      const allGapLabels = rollingRegularGapsToNext
+        .slice(-8) // Check last 8 gaps
+        .map((d) => getCEFFrequencyFromDays(d).label)
+        .filter((l) => l !== "Irregular"); // Exclude already-irregular gaps
+      
+      if (allGapLabels.length >= 4) {
+        const uniqueLabels = new Set(allGapLabels);
+        // If we have 3+ different frequency labels, pattern is inconsistent -> Irregular
+        if (uniqueLabels.size >= 3) {
+          frequencyLabel = "Irregular";
+          frequencyNum = null;
+        } else if (uniqueLabels.size === 2) {
+          // If we have 2 different labels, check if one is clearly dominant
+          // If not clearly dominant (e.g., 50/50 split), mark as Irregular
+          const counts = new Map<CEFDividendFrequencyLabel, number>();
+          for (const l of allGapLabels) {
+            counts.set(l, (counts.get(l) || 0) + 1);
+          }
+          const maxCount = Math.max(...Array.from(counts.values()));
+          const dominanceRatio = maxCount / allGapLabels.length;
+          // If no single frequency has >70% dominance, mark as Irregular
+          if (dominanceRatio < 0.7) {
+            frequencyLabel = "Irregular";
+            frequencyNum = null;
+          }
+        }
+      }
+    }
+
+    // Step 4: History-based holiday adjustment for ambiguous short gaps (14–19)
     // If amount is unchanged and the prior 3–6 dividends were monthly/weekly, treat as holiday-adjusted.
     if (
       frequencyLabel === "Irregular" &&
@@ -471,7 +504,7 @@ export function calculateNormalizedDividendsForCEFs(
       }
     }
 
-    // Step 4: Special detection (Golden logic)
+    // Step 5: Special detection (Golden logic)
     // Priority 1: Cadence is the look-back gap (gapDays).
     // Priority 2: If amount is exactly the same as previous payment, it MUST be Regular.
     // Priority 3: Special priority for year-end clustering:
@@ -488,28 +521,20 @@ export function calculateNormalizedDividendsForCEFs(
       const isJanuary =
         !isNaN(currentDate.getTime()) && currentDate.getMonth() === 0; // month 0 = January
 
-      // CRITICAL: Check for extreme spikes (300%+ rule) WITH cadence check
-      // Per user requirement: Special requires BOTH off-cadence AND > 3× median
+      // CRITICAL: Check for extreme spikes (250%+ rule) WITH cadence check
+      // Per user requirement: Special requires BOTH off-cadence AND > 2.5× median
       // On-cadence extreme spikes should remain Regular
       if (medianAmount !== null && medianAmount > 0) {
-        const isExtremeSpike = amount >= specialMultiplier * medianAmount; // default 3.0x (300%)
+        const isExtremeSpike = amount >= specialMultiplier * medianAmount; // default 2.5x (250%)
         if (isExtremeSpike) {
-          // Check if off-cadence for monthly payers using DAY-OF-MONTH (not gap-days)
-          // BUI/BST fix: check if current day-of-month falls outside historical pattern
-          const dominantLabelForSpike = determinePatternFrequencyLabel(rollingRegularGapsToNext);
+          // Check if off-cadence using GAP-DAYS (not day-of-month)
+          // For monthly payers: gap should be 20-35 days. If gap < 20 or > 35, it's off-cadence
           let isOffCadenceForSpike = false;
-          if (dominantLabelForSpike === "Monthly") {
-            const expectedRange = computeExpectedDayOfMonthRange(
-              rollingRegularExDates.slice(-12)
-            );
-            if (expectedRange) {
-              const currentDayOfMonth = new Date(current.ex_date).getDate();
-              isOffCadenceForSpike = currentDayOfMonth < expectedRange.minDay ||
-                currentDayOfMonth > expectedRange.maxDay;
-            }
+          if (daysSincePrev !== null && daysSincePrev > 0) {
+            isOffCadenceForSpike = daysSincePrev < 20 || daysSincePrev > 35;
           }
 
-          // For extreme spikes (300%+), ONLY mark as Special if ALSO off-cadence
+          // For extreme spikes (250%+), ONLY mark as Special if ALSO off-cadence
           // This ensures on-cadence extreme spikes remain Regular per user requirement
           const repeatsNext =
             nextAmount !== null &&
@@ -522,30 +547,21 @@ export function calculateNormalizedDividendsForCEFs(
         }
       }
 
-      // NEW COMBINED RULE: Off-cadence + > 3× median of last 12 (for BUI/BST type CEFs)
+      // NEW COMBINED RULE: Off-cadence + > 2.5× median of last 12 (for BUI/BST/NIE/BDJ type CEFs)
       // User Requirement: Mark as Special if BOTH conditions are true:
-      // 1. Ex-dividend date is NOT within the expected monthly day range (20-35 days)
-      // 2. Dividend amount is > 3× the median of the last 12 dividends
+      // 1. Gap days is NOT within the monthly range (20-35 days)
+      // 2. Dividend amount is > 2.5× the median of the last 12 dividends
       if (pmtType !== "Special") {
-        const dominantLabel = determinePatternFrequencyLabel(rollingRegularGapsToNext);
-
-        // Check if off-cadence for monthly payers using DAY-OF-MONTH (not gap-days)
-        // BUI/BST fix: check if current day-of-month falls outside historical pattern
-        // e.g., if fund pays on 14th-16th typically, a 22nd ex-date is off-cadence
+        // Check if off-cadence using GAP-DAYS (not day-of-month)
+        // For monthly payers: gap should be 20-35 days. If gap < 20 or > 35, it's off-cadence
         let isOffCadence = false;
-        let expectedDayRange: { minDay: number; maxDay: number } | null = null;
-        if (dominantLabel === "Monthly") {
-          expectedDayRange = computeExpectedDayOfMonthRange(
-            rollingRegularExDates.slice(-12)
-          );
-          if (expectedDayRange) {
-            const currentDayOfMonth = new Date(current.ex_date).getDate();
-            isOffCadence = currentDayOfMonth < expectedDayRange.minDay ||
-              currentDayOfMonth > expectedDayRange.maxDay;
-          }
+        if (daysSincePrev !== null && daysSincePrev > 0) {
+          // Check if gap is outside monthly range (20-35 days)
+          // This works for any frequency pattern, not just when dominantLabel is "Monthly"
+          isOffCadence = daysSincePrev < 20 || daysSincePrev > 35;
         }
 
-        // Check if amount > 3× median of last 12
+        // Check if amount > 2.5× median of last 12
         const isExtremeSpikeVsLast12 =
           medianAmount !== null &&
           medianAmount > 0 &&
@@ -553,19 +569,17 @@ export function calculateNormalizedDividendsForCEFs(
 
         // Debug logging
         if (process.env.DEBUG_DIVIDEND_NORMALIZATION === 'true') {
-          const currentDayOfMonth = new Date(current.ex_date).getDate();
           console.log(`[DEBUG] ${current.ticker} ${current.ex_date}:`);
-          console.log(`  - currentDayOfMonth: ${currentDayOfMonth}`);
-          console.log(`  - expectedDayOfMonthRange: ${expectedDayRange ? `${expectedDayRange.minDay}-${expectedDayRange.maxDay}` : 'N/A (not enough history)'}`);
-          console.log(`  - isOffCadence (day-of-month): ${isOffCadence}`);
+          console.log(`  - daysSincePrev: ${daysSincePrev}`);
+          console.log(`  - isOffCadence (gap-days < 20 or > 35): ${isOffCadence}`);
           console.log(`  - medianLast12: ${medianAmount?.toFixed(4)}`);
           console.log(`  - amount: ${amount.toFixed(4)}`);
-          console.log(`  - 3× median: ${(medianAmount ? medianAmount * 3 : 0).toFixed(4)}`);
-          console.log(`  - isExtremeSpikeVsLast12 (> 3×): ${isExtremeSpikeVsLast12}`);
+          console.log(`  - ${specialMultiplier}× median: ${(medianAmount ? medianAmount * specialMultiplier : 0).toFixed(4)}`);
+          console.log(`  - isExtremeSpikeVsLast12 (> ${specialMultiplier}×): ${isExtremeSpikeVsLast12}`);
           console.log(`  - BOTH conditions met: ${isOffCadence && isExtremeSpikeVsLast12}`);
         }
 
-        // Apply combined rule: BOTH off-cadence AND > 3× median_last_12
+        // Apply combined rule: BOTH off-cadence AND > 2.5× median_last_12
         if (isOffCadence && isExtremeSpikeVsLast12) {
           const repeatsNext =
             nextAmount !== null &&
@@ -575,7 +589,7 @@ export function calculateNormalizedDividendsForCEFs(
           if (!repeatsNext) {
             pmtType = "Special";
             if (process.env.DEBUG_DIVIDEND_NORMALIZATION === 'true') {
-              console.log(`  => MARKED AS SPECIAL (off-cadence + > 3× median of last 12)`);
+              console.log(`  => MARKED AS SPECIAL (off-cadence + > ${specialMultiplier}× median of last 12)`);
             }
           }
         }
@@ -627,7 +641,7 @@ export function calculateNormalizedDividendsForCEFs(
           // If next payments don't match, check if it's a reasonable amount (not a huge spike)
           // For January, be lenient - only mark as Special if it's clearly a spike (>= 3x median)
           // This handles cases where next payments don't exist yet or are different
-          const isExtremeSpike = amount >= specialMultiplier * medianAmount; // default 3.0x (300%)
+          const isExtremeSpike = amount >= specialMultiplier * medianAmount; // default 2.5x (250%)
           if (!isExtremeSpike) {
             // January payment with reasonable amount → Regular (likely new rate for the year)
             // This handles ASGI where $0.1600 is new rate but next payments might not exist yet
@@ -695,7 +709,7 @@ export function calculateNormalizedDividendsForCEFs(
       // December override: Rules for December dividends
       // UPDATED per user requirement: December dividends follow the same BOTH conditions rule:
       // 1. Off-cadence (outside 20-35 day range for monthly payers)
-      // 2. Amount > 3× median
+      // 2. Amount > 2.5× median
       // Special case: Second (or later) December dividend in same year -> Special (regardless of cadence)
       //               because it's inherently off-cadence (two dividends in one month)
       // BUT: Skip if amount matches previous (already handled above to prevent back-to-back specials)
@@ -720,7 +734,7 @@ export function calculateNormalizedDividendsForCEFs(
           const firstDecember = decemberDividendsThisYear[0];
           if (current.ex_date !== firstDecember.ex_date) {
             // Second December dividend is inherently off-cadence
-            // Check if also > 3× median to match user requirement
+            // Check if also > 2.5× median to match user requirement
             const isExtremeSpikeForDec =
               medianAmount !== null &&
               medianAmount > 0 &&
@@ -740,24 +754,18 @@ export function calculateNormalizedDividendsForCEFs(
         }
 
         // Rule 2: For first December dividend, apply the standard combined rule
-        // Check if off-cadence AND > 3× median
+        // Check if off-cadence AND > 2.5× median
         if (pmtType !== "Special" && medianAmount !== null && medianAmount > 0) {
-          const dominantLabelForDec = determinePatternFrequencyLabel(rollingRegularGapsToNext);
+          // Check if off-cadence using GAP-DAYS (not day-of-month)
+          // For monthly payers: gap should be 20-35 days. If gap < 20 or > 35, it's off-cadence
           let isOffCadenceForDec = false;
-          if (dominantLabelForDec === "Monthly") {
-            const expectedRangeForDec = computeExpectedDayOfMonthRange(
-              rollingRegularExDates.slice(-12)
-            );
-            if (expectedRangeForDec) {
-              const currentDayOfMonth = new Date(current.ex_date).getDate();
-              isOffCadenceForDec = currentDayOfMonth < expectedRangeForDec.minDay ||
-                currentDayOfMonth > expectedRangeForDec.maxDay;
-            }
+          if (daysSincePrev !== null && daysSincePrev > 0) {
+            isOffCadenceForDec = daysSincePrev < 20 || daysSincePrev > 35;
           }
 
           const isExtremeSpikeForDec = amount > specialMultiplier * medianAmount;
 
-          // BOTH conditions required: off-cadence AND > 3× median
+          // BOTH conditions required: off-cadence AND > 2.5× median
           if (isOffCadenceForDec && isExtremeSpikeForDec) {
             const repeatsNext =
               nextAmount !== null &&
@@ -774,7 +782,7 @@ export function calculateNormalizedDividendsForCEFs(
       // Spike after repetition: If amount has been stable/repeating, then a different amount appears -> Special
       // UPDATED per user requirement: ONLY mark as Special if BOTH:
       // 1. Off-cadence (outside 20-35 day range for monthly payers)
-      // 2. Amount > 3× median (specialMultiplier)
+      // 2. Amount > 2.5× median (specialMultiplier)
       // This catches cases like STK/CSQ year-end specials while respecting the combined requirement
       // BUT: Skip this rule for January payments (handled by January override for MDP funds)
       if (
@@ -784,18 +792,11 @@ export function calculateNormalizedDividendsForCEFs(
         medianAmount !== null &&
         medianAmount > 0
       ) {
-        // Check if off-cadence for monthly payers using DAY-OF-MONTH (not gap-days)
-        const dominantLabelForRepetition = determinePatternFrequencyLabel(rollingRegularGapsToNext);
+        // Check if off-cadence using GAP-DAYS (not day-of-month)
+        // For monthly payers: gap should be 20-35 days. If gap < 20 or > 35, it's off-cadence
         let isOffCadenceForRepetition = false;
-        if (dominantLabelForRepetition === "Monthly") {
-          const expectedRangeForRep = computeExpectedDayOfMonthRange(
-            rollingRegularExDates.slice(-12)
-          );
-          if (expectedRangeForRep) {
-            const currentDayOfMonth = new Date(current.ex_date).getDate();
-            isOffCadenceForRepetition = currentDayOfMonth < expectedRangeForRep.minDay ||
-              currentDayOfMonth > expectedRangeForRep.maxDay;
-          }
+        if (daysSincePrev !== null && daysSincePrev > 0) {
+          isOffCadenceForRepetition = daysSincePrev < 20 || daysSincePrev > 35;
         }
 
         // Check if we have enough history OR if previous amount was stable
@@ -813,15 +814,15 @@ export function calculateNormalizedDividendsForCEFs(
           );
 
           // If recent amounts were stable/repeating, and current amount is SIGNIFICANTLY different -> Special
-          // UPDATED: Use 3× median (specialMultiplier) to match user requirement
+          // UPDATED: Use 2.5× median (specialMultiplier) to match user requirement
           if (
             allMatchMedian &&
             !isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol)
           ) {
-            // Check if the change is > 3× median (user requirement)
+            // Check if the change is > 2.5× median (user requirement)
             const isExtremeChange = amount >= specialMultiplier * medianAmount;
 
-            // BOTH conditions required: off-cadence AND > 3× median
+            // BOTH conditions required: off-cadence AND > 2.5× median
             if (isOffCadenceForRepetition && isExtremeChange) {
               // Check if it doesn't repeat next (to avoid false positives on frequency changes or MDP rate increases)
               const repeatsNext =
@@ -850,10 +851,10 @@ export function calculateNormalizedDividendsForCEFs(
           !isApproximatelyEqual(amount, medianAmount, amountStabilityRelTol)
         ) {
           // Fallback: If previous amount was stable and current is different
-          // UPDATED: Use 3× median (specialMultiplier) AND require off-cadence
+          // UPDATED: Use 2.5× median (specialMultiplier) AND require off-cadence
           const isExtremeChange = amount >= specialMultiplier * medianAmount;
 
-          // BOTH conditions required: off-cadence AND > 3× median
+          // BOTH conditions required: off-cadence AND > 2.5× median
           if (isOffCadenceForRepetition && isExtremeChange) {
             const repeatsNext =
               (nextAmount !== null &&
@@ -932,8 +933,8 @@ export function calculateNormalizedDividendsForCEFs(
             next2Amount > 0 &&
             isApproximatelyEqual(amount, next2Amount, amountStabilityRelTol));
 
-        // Use 3× median (specialMultiplier) to match user requirement
-        // Previously used 1.5× which was too aggressive and conflicted with user's 3× requirement
+        // Use 2.5× median (specialMultiplier) to match user requirement
+        // Previously used 1.5× which was too aggressive and conflicted with user's 2.5× requirement
         const isMeaningfulSpike = amount >= specialMultiplier * medianAmount; // used only when off-cadence
 
         // Rule 5.4.3: If off-cadence BUT amount matches subsequent payments → Regular (for MDP funds)
@@ -941,7 +942,7 @@ export function calculateNormalizedDividendsForCEFs(
           // Amount matches next payments → Regular (even if off-cadence)
           pmtType = "Regular";
         } else if (!repeatsNext && isCadenceBreak && isMeaningfulSpike) {
-          // Off-cadence + > 3× median + doesn't repeat → Special
+          // Off-cadence + > 2.5× median + doesn't repeat → Special
           pmtType = "Special";
         }
       }
