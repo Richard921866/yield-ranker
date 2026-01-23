@@ -1127,9 +1127,22 @@ const AdminPanel = () => {
                           onClick={() => {
                             if (profiles.length === 0) return;
 
-                            const emails = profiles.map((p) => p.email).filter(Boolean);
-                            const csvContent = emails.join("\n");
+                            // Create CSV with email and newsletter subscription status
+                            const csvRows = [
+                              "Email,Newsletter Subscription", // Header row
+                              ...profiles
+                                .filter((p) => p.email)
+                                .map((p) => {
+                                  const isSubscribed = subscribers.has(p.email!.toLowerCase());
+                                  return `${p.email},${isSubscribed ? "SUBSCRIBED" : "NOT SUBSCRIBED"}`;
+                                }),
+                              "", // Empty row for spacing
+                              `Total Users,${profiles.filter((p) => p.email).length}`,
+                              `Newsletter Subscribers,${profiles.filter((p) => p.email && subscribers.has(p.email.toLowerCase())).length}`,
+                              `Not Subscribed,${profiles.filter((p) => p.email && !subscribers.has(p.email.toLowerCase())).length}`,
+                            ];
 
+                            const csvContent = csvRows.join("\n");
                             const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
                             const link = document.createElement("a");
                             const url = URL.createObjectURL(blob);
@@ -1142,9 +1155,12 @@ const AdminPanel = () => {
                             document.body.removeChild(link);
                             URL.revokeObjectURL(url);
 
+                            const totalUsers = profiles.filter((p) => p.email).length;
+                            const newsletterCount = profiles.filter((p) => p.email && subscribers.has(p.email.toLowerCase())).length;
+
                             toast({
                               title: "CSV Downloaded",
-                              description: `Exported ${emails.length} emails to CSV file.`,
+                              description: `Exported ${totalUsers} emails (${newsletterCount} newsletter subscribers) to CSV file.`,
                             });
                           }}
                           disabled={loading || profiles.length === 0}
