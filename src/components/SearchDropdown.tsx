@@ -236,7 +236,7 @@ export const SearchDropdown = () => {
               isInteractingRef.current = false;
             }, 300);
           }}
-          className="pl-12 sm:pl-14 pr-10 sm:pr-12 h-12 sm:h-14 bg-muted/50 border-2 border-border/50 focus:bg-background focus:border-primary/50 text-base sm:text-lg leading-[1.5] rounded-xl [&::-webkit-search-cancel-button]:hidden transition-all touch-manipulation"
+          className="pl-12 sm:pl-14 pr-10 sm:pr-12 h-12 sm:h-14 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-2 border-slate-200/80 dark:border-slate-700/80 focus:bg-white dark:focus:bg-slate-900 focus:border-primary/60 focus:ring-4 focus:ring-primary/10 text-base sm:text-lg leading-[1.5] rounded-2xl [&::-webkit-search-cancel-button]:hidden transition-all duration-300 touch-manipulation shadow-sm hover:shadow-md"
           style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
         />
         {query && (
@@ -250,25 +250,26 @@ export const SearchDropdown = () => {
             onTouchStart={() => {
               isInteractingRef.current = true;
             }}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors touch-manipulation"
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-muted-foreground hover:text-foreground hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-200 touch-manipulation"
             style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
             aria-label="Clear search"
           >
-            <X className="h-5 w-5 sm:h-6 sm:w-6" />
+            <X className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
         )}
       </div>
 
       {isOpen && query && (
-        <div className="absolute top-full mt-2 w-full bg-background border-2 border-border rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in-0 slide-in-from-top-2 duration-200">
+        <div className="absolute top-full mt-3 w-full min-w-[320px] sm:min-w-[400px] md:min-w-[480px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/80 dark:border-slate-700/80 rounded-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] overflow-hidden z-50 animate-in fade-in-0 slide-in-from-top-3 duration-300">
           {hasResults ? (
-            <div className="max-h-[70vh] sm:max-h-96 overflow-y-auto">
+            <div className="max-h-[70vh] sm:max-h-[420px] overflow-y-auto scrollbar-thin">
               {filteredETFs.length > 0 && (
                 <div>
-                  <div className="px-4 sm:px-5 py-3 text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wide bg-muted/30 sticky top-0">
+                  <div className="px-5 py-3 text-xs font-bold text-primary uppercase tracking-wider bg-gradient-to-r from-primary/5 to-transparent sticky top-0 backdrop-blur-sm border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
+                    <TrendingUp className="w-3.5 h-3.5" />
                     ETFs
                   </div>
-                  {filteredETFs.map((etf) => (
+                  {filteredETFs.map((etf, index) => (
                     <button
                       key={etf.symbol}
                       onClick={(e) => {
@@ -278,19 +279,23 @@ export const SearchDropdown = () => {
                       onTouchStart={() => {
                         isInteractingRef.current = true;
                       }}
-                      className="w-full px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-3 sm:gap-4 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left border-b border-slate-100 last:border-0 touch-manipulation"
-                      style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'rgba(0,0,0,0.1)' }}
+                      className="w-full px-5 py-4 flex items-center gap-4 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent active:bg-primary/10 transition-all duration-200 text-left border-b border-slate-100/80 dark:border-slate-800/80 last:border-0 touch-manipulation group"
+                      style={{
+                        touchAction: 'manipulation',
+                        WebkitTapHighlightColor: 'rgba(0,0,0,0.1)',
+                        animationDelay: `${index * 50}ms`
+                      }}
                     >
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform duration-200 shadow-sm">
+                        <TrendingUp className="w-6 h-6 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-base sm:text-lg text-foreground">{etf.symbol}</div>
-                        <div className="text-sm sm:text-base text-muted-foreground truncate">{etf.name}</div>
+                        <div className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">{etf.symbol}</div>
+                        <div className="text-sm text-muted-foreground line-clamp-1">{etf.name}</div>
                       </div>
-                      <div className="text-right text-sm sm:text-base flex-shrink-0">
-                        <div className="font-bold text-foreground">${etf.price.toFixed(2)}</div>
-                        <div className={`font-semibold ${etf.totalReturn1Mo && etf.totalReturn1Mo >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      <div className="text-right flex-shrink-0 pl-3">
+                        <div className="font-bold text-base text-foreground">${etf.price.toFixed(2)}</div>
+                        <div className={`text-sm font-semibold ${etf.totalReturn1Mo && etf.totalReturn1Mo >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                           {etf.totalReturn1Mo ? `${etf.totalReturn1Mo > 0 ? "+" : ""}${etf.totalReturn1Mo.toFixed(2)}%` : "N/A"}
                         </div>
                       </div>
@@ -301,10 +306,11 @@ export const SearchDropdown = () => {
 
               {filteredCEFs.length > 0 && (
                 <div>
-                  <div className={`px-4 sm:px-5 py-3 text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wide bg-muted/30 ${filteredETFs.length > 0 ? 'border-t' : ''} sticky top-0`}>
+                  <div className={`px-5 py-3 text-xs font-bold text-accent uppercase tracking-wider bg-gradient-to-r from-accent/5 to-transparent ${filteredETFs.length > 0 ? 'border-t border-slate-200/80 dark:border-slate-700/80' : ''} sticky top-0 backdrop-blur-sm border-b border-slate-100 dark:border-slate-800 flex items-center gap-2`}>
+                    <Building2 className="w-3.5 h-3.5" />
                     CEFs
                   </div>
-                  {filteredCEFs.map((cef) => (
+                  {filteredCEFs.map((cef, index) => (
                     <button
                       key={cef.symbol}
                       onClick={(e) => {
@@ -314,19 +320,23 @@ export const SearchDropdown = () => {
                       onTouchStart={() => {
                         isInteractingRef.current = true;
                       }}
-                      className="w-full px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-3 sm:gap-4 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left border-b border-slate-100 last:border-0 touch-manipulation"
-                      style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'rgba(0,0,0,0.1)' }}
+                      className="w-full px-5 py-4 flex items-center gap-4 hover:bg-gradient-to-r hover:from-accent/5 hover:to-transparent active:bg-accent/10 transition-all duration-200 text-left border-b border-slate-100/80 dark:border-slate-800/80 last:border-0 touch-manipulation group"
+                      style={{
+                        touchAction: 'manipulation',
+                        WebkitTapHighlightColor: 'rgba(0,0,0,0.1)',
+                        animationDelay: `${index * 50}ms`
+                      }}
                     >
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
-                        <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform duration-200 shadow-sm">
+                        <Building2 className="w-6 h-6 text-accent" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-base sm:text-lg text-foreground">{cef.symbol}</div>
-                        <div className="text-sm sm:text-base text-muted-foreground truncate">{cef.name || cef.description || "N/A"}</div>
+                        <div className="font-bold text-lg text-foreground group-hover:text-accent transition-colors">{cef.symbol}</div>
+                        <div className="text-sm text-muted-foreground line-clamp-1">{cef.name || cef.description || "N/A"}</div>
                       </div>
-                      <div className="text-right text-sm sm:text-base flex-shrink-0">
-                        <div className="font-bold text-foreground">${cef.marketPrice?.toFixed(2) || cef.nav?.toFixed(2) || "N/A"}</div>
-                        <div className={`font-semibold ${cef.forwardYield != null && cef.forwardYield >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      <div className="text-right flex-shrink-0 pl-3">
+                        <div className="font-bold text-base text-foreground">${cef.marketPrice?.toFixed(2) || cef.nav?.toFixed(2) || "N/A"}</div>
+                        <div className={`text-sm font-semibold ${cef.forwardYield != null && cef.forwardYield >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                           {cef.forwardYield != null ? `${cef.forwardYield.toFixed(2)}%` : "N/A"}
                         </div>
                       </div>
@@ -337,10 +347,11 @@ export const SearchDropdown = () => {
 
               {filteredPages.length > 0 && (
                 <div>
-                  <div className="px-4 sm:px-5 py-3 text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wide bg-muted/30 border-t sticky top-0">
+                  <div className="px-5 py-3 text-xs font-bold text-blue-600 uppercase tracking-wider bg-gradient-to-r from-blue-500/5 to-transparent border-t border-slate-200/80 dark:border-slate-700/80 sticky top-0 backdrop-blur-sm border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5" />
                     Pages
                   </div>
-                  {filteredPages.map((page) => {
+                  {filteredPages.map((page, index) => {
                     const Icon = page.icon;
                     return (
                       <button
@@ -352,13 +363,17 @@ export const SearchDropdown = () => {
                         onTouchStart={() => {
                           isInteractingRef.current = true;
                         }}
-                        className="w-full px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-3 sm:gap-4 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left border-b border-slate-100 last:border-0 touch-manipulation"
-                        style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'rgba(0,0,0,0.1)' }}
+                        className="w-full px-5 py-4 flex items-center gap-4 hover:bg-gradient-to-r hover:from-blue-500/5 hover:to-transparent active:bg-blue-500/10 transition-all duration-200 text-left border-b border-slate-100/80 dark:border-slate-800/80 last:border-0 touch-manipulation group"
+                        style={{
+                          touchAction: 'manipulation',
+                          WebkitTapHighlightColor: 'rgba(0,0,0,0.1)',
+                          animationDelay: `${index * 50}ms`
+                        }}
                       >
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
-                          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/5 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform duration-200 shadow-sm">
+                          <Icon className="w-6 h-6 text-blue-600" />
                         </div>
-                        <div className="font-semibold text-base sm:text-lg text-foreground">{page.name}</div>
+                        <div className="font-semibold text-lg text-foreground group-hover:text-blue-600 transition-colors">{page.name}</div>
                       </button>
                     );
                   })}
@@ -366,8 +381,12 @@ export const SearchDropdown = () => {
               )}
             </div>
           ) : (
-            <div className="px-4 sm:px-6 py-8 sm:py-12 text-center text-base sm:text-lg text-muted-foreground">
-              No results found for "{query}"
+            <div className="px-6 py-12 text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                <Search className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <p className="text-lg font-medium text-foreground mb-1">No results found</p>
+              <p className="text-sm text-muted-foreground">Try searching for "{query}" with different keywords</p>
             </div>
           )}
         </div>
