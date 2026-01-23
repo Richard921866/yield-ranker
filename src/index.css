@@ -282,16 +282,6 @@ All colors MUST be HSL.
     touch-action: manipulation;
   }
 
-  /* Fix mobile WebKit cursor height bug (DuckDuckGo, Edge mobile) */
-  /* WebKit browsers render cursor height based on line-height */
-  /* The fix: use explicit line-height relative to font-size, not container height */
-  input[type="search"],
-  input[type="text"] {
-    line-height: 1.5 !important;
-    /* Ensure caret respects font metrics, not box height */
-    caret-color: currentColor;
-  }
-
   /* Prevent zoom on input focus for mobile devices while keeping accessibility */
   @media screen and (max-width: 768px) {
 
@@ -303,8 +293,6 @@ All colors MUST be HSL.
     textarea,
     select {
       font-size: 16px !important;
-      /* Override any height-based line-height for proper cursor sizing */
-      line-height: 1.5 !important;
     }
   }
 }
