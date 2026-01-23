@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Search, TrendingUp, FileText, BookOpen, X, Building2 } from "lucide-react";
-import { Input } from "./ui/input";
 import { fetchETFData } from "@/services/etfData";
 import { fetchCEFData } from "@/services/cefData";
 import { ETF } from "@/types/etf";
@@ -198,7 +197,7 @@ export const SearchDropdown = () => {
     <div ref={searchRef} className="relative w-full">
       <div className="relative">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground pointer-events-none z-10" />
-        <Input
+        <input
           ref={inputRef}
           type="search"
           inputMode="search"
@@ -236,12 +235,10 @@ export const SearchDropdown = () => {
               isInteractingRef.current = false;
             }, 300);
           }}
-          className="pl-12 sm:pl-14 pr-10 sm:pr-12 h-12 sm:h-14 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 focus:bg-white dark:focus:bg-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 text-base sm:text-lg leading-[1.5] rounded-xl [&::-webkit-search-cancel-button]:hidden transition-all duration-200 touch-manipulation shadow-sm hover:shadow-md"
+          className="w-full pl-12 sm:pl-14 pr-10 sm:pr-12 h-12 sm:h-14 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 focus:border-primary focus:ring-4 focus:ring-primary/10 text-slate-900 dark:text-slate-100 text-base sm:text-lg rounded-2xl transition-all duration-300 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.1)] outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
           style={{
             touchAction: 'manipulation',
             WebkitTapHighlightColor: 'transparent',
-            color: '#1e293b',
-            caretColor: '#1e293b'
           }}
         />
         {query && (
