@@ -95,12 +95,12 @@ export default defineConfig(({ mode }) => {
         'recharts',
       ],
     },
-    // In production, call Railway backend directly
-    // In development, use empty string (Vite proxy handles it)
+    // Both production and development use relative /api paths
+    // In development, Vite proxy handles it
+    // In production, Vercel rewrites (vercel.json) proxy to Railway backend
+    // This prevents privacy browsers (like DuckDuckGo) from blocking cross-origin requests
     define: {
-      'import.meta.env.VITE_API_URL': mode === 'production'
-        ? JSON.stringify('https://observant-simplicity-production.up.railway.app')
-        : JSON.stringify(''),
+      'import.meta.env.VITE_API_URL': JSON.stringify(''),
     },
   };
 });

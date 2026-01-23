@@ -207,8 +207,8 @@ export const Header = () => {
           </Button>
         </div>
 
-        {/* Mobile Search - Hidden on landscape orientation */}
-        <div className="md:hidden pb-4 sm:pb-5 landscape:hidden">
+        {/* Mobile Search - always visible on mobile, hidden on desktop (md:hidden) */}
+        <div className="md:hidden pb-4 sm:pb-5">
           <SearchDropdown />
         </div>
       </div>
