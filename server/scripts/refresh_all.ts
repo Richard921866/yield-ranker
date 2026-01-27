@@ -87,7 +87,7 @@ import {
   getLatestPriceDate,
   getLatestDividendDate,
 } from '../src/services/database.js';
-import { calculateNormalizedDividends } from '../src/services/dividendNormalization.js';
+import { calculateNormalizedDividends, calculateNormalizedDividendsForCEFs } from '../src/services/dividendNormalization.js';
 import type { TiingoPriceData } from '../src/types/index.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
@@ -402,6 +402,22 @@ async function upsertDividends(ticker: string, dividends: any[], dryRun: boolean
   return tiingoRecordsToUpsert.length;
 }
 
+/**
+ * Check if ticker is a CEF by looking for nav_symbol in etf_static
+ */
+async function isCEFTicker(ticker: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('etf_static')
+    .select('nav_symbol')
+    .eq('ticker', ticker.toUpperCase())
+    .single();
+  
+  if (error || !data || !data.nav_symbol) {
+    return false;
+  }
+  return true;
+}
+
 async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
   console.log(`\n[Refresh] ${ticker}`);
   // CRITICAL VERIFICATION: Ensure we're using 15 years
@@ -485,16 +501,23 @@ async function refreshTicker(ticker: string, dryRun: boolean): Promise<void> {
           .order('ex_date', { ascending: true });
 
         if (!divError && allDividends && allDividends.length > 0) {
-          // Calculate normalized values using the latest backward confirmation logic
-          const normalized = calculateNormalizedDividends(
-            allDividends.map(d => ({
-              id: d.id,
-              ticker: d.ticker,
-              ex_date: d.ex_date,
-              div_cash: Number(d.div_cash),
-              adj_amount: d.adj_amount ? Number(d.adj_amount) : null,
-            }))
-          );
+          const dividendInputs = allDividends.map(d => ({
+            id: d.id,
+            ticker: d.ticker,
+            ex_date: d.ex_date,
+            div_cash: Number(d.div_cash),
+            adj_amount: d.adj_amount ? Number(d.adj_amount) : null,
+          }));
+
+          // CRITICAL: Use CEF-specific normalization for CEFs, ETF normalization for ETFs
+          // CEF normalization has special logic for:
+          // - Second December dividend detection (NIE-style year-end specials)
+          // - Off-cadence + amount spike detection (BUI/BST-style specials)
+          // Using the wrong function causes issues like NIE 12/29 being incorrectly marked as Regular
+          const isCEF = await isCEFTicker(ticker);
+          const normalized = isCEF
+            ? calculateNormalizedDividendsForCEFs(dividendInputs)
+            : calculateNormalizedDividends(dividendInputs);
 
           // Batch update database with normalized values
           for (const norm of normalized) {

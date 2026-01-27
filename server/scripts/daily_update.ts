@@ -37,7 +37,7 @@ import {
 } from '../src/services/tiingo.js';
 import { calculateMetrics, calculateRankings } from '../src/services/metrics.js';
 import { batchUpdateETFMetrics } from '../src/services/database.js';
-import { calculateNormalizedDividends } from '../src/services/dividendNormalization.js';
+import { calculateNormalizedDividends, calculateNormalizedDividendsForCEFs } from '../src/services/dividendNormalization.js';
 import type { TiingoPriceData } from '../src/types/index.js';
 
 // Type alias for dividend data from Tiingo
@@ -625,15 +625,22 @@ async function updateTicker(
         if (divError) {
           console.error(`  ⚠ Error fetching dividends for normalization:`, divError.message);
         } else if (allDividends && allDividends.length > 0) {
-          const normalized = calculateNormalizedDividends(
-            allDividends.map(d => ({
-              id: d.id,
-              ticker: d.ticker,
-              ex_date: d.ex_date,
-              div_cash: Number(d.div_cash),
-              adj_amount: d.adj_amount ? Number(d.adj_amount) : null,
-            }))
-          );
+          const dividendInputs = allDividends.map(d => ({
+            id: d.id,
+            ticker: d.ticker,
+            ex_date: d.ex_date,
+            div_cash: Number(d.div_cash),
+            adj_amount: d.adj_amount ? Number(d.adj_amount) : null,
+          }));
+
+          // CRITICAL: Use CEF-specific normalization for CEFs, ETF normalization for ETFs
+          // CEF normalization has special logic for:
+          // - Second December dividend detection (NIE-style year-end specials)
+          // - Off-cadence + amount spike detection (BUI/BST-style specials)
+          // Using the wrong function causes issues like NIE 12/29 being incorrectly marked as Regular
+          const normalized = isCEF
+            ? calculateNormalizedDividendsForCEFs(dividendInputs)
+            : calculateNormalizedDividends(dividendInputs);
 
           // Batch update to avoid many single-row updates
           const updates = normalized.map(norm => {
