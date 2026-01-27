@@ -432,9 +432,16 @@ function findStartPrice(
       const actualStartDateObj = new Date(startPrice.date);
       const daysDifference = Math.abs((actualStartDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24));
 
-      // If the first available price is more than 60 days after the requested start date,
-      // or if we don't have at least 80% of the requested period's data, return null
-      const maxAllowedGap = Math.min(60, Math.floor(requestedDays * 0.1)); // 10% of period or 60 days, whichever is less
+      // If the first available price is more than X days after the requested start date, return null
+      // CRITICAL FIX: For short periods (1W = 7 days), we MUST allow at least 5 days gap
+      // because markets are closed on weekends/holidays, so requesting 7 days ago might
+      // land on a weekend where the nearest trading day is 3+ days away.
+      // Formula: max(5, 10% of period, capped at 60)
+      // - 1W (7 days): max(5, 0.7) = 5 days gap allowed
+      // - 1M (30 days): max(5, 3) = 5 days gap allowed
+      // - 3M (90 days): max(5, 9) = 9 days gap allowed
+      // - 1Y (365 days): max(5, 36.5) = 36.5 days, capped at 60
+      const maxAllowedGap = Math.min(60, Math.max(5, Math.floor(requestedDays * 0.1)));
       const minRequiredDays = Math.floor(requestedDays * 0.8); // Need at least 80% of requested period
 
       if (daysDifference > maxAllowedGap) {
