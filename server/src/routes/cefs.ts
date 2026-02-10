@@ -2873,16 +2873,18 @@ router.get(
         const requestedEnd = new Date(endDateStr);
 
         // If data doesn't cover the full range, fetch from Tiingo
+        // Use tighter threshold for recent data (5 days) vs historical (30 days)
+        // so stale price data triggers a Tiingo refetch quickly
         const daysMissingAtStart =
           (firstDate.getTime() - requestedStart.getTime()) /
           (1000 * 60 * 60 * 24);
         const daysMissingAtEnd =
           (requestedEnd.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
 
-        if (daysMissingAtStart > 30 || daysMissingAtEnd > 30) {
+        if (daysMissingAtStart > 30 || daysMissingAtEnd > 5) {
           logger.info(
             "Routes",
-            `Price data incomplete for ${ticker}, fetching from Tiingo API`
+            `Price data incomplete for ${ticker} (endGap=${daysMissingAtEnd.toFixed(0)}d), fetching from Tiingo API`
           );
           try {
             const { getPriceHistoryFromAPI } = await import(
@@ -2959,10 +2961,10 @@ router.get(
               (requestedEnd.getTime() - lastNavDate.getTime()) /
               (1000 * 60 * 60 * 24);
 
-            if (daysMissingAtStart > 30 || daysMissingAtEnd > 30) {
+            if (daysMissingAtStart > 30 || daysMissingAtEnd > 5) {
               logger.info(
                 "Routes",
-                `NAV data incomplete for ${navSymbol}, fetching from Tiingo API`
+                `NAV data incomplete for ${navSymbol} (endGap=${daysMissingAtEnd.toFixed(0)}d), fetching from Tiingo API`
               );
               try {
                 const { getPriceHistoryFromAPI } = await import(
