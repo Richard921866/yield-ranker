@@ -848,7 +848,7 @@ const AdminPanel = () => {
                 <button
                   key={item.id}
                   onClick={() => navigate(item.path)}
-                  className={`flex-1 min-w-0 flex items-center justify-center gap-2 px-3 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                  className={`flex-shrink-0 lg:flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                     isActive
                       ? "border-primary text-primary bg-primary/5"
                       : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
