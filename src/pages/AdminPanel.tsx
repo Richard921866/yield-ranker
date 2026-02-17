@@ -46,7 +46,6 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
-  Star,
   Trash2,
   Upload,
   Users,
@@ -831,7 +830,6 @@ const AdminPanel = () => {
     { id: "users" as const, label: "Users", icon: Users, path: "/admin/users" },
     { id: "upload" as const, label: "Upload", icon: Upload, path: "/admin/upload" },
     { id: "delete" as const, label: "Delete", icon: Trash2, path: "/admin/delete" },
-    { id: "favorites" as const, label: "Favorites", icon: Star, path: "/admin/favorites" },
     { id: "site-settings" as const, label: "Site Settings", icon: Globe, path: "/admin/settings" },
     { id: "notebook" as const, label: "Notebook", icon: BookOpen, path: "/admin/notebook" },
     { id: "newsletters" as const, label: "Newsletters", icon: Mail, path: "/admin/newsletters" },
@@ -840,9 +838,9 @@ const AdminPanel = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Header />
-      <div className="w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm sticky top-[80px] sm:top-[88px] md:top-[96px] z-[90] shadow-sm">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <nav className="flex items-center justify-center gap-1 sm:gap-2 overflow-x-auto scrollbar-hide py-1.5">
+      <div className="w-full bg-white border-b border-slate-200 sticky top-[80px] sm:top-[88px] md:top-[96px] z-[90]">
+        <div className="w-full">
+          <nav className="flex items-stretch overflow-x-auto scrollbar-hide">
             {adminNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -850,10 +848,10 @@ const AdminPanel = () => {
                 <button
                   key={item.id}
                   onClick={() => navigate(item.path)}
-                  className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 text-sm font-medium whitespace-nowrap rounded-md transition-all ${
+                  className={`flex-1 min-w-0 flex items-center justify-center gap-2 px-3 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                     isActive
-                      ? "bg-primary text-white shadow-sm"
-                      : "text-slate-500 hover:text-foreground hover:bg-slate-100"
+                      ? "border-primary text-primary bg-primary/5"
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
                   }`}
                 >
                   <Icon className="w-4 h-4 flex-shrink-0" />
