@@ -43,10 +43,8 @@ import {
   ArrowUpDown,
   Database,
   Download,
-  LogOut,
   RefreshCw,
   Search,
-  Settings,
   ShieldCheck,
   Star,
   Trash2,
@@ -596,11 +594,6 @@ const AdminPanel = () => {
     }
   };
 
-  const signOutAndRedirect = async () => {
-    await signOut();
-    navigate("/login");
-  };
-
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -847,9 +840,9 @@ const AdminPanel = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Header />
-      <div className="w-full border-b-2 border-slate-200 bg-white sticky top-[80px] sm:top-[88px] md:top-[96px] z-[90]">
+      <div className="w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm sticky top-[80px] sm:top-[88px] md:top-[96px] z-[90] shadow-sm">
         <div className="w-full px-4 sm:px-6 lg:px-8">
-          <nav className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-2 -mb-[2px]">
+          <nav className="flex items-center justify-center gap-1 sm:gap-2 overflow-x-auto scrollbar-hide py-1.5">
             {adminNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -857,31 +850,17 @@ const AdminPanel = () => {
                 <button
                   key={item.id}
                   onClick={() => navigate(item.path)}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium whitespace-nowrap rounded-lg transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 text-sm font-medium whitespace-nowrap rounded-md transition-all ${
                     isActive
-                      ? "bg-primary text-white"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-slate-500 hover:text-foreground hover:bg-slate-100"
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  {item.label}
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span>{item.label}</span>
                 </button>
               );
             })}
-            <button
-              onClick={() => navigate("/settings")}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium whitespace-nowrap rounded-lg text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors"
-            >
-              <Settings className="w-4 h-4" />
-              Settings
-            </button>
-            <button
-              onClick={signOutAndRedirect}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium whitespace-nowrap rounded-lg text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              Logout
-            </button>
           </nav>
         </div>
       </div>
