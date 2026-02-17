@@ -274,11 +274,7 @@ const AppRoutes = () => {
           />
           <Route
             path="/dashboard"
-            element={
-              <RequireAuth>
-                <Dashboard />
-              </RequireAuth>
-            }
+            element={<Navigate to="/" replace />}
           />
           <Route
             path="/admin"

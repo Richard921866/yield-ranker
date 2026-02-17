@@ -13,8 +13,8 @@ import {
   LogOut,
   ChevronDown,
   Star,
-  BarChart3,
-  LayoutGrid,
+  ShieldCheck,
+  Settings,
   FileText,
   Mail,
   CreditCard,
@@ -169,9 +169,15 @@ export const Header = () => {
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer py-3" onClick={() => go("/dashboard")}>
-                    <BarChart3 className="w-5 h-5 mr-3 text-primary" />
-                    <span className="text-base">Dashboard</span>
+                  {profile?.role === 'admin' && (
+                    <DropdownMenuItem className="cursor-pointer py-3" onClick={() => go("/admin/users")}>
+                      <ShieldCheck className="w-5 h-5 mr-3 text-primary" />
+                      <span className="text-base">Admin</span>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem className="cursor-pointer py-3" onClick={() => go("/settings")}>
+                    <Settings className="w-5 h-5 mr-3 text-primary" />
+                    <span className="text-base">Settings</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="cursor-pointer py-3" onClick={logout}>
@@ -299,9 +305,15 @@ export const Header = () => {
                       </div>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem className="cursor-pointer" onClick={() => go("/dashboard")}>
-                      <BarChart3 className="w-4 h-4 mr-2 text-primary" />
-                      <span>Dashboard</span>
+                    {profile?.role === 'admin' && (
+                      <DropdownMenuItem className="cursor-pointer" onClick={() => go("/admin/users")}>
+                        <ShieldCheck className="w-4 h-4 mr-2 text-primary" />
+                        <span>Admin</span>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem className="cursor-pointer" onClick={() => go("/settings")}>
+                      <Settings className="w-4 h-4 mr-2 text-primary" />
+                      <span>Settings</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem className="cursor-pointer" onClick={logout}>

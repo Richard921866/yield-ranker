@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Logo } from "@/components/Logo";
+import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,14 +41,9 @@ import { clearETFCache } from "@/services/etfData";
 import { clearCEFCache } from "@/services/cefData";
 import {
   ArrowUpDown,
-  BarChart3,
-  ChevronLeft,
   Database,
   Download,
   LogOut,
-  Menu,
-  PanelLeft,
-  PanelLeftClose,
   RefreshCw,
   Search,
   Settings,
@@ -83,8 +79,6 @@ const AdminPanel = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -840,227 +834,59 @@ const AdminPanel = () => {
     return null;
   }
 
+  const adminNavItems = [
+    { id: "users" as const, label: "Users", icon: Users, path: "/admin/users" },
+    { id: "upload" as const, label: "Upload", icon: Upload, path: "/admin/upload" },
+    { id: "delete" as const, label: "Delete", icon: Trash2, path: "/admin/delete" },
+    { id: "favorites" as const, label: "Favorites", icon: Star, path: "/admin/favorites" },
+    { id: "site-settings" as const, label: "Site Settings", icon: Globe, path: "/admin/settings" },
+    { id: "notebook" as const, label: "Notebook", icon: BookOpen, path: "/admin/notebook" },
+    { id: "newsletters" as const, label: "Newsletters", icon: Mail, path: "/admin/newsletters" },
+  ];
+
   return (
-    <div className="h-screen bg-slate-50 flex overflow-hidden">
-      {mobileSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setMobileSidebarOpen(false)}
-        />
-      )}
-      <aside
-        className={`${sidebarCollapsed ? "w-16" : "w-64"
-          } bg-white border-r border-slate-200 flex flex-col h-screen fixed left-0 top-0 transition-all duration-300 ${mobileSidebarOpen ? "z-50" : "hidden lg:flex z-30"
-          }`}
-      >
-        <div
-          className={`h-16 border-b border-slate-200 flex items-center flex-shrink-0 ${sidebarCollapsed ? "justify-center px-2" : "px-6 justify-between"
-            }`}
-        >
-          {!sidebarCollapsed && <Logo simple />}
-          <button
-            onClick={() => setSidebarCollapsed((prev) => !prev)}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors hidden lg:block"
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {sidebarCollapsed ? (
-              <PanelLeft className="w-5 h-5 text-slate-600" />
-            ) : (
-              <PanelLeftClose className="w-5 h-5 text-slate-600" />
-            )}
-          </button>
-          <button
-            onClick={() => setMobileSidebarOpen(false)}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors lg:hidden"
-          >
-            <ChevronLeft className="w-5 h-5 text-slate-600" />
-          </button>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <Header />
+      <div className="w-full border-b-2 border-slate-200 bg-white sticky top-[80px] sm:top-[88px] md:top-[96px] z-[90]">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          <nav className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-2 -mb-[2px]">
+            {adminNavItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => navigate(item.path)}
+                  className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium whitespace-nowrap rounded-lg transition-colors ${
+                    isActive
+                      ? "bg-primary text-white"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {item.label}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => navigate("/settings")}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium whitespace-nowrap rounded-lg text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              Settings
+            </button>
+            <button
+              onClick={signOutAndRedirect}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium whitespace-nowrap rounded-lg text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+          </nav>
         </div>
-        <nav
-          className={`flex-1 overflow-y-auto ${sidebarCollapsed ? "p-2 space-y-1" : "p-4 space-y-2"
-            }`}
-        >
-          <button
-            onClick={() => navigate("/dashboard")}
-            className={`w-full flex items-center ${sidebarCollapsed
-              ? "justify-center px-0 py-2.5"
-              : "gap-3 px-4 py-3"
-              } rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors`}
-            title={sidebarCollapsed ? "Dashboard" : ""}
-          >
-            <BarChart3 className="w-5 h-5" />
-            {!sidebarCollapsed && "Dashboard"}
-          </button>
-          <button
-            onClick={() => navigate("/admin/users")}
-            className={`w-full flex items-center ${sidebarCollapsed
-              ? "justify-center px-0 py-2.5"
-              : "gap-3 px-4 py-3"
-              } rounded-lg text-sm font-medium ${activeTab === "users"
-                ? "bg-primary text-white"
-                : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
-              } transition-colors`}
-            title={sidebarCollapsed ? "Users" : ""}
-          >
-            <Users className="w-5 h-5" />
-            {!sidebarCollapsed && "User Administration"}
-          </button>
-          <button
-            onClick={() => navigate("/admin/upload")}
-            className={`w-full flex items-center ${sidebarCollapsed
-              ? "justify-center px-0 py-2.5"
-              : "gap-3 px-4 py-3"
-              } rounded-lg text-sm font-medium ${activeTab === "upload"
-                ? "bg-primary text-white"
-                : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
-              } transition-colors`}
-            title={sidebarCollapsed ? "Upload" : ""}
-          >
-            <Upload className="w-5 h-5" />
-            {!sidebarCollapsed && "Upload Data"}
-          </button>
-          <button
-            onClick={() => navigate("/admin/delete")}
-            className={`w-full flex items-center ${sidebarCollapsed
-              ? "justify-center px-0 py-2.5"
-              : "gap-3 px-4 py-3"
-              } rounded-lg text-sm font-medium ${activeTab === "delete"
-                ? "bg-primary text-white"
-                : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
-              } transition-colors`}
-            title={sidebarCollapsed ? "Delete" : ""}
-          >
-            <Trash2 className="w-5 h-5" />
-            {!sidebarCollapsed && "Delete Data"}
-          </button>
-          <button
-            onClick={() => navigate("/admin/favorites")}
-            className={`w-full flex items-center ${sidebarCollapsed
-              ? "justify-center px-0 py-2.5"
-              : "gap-3 px-4 py-3"
-              } rounded-lg text-sm font-medium ${activeTab === "favorites"
-                ? "bg-primary text-white"
-                : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
-              } transition-colors`}
-            title={sidebarCollapsed ? "Favorites" : ""}
-          >
-            <Star className="w-5 h-5" />
-            {!sidebarCollapsed && "Favorites"}
-          </button>
-          <button
-            onClick={() => navigate("/admin/settings")}
-            className={`w-full flex items-center ${sidebarCollapsed
-              ? "justify-center px-0 py-2.5"
-              : "gap-3 px-4 py-3"
-              } rounded-lg text-sm font-medium ${activeTab === "site-settings"
-                ? "bg-primary text-white"
-                : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
-              } transition-colors`}
-            title={sidebarCollapsed ? "Site Settings" : ""}
-          >
-            <Globe className="w-5 h-5" />
-            {!sidebarCollapsed && "Site Settings"}
-          </button>
-          <button
-            onClick={() => navigate("/admin/notebook")}
-            className={`w-full flex items-center ${sidebarCollapsed
-              ? "justify-center px-0 py-2.5"
-              : "gap-3 px-4 py-3"
-              } rounded-lg text-sm font-medium ${activeTab === "notebook"
-                ? "bg-primary text-white"
-                : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
-              } transition-colors`}
-            title={sidebarCollapsed ? "Notebook" : ""}
-          >
-            <BookOpen className="w-5 h-5" />
-            {!sidebarCollapsed && "Notebook"}
-          </button>
-          <button
-            onClick={() => navigate("/admin/newsletters")}
-            className={`w-full flex items-center ${sidebarCollapsed
-              ? "justify-center px-0 py-2.5"
-              : "gap-3 px-4 py-3"
-              } rounded-lg text-sm font-medium ${activeTab === "newsletters"
-                ? "bg-primary text-white"
-                : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
-              } transition-colors`}
-            title={sidebarCollapsed ? "Newsletters" : ""}
-          >
-            <Mail className="w-5 h-5" />
-            {!sidebarCollapsed && "Newsletters"}
-          </button>
-          <button
-            onClick={() => navigate("/settings")}
-            className={`w-full flex items-center ${sidebarCollapsed
-              ? "justify-center px-0 py-2.5"
-              : "gap-3 px-4 py-3"
-              } rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors`}
-            title={sidebarCollapsed ? "Settings" : ""}
-          >
-            <Settings className="w-5 h-5" />
-            {!sidebarCollapsed && "Settings"}
-          </button>
-        </nav>
-        <div
-          className={`border-t border-slate-200 flex-shrink-0 ${sidebarCollapsed ? "p-2" : "p-4"
-            }`}
-        >
-          <button
-            onClick={signOutAndRedirect}
-            className={`w-full flex items-center ${sidebarCollapsed
-              ? "justify-center px-0 py-2.5"
-              : "gap-3 px-4 py-3"
-              } rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-foreground transition-colors`}
-            title={sidebarCollapsed ? "Logout" : ""}
-          >
-            <LogOut className="w-5 h-5" />
-            {!sidebarCollapsed && "Logout"}
-          </button>
-        </div>
-      </aside>
-      <main className={`flex-1 flex flex-col overflow-hidden w-full ${sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64'} transition-all duration-300`}>
-        <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 flex items-center flex-shrink-0 z-20">
-          <div className="flex items-center justify-between w-full gap-4">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="lg:hidden h-12 w-12"
-                onClick={() => setMobileSidebarOpen(true)}
-              >
-                <Menu className="h-8 w-8" />
-              </Button>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-                {activeTab === "users"
-                  ? "User Administration"
-                  : activeTab === "upload"
-                    ? "Upload Data"
-                    : activeTab === "delete"
-                      ? "Delete Data"
-                      : activeTab === "favorites"
-                        ? "Favorites"
-                        : activeTab === "notebook"
-                          ? "Notebook"
-                          : activeTab === "newsletters"
-                            ? "Newsletter Management"
-                            : "Site Settings"}
-              </h1>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex flex-col items-end">
-                <span className="text-sm font-semibold text-foreground">
-                  {displayName}
-                </span>
-                <span className="text-xs text-muted-foreground">Admin</span>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold">
-                {displayName.charAt(0).toUpperCase()}
-              </div>
-            </div>
-          </div>
-        </header>
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+      </div>
+      <main className="flex-1 w-full">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6">
             {activeTab === "users" && (
               <>
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -1980,7 +1806,7 @@ const AdminPanel = () => {
               </Card>
             )}
           </div>
-        </div>
+        <Footer />
       </main>
 
       {/* Delete User Confirmation Dialog */}
