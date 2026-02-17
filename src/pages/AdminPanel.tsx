@@ -72,7 +72,7 @@ const CATEGORIES = [
 ] as const;
 
 const AdminPanel = () => {
-  const { user, profile, signOut, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
